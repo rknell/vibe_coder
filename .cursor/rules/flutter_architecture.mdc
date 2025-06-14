@@ -14,6 +14,7 @@ alwaysApply: false
 - **🚫 FUNCTIONAL WIDGET BUILDERS**: No `_buildSomething()` methods in StatefulWidget classes
 - **🚫 INLINE COMPLEX WIDGETS**: No complex widget trees inside build methods
 - **🚫 REPETITIVE UI CODE**: Duplicate widget patterns = ARCHITECTURAL FAILURE
+- **🚫 UNNAMED FUNCTION PARAMETERS**: Positional parameters without names = MAINTENANCE NIGHTMARE
 
 ### ⚡ MANDATORY COMPONENT EXTRACTION
 **RULE**: Any widget-building function > 5 lines OR used in multiple places MUST become a proper component
@@ -95,6 +96,43 @@ lib/
 4. **THEME INTEGRATION**: All components must respect app theme
 5. **ACCESSIBILITY**: Proper semantics and keyboard navigation
 
+## 🧩 FUNCTION CALL EXCELLENCE PROTOCOL
+
+### 💎 NAMED PARAMETERS SUPREMACY
+**RULE**: All function calls with 2+ parameters MUST use named parameters for maximum clarity and maintainability.
+
+#### ⚡ VICTORY EXAMPLES
+```dart
+// ✅ WARRIOR EXCELLENCE - Named parameters
+debugLogger.logApiRequest(
+  method: 'POST',
+  url: '/api/chat',
+  headers: requestHeaders,
+  body: requestBody,
+);
+
+// ❌ MAINTENANCE NIGHTMARE - Positional parameters
+debugLogger.logApiRequest('POST', '/api/chat', requestHeaders, requestBody);
+```
+
+#### 🎯 NAMED PARAMETER BENEFITS
+- **🔍 SELF-DOCUMENTING**: Function calls explain themselves
+- **🛡️ REFACTOR SAFETY**: Parameter order changes don't break calls
+- **🚀 IDE SUPPORT**: Better autocomplete and error detection
+- **👥 TEAM PRODUCTIVITY**: New developers understand code instantly
+- **🔧 MAINTENANCE EASE**: No need to check function signatures constantly
+
+#### 💀 EXCEPTIONS [RARE CASES ONLY]
+- **Single Parameter**: `widget.build(context)` - context is obvious
+- **Common Operators**: `padding.add(16)` - mathematical operations
+- **Constructor Chains**: `super(key)` - inheritance patterns
+
+### 🏆 NAMED PARAMETER ENFORCEMENT
+- **🚨 CODE REVIEW**: Reject positional parameters with 2+ arguments
+- **🛠️ LINTER RULES**: Configure `prefer_named_parameters` in analysis_options.yaml  
+- **📚 DOCUMENTATION**: All custom functions must define named parameters
+- **🎯 REFACTOR PRIORITY**: Convert existing positional calls during component extraction
+
 ### 💥 COMPONENT TESTING PROTOCOL
 ```dart
 // MANDATORY: Every component needs basic tests
@@ -116,6 +154,7 @@ testWidgets('ComponentName renders correctly', (tester) async {
 - **✅ DOCUMENTED COMPONENTS**: Every component has mission documentation
 - **✅ TESTED COMPONENTS**: All components have basic widget tests
 - **✅ THEME COMPLIANCE**: All components respect app theme system
+- **✅ NAMED PARAMETERS**: All multi-parameter function calls use named parameters
 
 ## 🚀 PERFORMANCE OPTIMIZATION
 - **Const Constructors**: Always use `const` when possible
@@ -124,7 +163,7 @@ testWidgets('ComponentName renders correctly', (tester) async {
 - **Memory Management**: Dispose controllers and subscriptions properly
 
 ## ⚡ ENFORCEMENT PROTOCOL
-- **PRE-COMMIT**: Scan for functional widget builders
-- **CODE REVIEW**: Reject any `_buildSomething()` patterns
+- **PRE-COMMIT**: Scan for functional widget builders and unnamed parameters
+- **CODE REVIEW**: Reject any `_buildSomething()` patterns and positional parameters
 - **REFACTOR SPRINTS**: Scheduled component extraction sessions
 - **COMPONENT REGISTRY**: Maintain list of available components

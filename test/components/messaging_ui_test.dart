@@ -34,13 +34,15 @@ void main() {
       // Act
       await tester.pumpWidget(MaterialApp(home: Scaffold(body: messagesUI)));
 
-      // Assert
+      // Assert - Check that all messages are displayed
       expect(find.text('First message'), findsOneWidget);
       expect(find.text('Second message'), findsOneWidget);
       expect(find.text('Third message'), findsOneWidget);
 
       // Verify messages are in correct order (oldest to newest)
-      final messageWidgets = tester.widgetList<Text>(find.byType(Text));
+      // Use SelectableText instead of Text since MessageContent uses SelectableText
+      final messageWidgets =
+          tester.widgetList<SelectableText>(find.byType(SelectableText));
       final messageTexts = messageWidgets
           .where((widget) => [
                 'First message',
@@ -68,7 +70,15 @@ void main() {
 
       // Act
       await tester.pumpWidget(MaterialApp(home: Scaffold(body: messagesUI)));
-      await tester.tap(find.text('Test message'));
+
+      // Tap on the GestureDetector area - find the Container inside MessageBubble
+      // and tap on an area that doesn't have SelectableText
+      final containerFinder = find.descendant(
+        of: find.byType(MessageBubble),
+        matching: find.byType(Container),
+      );
+      await tester.tap(containerFinder.first, warnIfMissed: false);
+      await tester.pump();
 
       // Assert
       expect(tappedMessage, equals(message));
@@ -88,10 +98,11 @@ void main() {
       await tester.pumpWidget(MaterialApp(home: Scaffold(body: messagesUI)));
 
       // Assert
-      // Look for timestamp pattern (HH:MM:SS format)
+      // Look for timestamp pattern (HH:MM:SS format) in SelectableText widgets
+      // The timestamp is displayed by MessageTimestamp component using SelectableText
       expect(
           find.byWidgetPredicate((widget) =>
-              widget is Text &&
+              widget is SelectableText &&
               widget.data != null &&
               RegExp(r'\d{2}:\d{2}:\d{2}').hasMatch(widget.data!)),
           findsOneWidget);
@@ -249,8 +260,9 @@ void main() {
       ));
 
       // Assert
-      expect(find.text('Tool Calls:'), findsOneWidget);
-      expect(find.text('• test_function'), findsOneWidget);
+      // The new MessageToolCallsEnhanced component shows "Tool Call" instead of "Tool Calls:"
+      expect(find.textContaining('Tool Call'), findsOneWidget);
+      expect(find.text('test_function'), findsOneWidget);
     });
 
     testWidgets('displays reasoning content when present',
@@ -411,8 +423,9 @@ void main() {
       expect(find.text('Complete message'), findsOneWidget);
       expect(find.text('Reasoning:'), findsOneWidget);
       expect(find.text('My reasoning'), findsOneWidget);
-      expect(find.text('Tool Calls:'), findsOneWidget);
-      expect(find.text('• example_function'), findsOneWidget);
+      // The new MessageToolCallsEnhanced component shows "Tool Call" instead of "Tool Calls:"
+      expect(find.textContaining('Tool Call'), findsOneWidget);
+      expect(find.text('example_function'), findsOneWidget);
     });
   });
 

@@ -3,6 +3,9 @@ import 'package:logging/logging.dart';
 import 'package:vibe_coder/ai_agent/agent.dart';
 import 'package:vibe_coder/ai_agent/models/chat_message_model.dart';
 import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
+import 'package:vibe_coder/services/debug_logger.dart';
+import 'package:vibe_coder/models/agent_configuration.dart';
+import 'package:vibe_coder/services/configuration_service.dart';
 
 /// ChatService - AI Conversation Orchestration Service
 ///
@@ -39,6 +42,8 @@ import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
 /// - Error handling: O(1) - immediate exception wrapping
 class ChatService {
   static final Logger _logger = Logger('ChatService');
+  final DebugLogger _debugLogger = DebugLogger();
+  final ConfigurationService _configurationService = ConfigurationService();
 
   Agent? _agent;
   final StreamController<ChatMessage> _messageStreamController =
@@ -64,28 +69,21 @@ class ChatService {
   /// Initialize the chat service with AI agent
   ///
   /// PERF: O(1) initialization - agent setup is synchronous
-  /// ARCHITECTURAL: Lazy loading pattern - agent created on first use
+  /// ARCHITECTURAL: Configuration-driven initialization replaces hardcoded values
   Future<void> initialize() async {
     try {
       _updateState(ChatServiceState.initializing);
       _logger.info('Initializing ChatService');
 
-      // Create AI agent with conversational system prompt
-      _agent = Agent(
-        name: 'VibeCoder Assistant',
-        systemPrompt:
-            '''You are VibeCoder Assistant, a helpful AI coding companion.
-        
-You excel at:
-- Flutter and Dart development
-- Code review and optimization  
-- Architecture and design patterns
-- Debugging and troubleshooting
-- Best practices and clean code
+      // Initialize configuration service first
+      await _configurationService.initialize();
+      final config = _configurationService.currentConfig;
 
-Be concise, practical, and focus on actionable solutions.
-When providing code examples, make them complete and runnable.''',
-        mcpConfigPath: 'mcp.json',
+      // Create AI agent with configuration-driven parameters
+      _agent = Agent(
+        name: config.agentName,
+        systemPrompt: config.systemPrompt,
+        mcpConfigPath: config.mcpConfigPath,
       );
 
       // Initialize MCP after agent creation
@@ -130,12 +128,21 @@ When providing code examples, make them complete and runnable.''',
       );
       _messageStreamController.add(userChatMessage);
 
-      // Send to AI agent and get response
+      // 🛡️ DEBUG LOGGING: Log user message
+      _debugLogger.logChatMessage(
+        message: userChatMessage,
+        context: 'ChatService.sendMessage',
+      );
+
+      // Send to AI agent and get response with configuration-driven parameters
+      final stopwatch = Stopwatch()..start();
+      final config = _configurationService.currentConfig;
       final response = await _agent!.conversation.sendUserMessageAndGetResponse(
         userMessage,
-        useBeta: false,
-        isReasoner: false, // Can be made configurable
+        useBeta: config.useBetaFeatures,
+        isReasoner: config.useReasonerModel,
       );
+      stopwatch.stop();
 
       // Add assistant response to stream
       final assistantMessage = ChatMessage(
@@ -143,6 +150,26 @@ When providing code examples, make them complete and runnable.''',
         content: response,
       );
       _messageStreamController.add(assistantMessage);
+
+      // 🛡️ DEBUG LOGGING: Log assistant response with timing
+      _debugLogger.logChatMessage(
+        message: assistantMessage,
+        context:
+            'ChatService.sendMessage - Response time: ${stopwatch.elapsedMilliseconds}ms',
+      );
+
+      // 🛡️ DEBUG LOGGING: Log conversation completion
+      _debugLogger.logSystemEvent(
+        'CONVERSATION TURN COMPLETED',
+        'User message processed and response delivered',
+        details: {
+          'userMessageLength': userMessage.length,
+          'responseLength': response.length,
+          'processingTimeMs': stopwatch.elapsedMilliseconds,
+          'hasToolCalls': assistantMessage.toolCalls?.isNotEmpty ?? false,
+          'toolCallCount': assistantMessage.toolCalls?.length ?? 0,
+        },
+      );
 
       _logger.info('AI response delivered: ${response.length} characters');
     } catch (e, stackTrace) {
@@ -218,6 +245,72 @@ When providing code examples, make them complete and runnable.''',
     };
   }
 
+  /// Get current agent configuration
+  ///
+  /// PERF: O(1) - direct configuration access
+  AgentConfiguration getCurrentConfiguration() {
+    return _configurationService.currentConfig;
+  }
+
+  /// Get configuration service for advanced management
+  ///
+  /// PERF: O(1) - direct service access
+  ConfigurationService getConfigurationService() {
+    return _configurationService;
+  }
+
+  /// Update agent configuration and reinitialize if necessary
+  ///
+  /// PERF: O(1) for config update, O(n) for agent reinitialization if required
+  /// ARCHITECTURAL: Configuration changes may require agent recreation
+  Future<void> updateConfiguration(AgentConfiguration newConfig) async {
+    try {
+      _logger.info('🔄 CONFIG UPDATE: Updating agent configuration');
+
+      final oldConfig = _configurationService.currentConfig;
+      final result = await _configurationService.updateConfiguration(newConfig);
+
+      if (!result.isSuccess) {
+        throw Exception(result.displayMessage);
+      }
+
+      // Check if agent needs to be recreated (system prompt, name, or MCP config changed)
+      final needsAgentRecreation = oldConfig.agentName != newConfig.agentName ||
+          oldConfig.systemPrompt != newConfig.systemPrompt ||
+          oldConfig.mcpConfigPath != newConfig.mcpConfigPath;
+
+      if (needsAgentRecreation && _agent != null) {
+        _logger.info(
+            '🔄 AGENT RECREATION: Configuration changes require agent recreation');
+
+        // Dispose old agent
+        await _agent!.dispose();
+
+        // Create new agent with updated configuration
+        _agent = Agent(
+          name: newConfig.agentName,
+          systemPrompt: newConfig.systemPrompt,
+          mcpConfigPath: newConfig.mcpConfigPath,
+        );
+
+        // Initialize MCP after agent creation
+        await _agent!.initializeMCP();
+
+        _logger.info(
+            '✅ AGENT UPDATED: Agent successfully recreated with new configuration');
+      }
+
+      _logger.info(
+          '✅ CONFIG APPLIED: Configuration update completed successfully');
+    } catch (e, stackTrace) {
+      _logger.severe(
+          '💥 CONFIG UPDATE ERROR: Failed to update configuration: $e',
+          e,
+          stackTrace);
+      rethrow;
+    }
+  }
+
   /// Handle errors with consistent logging and state management
   ///
   /// PERF: O(1) - immediate error processing
@@ -251,6 +344,8 @@ When providing code examples, make them complete and runnable.''',
     if (_agent != null) {
       await _agent!.dispose();
     }
+
+    await _configurationService.dispose();
   }
 }
 

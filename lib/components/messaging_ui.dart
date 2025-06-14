@@ -5,10 +5,12 @@ import 'package:vibe_coder/components/messaging/messages_list.dart';
 import 'package:vibe_coder/components/messaging/chat_input_field.dart';
 import 'package:vibe_coder/components/messaging/message_parts/message_header.dart';
 import 'package:vibe_coder/components/messaging/message_parts/message_content.dart';
-import 'package:vibe_coder/components/messaging/message_parts/message_tool_calls.dart';
+import 'package:vibe_coder/components/messaging/message_parts/message_tool_calls_enhanced.dart';
 import 'package:vibe_coder/components/messaging/message_parts/message_reasoning_content.dart';
 import 'package:vibe_coder/components/messaging/message_parts/message_timestamp.dart';
 import 'package:vibe_coder/components/messaging/message_parts/message_avatar.dart';
+import 'package:vibe_coder/components/debug/debug_overlay.dart';
+import 'package:vibe_coder/services/debug_logger.dart';
 
 /// MessagingUI Component - Enhanced Chat Interface
 ///
@@ -161,25 +163,51 @@ class _MessagingUIState extends State<MessagingUI> {
   Widget build(BuildContext context) {
     final effectiveTheme = widget.theme ?? MessagingTheme.defaultTheme(context);
 
-    return Column(
-      children: [
-        Expanded(
-          child: MessagesListComponent(
-            messages: widget.messages,
-            scrollController: _scrollController,
-            onMessageTap: widget.onMessageTap,
-            showTimestamps: widget.showTimestamps,
-            theme: effectiveTheme,
+    return Scaffold(
+      body: Column(
+        children: [
+          Expanded(
+            child: MessagesListComponent(
+              messages: widget.messages,
+              scrollController: _scrollController,
+              onMessageTap: widget.onMessageTap,
+              showTimestamps: widget.showTimestamps,
+              theme: effectiveTheme,
+            ),
           ),
-        ),
-        if (widget.showInput)
-          ChatInputFieldComponent(
-            onSendMessage: widget.onSendMessage,
-            inputText: widget.inputText,
-            inputPlaceholder: widget.inputPlaceholder,
-            enabled: true,
-          ),
-      ],
+          if (widget.showInput)
+            ChatInputFieldComponent(
+              onSendMessage: widget.onSendMessage,
+              inputText: widget.inputText,
+              inputPlaceholder: widget.inputPlaceholder,
+              enabled: true,
+            ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showDebugOverlay,
+        icon: const Icon(Icons.bug_report),
+        label: const Text('Debug'),
+        backgroundColor: Theme.of(context).colorScheme.tertiary,
+        foregroundColor: Theme.of(context).colorScheme.onTertiary,
+        tooltip: 'Open Debug Intelligence Center',
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
+    );
+  }
+
+  /// Show debug overlay for comprehensive API and tool call debugging
+  ///
+  /// PERF: O(1) overlay display - immediate debug access
+  /// ARCHITECTURAL: Bottom sheet overlay for comprehensive debugging visibility
+  void _showDebugOverlay() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DebugOverlay(
+        onClose: () => Navigator.of(context).pop(),
+      ),
     );
   }
 }
@@ -237,7 +265,22 @@ class MessageBubble extends StatelessWidget {
                     message: message,
                     textStyle: messageStyle.textStyle,
                   ),
-                  MessageToolCalls(message: message),
+                  MessageToolCallsEnhanced(
+                    message: message,
+                    showDebugInfo: true,
+                    onToolCallTap: (toolCall) {
+                      // Log tool call interaction for debugging
+                      DebugLogger().logSystemEvent(
+                        'TOOL CALL TAPPED',
+                        'User interacted with tool call in message UI',
+                        details: {
+                          'toolCall': toolCall,
+                          'messageRole': message.role.name,
+                          'timestamp': DateTime.now().toIso8601String(),
+                        },
+                      );
+                    },
+                  ),
                   MessageReasoningContent(message: message),
                   MessageTimestamp(showTimestamp: showTimestamps),
                 ],

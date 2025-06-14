@@ -1,6 +1,5 @@
-import 'dart:convert';
 import 'package:logging/logging.dart';
-import '../models/mcp_models.dart';
+import 'mcp_manager.dart';
 
 /// MCP Function Bridge Service
 ///
@@ -55,10 +54,13 @@ class MCPFunctionBridge {
 
     for (final mcpTool in mcpTools) {
       try {
+        // CRITICAL: DeepSeek API requires function names to match pattern '^[a-zA-Z0-9_-]+$'
+        final validFunctionName = toApiFunctionName(mcpTool.uniqueId);
+
         final functionDef = {
           'type': 'function',
           'function': {
-            'name': mcpTool.uniqueId, // Use unique ID to avoid conflicts
+            'name': validFunctionName, // Use API-compliant name
             'description':
                 mcpTool.tool.description ?? 'MCP tool: ${mcpTool.tool.name}',
             // Convert MCP JSON Schema to OpenAI parameters format
@@ -112,6 +114,59 @@ class MCPFunctionBridge {
     return converted;
   }
 
+  /// Convert MCP tool unique ID to API-compliant function name
+  ///
+  /// CRITICAL: DeepSeek API requires function names to match pattern '^[a-zA-Z0-9_-]+$'
+  ///
+  /// ## 🎯 CONVERSION EXAMPLES
+  /// - `memory:read_graph` → `memory_read_graph` (API-safe)
+  /// - `filesystem:list_files` → `filesystem_list_files` (API-safe)
+  /// - `server:complex_tool_name` → `server_complex_tool_name` (API-safe)
+  ///
+  /// ## 🔧 WHY THIS EXISTS
+  /// MCP tools use format `serverName:toolName` but OpenAI function calling API
+  /// does NOT allow colons in function names. This conversion enables proper
+  /// function calling while preserving tool identity.
+  ///
+  /// ## ⚠️ CRITICAL USAGE NOTES
+  /// 1. ALWAYS use `fromApiFunctionName()` to convert back to MCP format
+  /// 2. The AI API will send `memory_read_graph` but MCP expects `memory:read_graph`
+  /// 3. Test both directions: toApiFunctionName() ⟷ fromApiFunctionName()
+  /// 4. This conversion is MANDATORY for all MCP tool calling workflows
+  static String toApiFunctionName(String mcpUniqueId) {
+    return mcpUniqueId.replaceAll(':', '_');
+  }
+
+  /// Convert API function name back to MCP tool unique ID
+  ///
+  /// ARCHITECTURAL: Reverse mapping for tool call processing
+  ///
+  /// ## 🎯 CONVERSION EXAMPLES
+  /// - `memory_read_graph` → `memory:read_graph` (MCP format)
+  /// - `filesystem_list_files` → `filesystem:list_files` (MCP format)
+  /// - `server_complex_tool_name` → `server:complex_tool_name` (MCP format)
+  ///
+  /// ## 🔧 WHY THIS EXISTS
+  /// When the AI API calls a tool, it sends the API-safe name (e.g., `memory_read_graph`).
+  /// But MCP servers expect the original format (e.g., `memory:read_graph`).
+  /// This function restores the proper MCP format for server communication.
+  ///
+  /// ## ⚠️ CRITICAL USAGE NOTES
+  /// 1. ALWAYS call this on function names from AI API before MCP server calls
+  /// 2. This is the REVERSE of `toApiFunctionName()` - they must be symmetric
+  /// 3. Failure to convert will result in "Server not found" errors
+  /// 4. The first underscore becomes colon: `server_tool` → `server:tool`
+  static String fromApiFunctionName(String apiFunctionName) {
+    // Convert first underscore back to colon (server:tool format)
+    // Handle cases like 'test_server_test_tool' -> 'test_server:test_tool'
+    final firstUnderscoreIndex = apiFunctionName.indexOf('_');
+    if (firstUnderscoreIndex != -1 &&
+        firstUnderscoreIndex < apiFunctionName.length - 1) {
+      return '${apiFunctionName.substring(0, firstUnderscoreIndex)}:${apiFunctionName.substring(firstUnderscoreIndex + 1)}';
+    }
+    return apiFunctionName;
+  }
+
   /// Generate unique tool call ID for DeepSeek function calling
   ///
   /// PERF: O(1) - atomic counter increment
@@ -129,15 +184,22 @@ class MCPFunctionBridge {
     required String serverName,
     required Map<String, dynamic> arguments,
   }) {
+    // Convert API-compliant name back to original format for MCP server calls
+    // Since we have the serverName, we can reconstruct the original format properly
+    final originalToolName = toolName.startsWith('${serverName}_')
+        ? '$serverName:${toolName.substring(serverName.length + 1)}'
+        : toolName;
+
     _activeToolCalls[toolCallId] = MCPToolCallContext(
       toolCallId: toolCallId,
-      toolName: toolName,
+      toolName: originalToolName, // Store original format for MCP calls
       serverName: serverName,
       arguments: arguments,
       timestamp: DateTime.now(),
     );
 
-    _logger.fine('📝 REGISTERED: Tool call $toolCallId for $toolName');
+    _logger.fine(
+        '📝 REGISTERED: Tool call $toolCallId for $originalToolName (API name: $toolName)');
   }
 
   /// Get tool call context for processing
@@ -208,23 +270,5 @@ class MCPToolCallContext {
       'MCPToolCallContext(id: $toolCallId, tool: $toolName, server: $serverName)';
 }
 
-/// Extended MCP Tool with server context for function calling
-///
-/// ARCHITECTURAL: Composition pattern to add server context to tools
-class MCPToolWithServer {
-  final MCPTool tool;
-  final String serverName;
-
-  const MCPToolWithServer({
-    required this.tool,
-    required this.serverName,
-  });
-
-  /// Unique identifier combining server and tool name
-  ///
-  /// ARCHITECTURAL: Namespace isolation prevents tool name conflicts
-  String get uniqueId => '${serverName}__${tool.name}';
-
-  @override
-  String toString() => 'MCPToolWithServer(${uniqueId})';
-}
+// MCPToolWithServer is defined in mcp_manager.dart
+// Using existing implementation with uniqueId: 'serverName:toolName'

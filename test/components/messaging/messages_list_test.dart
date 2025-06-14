@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vibe_coder/components/messaging/messages_list.dart';
+import 'package:vibe_coder/components/messaging_ui.dart';
 import 'package:vibe_coder/ai_agent/models/chat_message_model.dart';
 import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
 
@@ -64,7 +65,8 @@ void main() {
       expect(find.byIcon(Icons.chat_outlined), findsNothing);
     });
 
-    testWidgets('calls onMessageTap when message is tapped', (tester) async {
+    testWidgets('calls onMessageTap when message bubble is tapped',
+        (tester) async {
       ChatMessage? tappedMessage;
       final testMessage = ChatMessage(
         role: MessageRole.user,
@@ -85,7 +87,16 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('Tap me!'));
+      // DESKTOP OPTIMIZATION: Tap on the Container within MessageBubble since SelectableText
+      // consumes tap events for text selection functionality
+      final containerFinder = find
+          .descendant(
+            of: find.byType(MessageBubble),
+            matching: find.byType(Container),
+          )
+          .first;
+
+      await tester.tap(containerFinder, warnIfMissed: false);
       expect(tappedMessage, equals(testMessage));
     });
 
@@ -168,6 +179,28 @@ void main() {
       final listView = tester.widget<ListView>(find.byType(ListView));
       expect(listView.padding, const EdgeInsets.all(16));
       // ListView.builder uses itemBuilder, not children
+    });
+
+    testWidgets('text content is selectable for copy/paste functionality',
+        (tester) async {
+      final testMessage = ChatMessage(
+        role: MessageRole.user,
+        content: 'This text should be selectable!',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: MessagesListComponent(
+              messages: [testMessage],
+              scrollController: testScrollController,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(SelectableText), findsWidgets);
+      expect(find.text('This text should be selectable!'), findsOneWidget);
     });
   });
 }

@@ -4,6 +4,8 @@ import 'package:vibe_coder/ai_agent/models/chat_message_model.dart';
 import 'package:vibe_coder/components/messaging_ui.dart';
 import 'package:vibe_coder/components/common/indicators/chat_status_indicator.dart';
 import 'package:vibe_coder/components/common/dialogs/tools_info_dialog.dart';
+import 'package:vibe_coder/components/config/agent_configuration_screen.dart';
+import 'package:vibe_coder/models/agent_configuration.dart';
 import 'package:vibe_coder/services/chat_service.dart';
 import 'dart:async';
 
@@ -123,11 +125,24 @@ class _HomeScreenState extends State<HomeScreen> {
 
   /// Add welcome message to start conversation
   ///
-  /// PERF: O(1) - single message addition
+  /// PERF: O(1) - single message addition with configuration-driven content
+  /// ARCHITECTURAL: Configuration-driven welcome message replaces hardcoded content
   void _addWelcomeMessage() {
-    final welcomeMessage = ChatMessage(
-      role: MessageRole.assistant,
-      content: '''👋 **Welcome to VibeCoder!**
+    try {
+      final config = _chatService.getCurrentConfiguration();
+      final welcomeMessage = ChatMessage(
+        role: MessageRole.assistant,
+        content: config.welcomeMessage,
+      );
+
+      setState(() {
+        _messages.add(welcomeMessage);
+      });
+    } catch (e) {
+      // Fallback to default welcome message if configuration fails
+      final fallbackMessage = ChatMessage(
+        role: MessageRole.assistant,
+        content: '''👋 **Welcome to VibeCoder!**
 
 I'm your AI coding companion, ready to help with:
 • Flutter & Dart development
@@ -136,11 +151,12 @@ I'm your AI coding companion, ready to help with:
 • Project planning and optimization
 
 What would you like to work on today?''',
-    );
+      );
 
-    setState(() {
-      _messages.add(welcomeMessage);
-    });
+      setState(() {
+        _messages.add(fallbackMessage);
+      });
+    }
   }
 
   /// Handle user message sending with error recovery
@@ -241,6 +257,13 @@ What would you like to work on today?''',
             tooltip: 'Clear Conversation',
           ),
 
+          // Configuration button
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () => _showConfiguration(),
+            tooltip: 'Agent Configuration',
+          ),
+
           // Tools info button
           IconButton(
             icon: const Icon(Icons.info_outline),
@@ -289,7 +312,7 @@ What would you like to work on today?''',
             child: MessagingUI(
               messages: _messages,
               onSendMessage: _handleSendMessage,
-              showTimestamps: true,
+              showTimestamps: _getCurrentConfigSafely()?.showTimestamps ?? true,
               inputPlaceholder: _isLoading
                   ? 'AI is thinking...'
                   : 'Ask me anything about coding...',
@@ -307,5 +330,68 @@ What would you like to work on today?''',
   void _showToolsInfo() {
     final mcpInfo = _chatService.getMCPServerInfo();
     ToolsInfoDialog.show(context, mcpInfo);
+  }
+
+  /// Show agent configuration screen
+  ///
+  /// PERF: O(1) - navigation to configuration screen
+  /// ARCHITECTURAL: Following Flutter architecture rules with proper component navigation
+  void _showConfiguration() async {
+    if (_serviceState != ChatServiceState.ready) {
+      _showSnackBar('Please wait - service is not ready yet');
+      return;
+    }
+
+    try {
+      final currentConfig = _chatService.getCurrentConfiguration();
+      final configService = _chatService.getConfigurationService();
+
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => AgentConfigurationScreen(
+            configurationService: configService,
+            initialConfiguration: currentConfig,
+            onConfigurationChanged: () => _handleConfigurationChanged(),
+          ),
+        ),
+      );
+    } catch (e) {
+      _showSnackBar('Failed to open configuration: $e');
+    }
+  }
+
+  /// Handle configuration changes by updating the welcome message and other UI elements
+  ///
+  /// PERF: O(1) - direct configuration refresh
+  /// ARCHITECTURAL: Reactive configuration updates without full restart
+  void _handleConfigurationChanged() {
+    try {
+      // Update welcome message if conversation is empty or only has welcome message
+      if (_messages.length <= 1) {
+        setState(() {
+          _messages.clear();
+        });
+        _addWelcomeMessage();
+      }
+
+      _showSnackBar('Configuration updated successfully');
+    } catch (e) {
+      _showSnackBar('Failed to apply configuration changes: $e');
+    }
+  }
+
+  /// Safely get current configuration with null handling
+  ///
+  /// PERF: O(1) - direct configuration access with error handling
+  /// ARCHITECTURAL: Defensive programming pattern for UI safety
+  AgentConfiguration? _getCurrentConfigSafely() {
+    try {
+      if (_serviceState == ChatServiceState.ready) {
+        return _chatService.getCurrentConfiguration();
+      }
+    } catch (e) {
+      // Configuration not available yet or service error
+    }
+    return null;
   }
 }

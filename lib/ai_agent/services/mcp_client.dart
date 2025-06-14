@@ -23,8 +23,6 @@ class MCPClient {
   Process? _process;
   StreamSubscription<String>? _stdoutSubscription;
   StreamSubscription<String>? _stderrSubscription;
-  final StreamController<String> _responseController =
-      StreamController<String>();
 
   // Common fields
   final MCPTransportType transportType;
@@ -340,17 +338,26 @@ class MCPClient {
       params: {}, // Empty params object instead of null
     );
 
-    final response = await _sendStdioRequest(request);
+    try {
+      final response = await _sendStdioRequest(request);
 
-    if (response.result != null) {
-      final resources = (response.result!['resources'] as List<dynamic>?)
-              ?.map((resource) =>
-                  MCPResource.fromJson(resource as Map<String, dynamic>))
-              .toList() ??
-          [];
+      if (response.result != null) {
+        final resources = (response.result!['resources'] as List<dynamic>?)
+                ?.map((resource) =>
+                    MCPResource.fromJson(resource as Map<String, dynamic>))
+                .toList() ??
+            [];
 
-      _logger.info('Retrieved ${resources.length} resources via STDIO');
-      return resources;
+        _logger.info('Retrieved ${resources.length} resources via STDIO');
+        return resources;
+      }
+    } catch (e) {
+      if (e.toString().contains('Method not found')) {
+        _logger
+            .info('Server does not support resources - returning empty list');
+        return [];
+      }
+      rethrow;
     }
 
     return [];
@@ -381,17 +388,25 @@ class MCPClient {
       params: {}, // Empty params object instead of null
     );
 
-    final response = await _sendStdioRequest(request);
+    try {
+      final response = await _sendStdioRequest(request);
 
-    if (response.result != null) {
-      final prompts = (response.result!['prompts'] as List<dynamic>?)
-              ?.map((prompt) =>
-                  MCPPrompt.fromJson(prompt as Map<String, dynamic>))
-              .toList() ??
-          [];
+      if (response.result != null) {
+        final prompts = (response.result!['prompts'] as List<dynamic>?)
+                ?.map((prompt) =>
+                    MCPPrompt.fromJson(prompt as Map<String, dynamic>))
+                .toList() ??
+            [];
 
-      _logger.info('Retrieved ${prompts.length} prompts via STDIO');
-      return prompts;
+        _logger.info('Retrieved ${prompts.length} prompts via STDIO');
+        return prompts;
+      }
+    } catch (e) {
+      if (e.toString().contains('Method not found')) {
+        _logger.info('Server does not support prompts - returning empty list');
+        return [];
+      }
+      rethrow;
     }
 
     return [];

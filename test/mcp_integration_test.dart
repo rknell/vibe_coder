@@ -11,15 +11,18 @@ import 'package:vibe_coder/ai_agent/services/mcp_client.dart';
 /// Tests MCP functionality without Flutter dependencies
 /// Verifies server connections, tool loading, and stability
 void main() {
-  // Setup logging for test visibility
-  Logger.root.level = Level.ALL;
+  // 🎯 WARRIOR PROTOCOL: Minimal logging for clean test output
+  // Only show SEVERE errors and test failures
+  Logger.root.level = Level.SEVERE;
   Logger.root.onRecord.listen((record) {
-    print('${record.level.name}: ${record.time}: ${record.message}');
-    if (record.error != null) {
-      print('ERROR: ${record.error}');
-    }
-    if (record.stackTrace != null) {
-      print('STACK: ${record.stackTrace}');
+    if (record.level >= Level.SEVERE) {
+      print('${record.level.name}: ${record.message}');
+      if (record.error != null) {
+        print('ERROR: ${record.error}');
+      }
+      if (record.stackTrace != null) {
+        print('STACK: ${record.stackTrace}');
+      }
     }
   });
 
@@ -41,35 +44,18 @@ void main() {
       );
 
       try {
-        print('🔌 CONNECTING: Initializing filesystem client...');
         await client.initialize();
-        print('✅ CONNECTION: Filesystem client initialized successfully');
 
-        print('🛠️ TOOLS: Listing available tools...');
         final tools = await client.listTools();
-        print('📊 RESULT: Found ${tools.length} tools');
-
-        for (int i = 0; i < tools.length; i++) {
-          print(
-              '🔧 TOOL[$i]: ${tools[i].name} - ${tools[i].description ?? "No description"}');
-        }
-
         expect(tools.isNotEmpty, isTrue,
             reason: 'Filesystem server should provide tools');
 
-        print('📚 RESOURCES: Listing available resources...');
         final resources = await client.listResources();
-        print('📊 RESULT: Found ${resources.length} resources');
-
-        print('📝 PROMPTS: Listing available prompts...');
         final prompts = await client.listPrompts();
-        print('📊 RESULT: Found ${prompts.length} prompts');
 
         await client.close();
-        print('🔒 CLEANUP: Client closed successfully');
       } catch (e, stackTrace) {
-        print('💥 FAILURE: Filesystem test failed: $e');
-        print('STACK: $stackTrace');
+        print('💥 FILESYSTEM TEST FAILED: $e');
         await client.close();
         rethrow;
       }
@@ -89,35 +75,18 @@ void main() {
       );
 
       try {
-        print('🔌 CONNECTING: Initializing memory client...');
         await client.initialize();
-        print('✅ CONNECTION: Memory client initialized successfully');
 
-        print('🛠️ TOOLS: Listing available tools...');
         final tools = await client.listTools();
-        print('📊 RESULT: Found ${tools.length} tools');
-
-        for (int i = 0; i < tools.length; i++) {
-          print(
-              '🔧 TOOL[$i]: ${tools[i].name} - ${tools[i].description ?? "No description"}');
-        }
-
         expect(tools.isNotEmpty, isTrue,
             reason: 'Memory server should provide tools');
 
-        print('📚 RESOURCES: Listing available resources...');
         final resources = await client.listResources();
-        print('📊 RESULT: Found ${resources.length} resources');
-
-        print('📝 PROMPTS: Listing available prompts...');
         final prompts = await client.listPrompts();
-        print('📊 RESULT: Found ${prompts.length} prompts');
 
         await client.close();
-        print('🔒 CLEANUP: Client closed successfully');
       } catch (e, stackTrace) {
-        print('💥 FAILURE: Memory test failed: $e');
-        print('STACK: $stackTrace');
+        print('💥 MEMORY TEST FAILED: $e');
         await client.close();
         rethrow;
       }
@@ -129,46 +98,27 @@ void main() {
       final manager = MCPManager();
 
       try {
-        print('📂 CONFIG: Loading MCP configuration...');
         await manager.initialize('mcp.json');
 
         final configuredServers = manager.configuredServers;
         final connectedServers = manager.connectedServers;
 
-        print('⚙️ CONFIGURED: ${configuredServers.length} servers configured');
-        print('🔗 CONNECTED: ${connectedServers.length} servers connected');
-        print('📋 SERVERS: ${configuredServers.join(', ')}');
-
         expect(configuredServers.isNotEmpty, isTrue,
             reason: 'Should have configured servers');
 
-        // Check each server status
-        for (final serverName in configuredServers) {
-          final status = manager.getServerStatus(serverName);
-          print('🔍 SERVER[$serverName]: ${jsonEncode(status)}');
-        }
-
         final allTools = manager.getAllTools();
-        print('🛠️ TOTAL TOOLS: ${allTools.length}');
-
-        for (final tool in allTools) {
-          print(
-              '🔧 TOOL: ${tool.uniqueId} - ${tool.tool.description ?? "No description"}');
-        }
+        expect(allTools.isNotEmpty, isTrue,
+            reason: 'Should have tools available');
 
         await manager.closeAll();
-        print('🔒 CLEANUP: Manager closed successfully');
       } catch (e, stackTrace) {
-        print('💥 FAILURE: Manager test failed: $e');
-        print('STACK: $stackTrace');
+        print('💥 CONFIGURATION TEST FAILED: $e');
         await manager.closeAll();
         rethrow;
       }
     }, timeout: const Timeout(Duration(seconds: 60)));
 
     test('🔄 Connection Stability Test', () async {
-      print('🔄 STABILITY: Testing connection stability over time...');
-
       final manager = MCPManager();
 
       try {
@@ -176,13 +126,8 @@ void main() {
 
         // Test stability over multiple iterations
         for (int i = 0; i < 5; i++) {
-          print('🔄 ITERATION[$i]: Checking server status...');
-
           final connectedServers = manager.connectedServers;
           final allTools = manager.getAllTools();
-
-          print('🔗 CONNECTED[$i]: ${connectedServers.length} servers');
-          print('🛠️ TOOLS[$i]: ${allTools.length} tools');
 
           // Wait between checks
           await Future.delayed(const Duration(seconds: 2));
@@ -193,10 +138,7 @@ void main() {
           final newConnectedServers = manager.connectedServers;
           final newAllTools = manager.getAllTools();
 
-          print('🔗 AFTER_REFRESH[$i]: ${newConnectedServers.length} servers');
-          print('🛠️ AFTER_REFRESH[$i]: ${newAllTools.length} tools');
-
-          // Check for stability
+          // Check for stability - only report failures
           if (connectedServers.length != newConnectedServers.length) {
             print(
                 '⚠️ INSTABILITY: Server count changed from ${connectedServers.length} to ${newConnectedServers.length}');
@@ -209,10 +151,8 @@ void main() {
         }
 
         await manager.closeAll();
-        print('✅ STABILITY: Test completed successfully');
       } catch (e, stackTrace) {
-        print('💥 STABILITY FAILURE: $e');
-        print('STACK: $stackTrace');
+        print('💥 STABILITY TEST FAILED: $e');
         await manager.closeAll();
         rethrow;
       }
@@ -232,11 +172,11 @@ void main() {
             .where((tool) => tool.serverName == 'filesystem')
             .toList();
 
-        print('📁 FILESYSTEM TOOLS: Found ${filesystemTools.length} tools');
+        expect(filesystemTools.isNotEmpty, isTrue,
+            reason: 'Should have filesystem tools available');
 
         if (filesystemTools.isNotEmpty) {
           final tool = filesystemTools.first;
-          print('🔧 TESTING TOOL: ${tool.uniqueId}');
 
           // Try to call the tool (this might fail depending on the tool's requirements)
           try {
@@ -245,17 +185,15 @@ void main() {
               toolName: tool.tool.name,
               arguments: {}, // Empty arguments for basic test
             );
-            print('✅ TOOL RESULT: ${result.content.length} content items');
+            // Tool call succeeded - this is expected to fail for most tools without proper args
           } catch (toolError) {
-            print(
-                '⚠️ TOOL ERROR: $toolError (expected for some tools without proper arguments)');
+            // Expected for tools without proper arguments - this is normal
           }
         }
 
         await manager.closeAll();
       } catch (e, stackTrace) {
-        print('💥 TOOL TEST FAILURE: $e');
-        print('STACK: $stackTrace');
+        print('💥 TOOL TEST FAILED: $e');
         await manager.closeAll();
         rethrow;
       }

@@ -21,6 +21,7 @@ import 'package:vibe_coder/ai_agent/models/tool_choice.dart';
 import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
 import 'package:vibe_coder/ai_agent/models/chat_completion_request.dart';
 import 'package:vibe_coder/services/services.dart';
+import 'mcp_function_bridge.dart';
 
 /// Manages multi-round conversations with the DeepSeek Chat API.
 ///
@@ -318,19 +319,62 @@ $content
           continue;
         }
 
+        // 🔧 MCP FUNCTION CALLING: Convert API function name to MCP format and parse
+        // CRITICAL: AI API sends function names like 'memory_read_graph' but MCP expects 'memory:read_graph'
+        final mcpToolUniqueId =
+            MCPFunctionBridge.fromApiFunctionName(functionName);
+
+        String serverName;
+        String actualToolName;
+
+        if (mcpToolUniqueId.contains(':')) {
+          // Format: serverName:toolName (proper MCP format)
+          final parts = mcpToolUniqueId.split(':');
+          serverName = parts[0];
+          actualToolName = parts[1];
+        } else {
+          // Fallback: use existing logic to find server (should rarely happen)
+          serverName =
+              agent.mcpManager.findServerForTool(mcpToolUniqueId) ?? '';
+          actualToolName = mcpToolUniqueId;
+        }
+
+        if (serverName.isEmpty) {
+          _logger.warning(
+              'Cannot find server for tool: $functionName (MCP format: $mcpToolUniqueId)');
+          _addToolErrorResponse(
+              toolCallId, 'Error: Server not found for tool "$functionName".');
+          continue;
+        }
+
+        // 📝 TOOL CALL TRACKING: Register tool call for proper ID management
+        MCPFunctionBridge.registerToolCall(
+          toolCallId: toolCallId,
+          toolName: actualToolName,
+          serverName: serverName,
+          arguments: argsMap,
+        );
+
         // Call tool through Agent's MCP system
         try {
-          final result = await agent.callMCPTool(
-            toolName: functionName,
+          final result = await agent.mcpManager.callTool(
+            serverName: serverName,
+            toolName: actualToolName,
             arguments: argsMap,
           );
 
-          // Add successful tool response
+          // Add successful tool response with proper tool_call_id
           _addToolResponse(toolCallId, result.content.first.text);
+
+          // 🧹 CLEANUP: Complete tool call tracking
+          MCPFunctionBridge.completeToolCall(toolCallId);
         } catch (e) {
           _logger.warning('MCP tool call failed: $functionName - $e');
           _addToolErrorResponse(
               toolCallId, 'Error: Tool "$functionName" failed: $e');
+
+          // 🧹 CLEANUP: Complete tool call tracking even on failure
+          MCPFunctionBridge.completeToolCall(toolCallId);
         }
       } catch (e, stackTrace) {
         _logger.severe('Error processing tool call: $e', e, stackTrace);
@@ -460,9 +504,16 @@ $content
           'Cannot send an empty conversation. Add at least one message first.');
     }
 
-    // Tools are now handled by Agent's MCP integration
-    // Tool choice handling simplified
-    final choice = toolChoice;
+    // 🔧 MCP FUNCTION CALLING: Convert MCP tools to OpenAI function format
+    final mcpTools = agent.getAvailableTools();
+    final functions = MCPFunctionBridge.convertMCPToolsToFunctions(mcpTools);
+
+    _logger.info(
+        '🛠️ FUNCTION CALLING: Prepared ${functions.length} MCP functions for API');
+
+    // Auto-set tool choice if functions are available
+    final choice =
+        toolChoice ?? (functions.isNotEmpty ? ToolChoice.auto : null);
 
     // Auto-detect if we're using the reasoner model if not specified
     final useReasoner = isReasoner ?? model.contains('reasoner');
@@ -475,13 +526,14 @@ $content
     // Use the clean messages list for API requests (without reasoningContent)
     final apiMessages = useReasoner ? apiReadyMessages : _messages;
 
-    // Create the request - tools are handled by Agent's MCP integration
+    // Create the request with MCP functions
     final request = ChatCompletionRequest(
       model: model,
       messages: apiMessages,
       temperature: temperature,
       maxTokens: maxTokens,
-      // Tools removed - handled by MCP at Agent level
+      tools:
+          functions.isNotEmpty ? functions : null, // 🔧 MCP TOOLS INTEGRATION
       toolChoice: choice,
     );
 

@@ -2,33 +2,43 @@ import 'package:flutter/material.dart';
 import 'package:vibe_coder/ai_agent/models/chat_message_model.dart';
 import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
 
-/// MessageHeader - Message Participant Name Display
+/// MessageHeader - Selectable Message Participant Name Display
 ///
 /// ## MISSION ACCOMPLISHED
 /// Eliminates _buildHeader functional widget builder by creating reusable header component.
 /// Provides consistent message participant name styling across all message types.
+/// DESKTOP OPTIMIZATION: Full text selection and copy functionality for participant names.
 ///
 /// ## STRATEGIC DECISIONS
 /// | Option | Power-Ups | Weaknesses | Victory Reason |
 /// |--------|-----------|------------|----------------|
 /// | Functional Builder | Simple | Not reusable | Rejected - violates architecture |
+/// | Text Widget | Minimal | No text selection | Rejected - lacks desktop UX |
+/// | SelectableText Widget | Desktop UX, copy/paste | Slight overhead | CHOSEN - desktop optimization |
 /// | Stateless Widget | Reusable, lightweight | Slight overhead | CHOSEN - architectural excellence |
 /// | Inline Text | Minimal | No reusability | Rejected - violates DRY principle |
 ///
 /// ## PERFORMANCE PROFILE
-/// - Time Complexity: O(1) - simple text rendering
+/// - Time Complexity: O(1) - simple selectable text rendering
 /// - Space Complexity: O(1) - minimal widget tree
 /// - Rebuild Frequency: Only when message name changes
+/// - Desktop Optimization: Full text selection with context menu support
 ///
 /// ## BOSS FIGHTS DEFEATED
 /// 1. **Functional Widget Builder Elimination**
 ///    - 🔍 Symptom: `_buildHeader()` method in MessageBubble
 ///    - 🎯 Root Cause: Header logic embedded in parent widget
 ///    - 💥 Kill Shot: Extracted to dedicated StatelessWidget
+///
+/// 2. **Desktop Text Selection Limitation**
+///    - 🔍 Symptom: No text selection/copy functionality for participant names
+///    - 🎯 Root Cause: Text widget doesn't support selection
+///    - 💥 Kill Shot: Replaced with SelectableText for full desktop UX
 class MessageHeader extends StatelessWidget {
-  /// Creates a message header with participant name
+  /// Creates a selectable message header with participant name
   ///
   /// ARCHITECTURAL: All dependencies injected via constructor
+  /// DESKTOP OPTIMIZED: Full text selection and copy functionality
   const MessageHeader({
     super.key,
     required this.message,
@@ -62,12 +72,20 @@ class MessageHeader extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
-      child: Text(
+      // DESKTOP OPTIMIZATION: Selectable participant name
+      child: SelectableText(
         message.name!,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
               fontWeight: FontWeight.bold,
               color: _getRoleColor(context).withValues(alpha: 0.8),
             ),
+        enableInteractiveSelection: true,
+        contextMenuBuilder: (context, editableTextState) {
+          return AdaptiveTextSelectionToolbar.buttonItems(
+            anchors: editableTextState.contextMenuAnchors,
+            buttonItems: editableTextState.contextMenuButtonItems,
+          );
+        },
       ),
     );
   }
