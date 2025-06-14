@@ -1,11 +1,12 @@
 #!/usr/bin/env dart
 
+// ignore_for_file: avoid_print
+
 import 'dart:io';
 import 'dart:convert';
 import 'package:logging/logging.dart';
 import 'lib/ai_agent/services/mcp_manager.dart';
 import 'lib/ai_agent/services/mcp_client.dart';
-import 'lib/ai_agent/models/mcp_models.dart';
 
 /// 🧪 **STANDALONE MCP TESTING SCRIPT**
 ///
@@ -241,7 +242,7 @@ Future<void> testConnectionStability() async {
       print('🛠️ TOOLS[$i]: ${allTools.length} tools');
 
       // Wait between checks
-      await Future.delayed(Duration(seconds: 2));
+      await Future.delayed(const Duration(seconds: 2));
 
       // Refresh capabilities to test stability
       print('🔄 REFRESHING: Capabilities for iteration $i...');

@@ -1,10 +1,10 @@
-import 'dart:io';
+// ignore_for_file: avoid_print
+
 import 'dart:convert';
 import 'package:test/test.dart';
 import 'package:logging/logging.dart';
-import '../lib/ai_agent/services/mcp_manager.dart';
-import '../lib/ai_agent/services/mcp_client.dart';
-import '../lib/ai_agent/models/mcp_models.dart';
+import 'package:vibe_coder/ai_agent/services/mcp_manager.dart';
+import 'package:vibe_coder/ai_agent/services/mcp_client.dart';
 
 /// 🧪 **STANDALONE MCP TESTING SUITE**
 ///
@@ -73,7 +73,7 @@ void main() {
         await client.close();
         rethrow;
       }
-    }, timeout: Timeout(Duration(seconds: 30)));
+    }, timeout: const Timeout(Duration(seconds: 30)));
 
     test('🧠 Memory Server Connection', () async {
       final client = MCPClient.stdio(
@@ -121,7 +121,7 @@ void main() {
         await client.close();
         rethrow;
       }
-    }, timeout: Timeout(Duration(seconds: 30)));
+    }, timeout: const Timeout(Duration(seconds: 30)));
   });
 
   group('🏗️ MCP Manager Integration Tests', () {
@@ -164,7 +164,7 @@ void main() {
         await manager.closeAll();
         rethrow;
       }
-    }, timeout: Timeout(Duration(seconds: 60)));
+    }, timeout: const Timeout(Duration(seconds: 60)));
 
     test('🔄 Connection Stability Test', () async {
       print('🔄 STABILITY: Testing connection stability over time...');
@@ -185,7 +185,7 @@ void main() {
           print('🛠️ TOOLS[$i]: ${allTools.length} tools');
 
           // Wait between checks
-          await Future.delayed(Duration(seconds: 2));
+          await Future.delayed(const Duration(seconds: 2));
 
           // Refresh capabilities to test stability
           await manager.refreshCapabilities();
@@ -216,7 +216,7 @@ void main() {
         await manager.closeAll();
         rethrow;
       }
-    }, timeout: Timeout(Duration(seconds: 120)));
+    }, timeout: const Timeout(Duration(seconds: 120)));
   });
 
   group('🛠️ Tool Functionality Tests', () {
@@ -259,6 +259,6 @@ void main() {
         await manager.closeAll();
         rethrow;
       }
-    }, timeout: Timeout(Duration(seconds: 45)));
+    }, timeout: const Timeout(Duration(seconds: 45)));
   });
 }

@@ -400,15 +400,6 @@ When working on to-do tasks:
 - If a task refers to reviewing something, mark it complete once reviewed and results communicated
 """);
 
-    // TODO: Implement companyDirectory service in new API
-    // addContext(
-    //     "employee directory",
-    //     services.companyDirectory.staff
-    //         .where((staffAgent) => staffAgent.name != agent.name)
-    //         .map((staffAgent) =>
-    //             "${staffAgent.name} - ${staffAgent.systemPrompt}")
-    //         .join("\n"));
-
     // Add agent context files if they exist
     if (agent.contextFiles.isNotEmpty) {
       final fileContentBuilder = StringBuffer();

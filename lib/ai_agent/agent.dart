@@ -26,13 +26,6 @@ class Agent {
 
   late final Logger logger;
 
-  /// Returns a map of filenames to their contents from the virtual file storage
-  /// for all files in the agent's context
-  Map<String, String> get context {
-    // TODO: Implement new file system integration
-    return <String, String>{};
-  }
-
   Agent({
     required this.systemPrompt,
     required this.name,
@@ -100,12 +93,6 @@ class Agent {
           '💥 AGENT MCP FAILURE: Failed to initialize MCP: $e', e, stackTrace);
       rethrow; // Re-throw to allow caller to handle
     }
-  }
-
-  /// Initialize MCP configuration (deprecated - use initializeMCP instead)
-  @Deprecated('Use initializeMCP() instead for proper async handling')
-  Future<void> _initializeMCP() async {
-    await initializeMCP();
   }
 
   /// Get all available MCP tools

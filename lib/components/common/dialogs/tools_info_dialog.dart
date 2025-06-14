@@ -250,7 +250,7 @@ class ToolsInfoDialog extends StatelessWidget {
                         ],
                       ),
                     );
-                  }).toList(),
+                  }),
                 ] else ...[
                   const Text('No tools available from this server'),
                 ],

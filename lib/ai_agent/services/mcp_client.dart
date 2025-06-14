@@ -74,8 +74,9 @@ class MCPClient {
 
   /// Initialize HTTP transport
   Future<void> _initializeHttp() async {
-    if (serverUrl == null)
+    if (serverUrl == null) {
       throw MCPException('Server URL is required for HTTP transport');
+    }
 
     // Test connection
     final response = await _httpClient.get(Uri.parse(serverUrl!));
@@ -88,8 +89,9 @@ class MCPClient {
 
   /// Initialize STDIO transport
   Future<void> _initializeStdio() async {
-    if (command == null)
+    if (command == null) {
       throw MCPException('Command is required for STDIO transport');
+    }
 
     try {
       _logger
