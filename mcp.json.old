@@ -1,0 +1,73 @@
+"interactive-feedback-mcp": {
+      "command": "/home/rknell/.local/bin/uv",
+      "args": ["run",
+        "--directory",
+        "/home/rknell/Projects/interactive-feedback-mcp",
+        "server.py"
+      ],
+      "timeout": 600,
+      "autoApprove": [
+        "interactive_feedback"
+      ]
+    },
+    "serena": {
+      "command": "/home/rknell/.local/bin/uv",
+      "args": [
+        "run",
+        "--directory",
+        "/home/rknell/Projects/serena",
+        "serena-mcp-server",
+        "--project-file",
+        "/home/rknell/Projects/rebellion-rum/distillery_pos/.serena/project.yml"
+      ]
+    },
+    "memory": {
+      "command": "/usr/bin/sh",
+      "args": [
+        "/home/rknell/Projects/rebellion-rum/rebellion-rum-website-server/tools/server_memory_mcp.sh"
+      ]
+    },
+    "desktop-commander": {
+      "command": "/usr/bin/sh",
+      "args": [
+        "/home/rknell/Projects/rebellion-rum/rebellion-rum-website-server/tools/desktop_commander_mcp.sh"
+      ]
+    },
+    "puppeteer": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "--init",
+        "--network",
+        "host",
+        "-e",
+        "DOCKER_CONTAINER=true",
+        "mcp/puppeteer"
+      ]
+    },
+    "playwright": {
+      "command": "/usr/bin/sh",
+      "args": [
+        "/home/rknell/Projects/rebellion-rum/rebellion-rum-website-server/tools/playwright_mcp.sh"
+      ]
+    },
+    "ddg-search": {
+      "command": "/usr/bin/sh",
+      "args": [
+        "/home/rknell/Projects/rebellion-rum/rebellion-rum-website-server/tools/ddg_search_mcp.sh"
+      ]
+    },
+    "sequential-thinking": {
+      "command": "/usr/bin/sh",
+      "args": [
+        "/home/rknell/Projects/rebellion-rum/rebellion-rum-website-server/tools/sequential_thinking_mcp.sh"
+      ]
+    },
+    "mcp": {
+      "command": "/usr/bin/sh",
+      "args": [
+        "/home/rknell/Projects/rebellion-rum/rebellion-rum-website/tools/mcp.sh"
+      ]
+    }

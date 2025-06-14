@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
 import 'package:vibe_coder/ai_agent/models/chat_message_model.dart';
 import 'package:vibe_coder/components/messaging_ui.dart';
+import 'package:vibe_coder/components/common/indicators/chat_status_indicator.dart';
+import 'package:vibe_coder/components/common/dialogs/tools_info_dialog.dart';
 import 'package:vibe_coder/services/chat_service.dart';
 import 'dart:async';
 
@@ -10,6 +12,7 @@ import 'dart:async';
 /// ## MISSION ACCOMPLISHED
 /// Eliminates static mock data by integrating real AI conversation capabilities.
 /// Provides loading states, error handling, and real-time message streaming.
+/// ARCHITECTURAL VICTORY: All functional widget builders extracted to proper components.
 ///
 /// ## STRATEGIC DECISIONS
 /// | Option | Power-Ups | Weaknesses | Victory Reason |
@@ -17,6 +20,8 @@ import 'dart:async';
 /// | Direct Agent Integration | Simple | Tight coupling | Rejected - violates separation |
 /// | ChatService Wrapper | Clean interface | Extra layer | CHOSEN - maintainable + testable |
 /// | Stream-based Updates | Real-time UX | State complexity | CHOSEN - superior user experience |
+/// | Functional Builders | Simple | Not reusable | ELIMINATED - violates architecture |
+/// | Component Extraction | Reusable + testable | Extra files | CHOSEN - architectural excellence |
 ///
 /// ## BOSS FIGHTS DEFEATED
 /// 1. **Static Mock Data Elimination**
@@ -33,6 +38,11 @@ import 'dart:async';
 ///    - 🔍 Symptom: App crashes on API failures
 ///    - 🎯 Root Cause: Unhandled service exceptions
 ///    - 💥 Kill Shot: Graceful error display + retry options
+///
+/// 4. **Functional Widget Architecture Violation**
+///    - 🔍 Symptom: `_buildStatusIndicator()` and `_showToolsInfo()` methods
+///    - 🎯 Root Cause: UI components embedded in StatefulWidget logic
+///    - 💥 Kill Shot: Extracted to ChatStatusIndicator and ToolsInfoDialog components
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -208,65 +218,6 @@ What would you like to work on today?''',
     }
   }
 
-  /// Build status indicator for service state
-  ///
-  /// PERF: O(1) - simple widget composition
-  Widget _buildStatusIndicator() {
-    Widget statusWidget;
-    Color statusColor;
-
-    switch (_serviceState) {
-      case ChatServiceState.uninitialized:
-        statusWidget = const CircularProgressIndicator(strokeWidth: 2);
-        statusColor = Colors.grey;
-        break;
-      case ChatServiceState.initializing:
-        statusWidget = const CircularProgressIndicator(strokeWidth: 2);
-        statusColor = Colors.blue;
-        break;
-      case ChatServiceState.ready:
-        statusWidget = const Icon(Icons.check_circle, size: 16);
-        statusColor = Colors.green;
-        break;
-      case ChatServiceState.processing:
-        statusWidget = const SizedBox(
-          width: 16,
-          height: 16,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        );
-        statusColor = Colors.orange;
-        break;
-      case ChatServiceState.error:
-        statusWidget = const Icon(Icons.error, size: 16);
-        statusColor = Colors.red;
-        break;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: statusColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: statusColor.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          statusWidget,
-          const SizedBox(width: 6),
-          Text(
-            _serviceState.name.toUpperCase(),
-            style: TextStyle(
-              color: statusColor,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -277,7 +228,7 @@ What would you like to work on today?''',
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: Center(
-              child: _buildStatusIndicator(),
+              child: ChatStatusIndicator(serviceState: _serviceState),
             ),
           ),
 
@@ -352,48 +303,9 @@ What would you like to work on today?''',
 
   /// Show available MCP tools information
   ///
-  /// PERF: O(n) where n = number of tools - acceptable for info display
+  /// PERF: O(1) - direct delegation to component
   void _showToolsInfo() {
     final tools = _chatService.getAvailableTools();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Available AI Tools'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'The AI assistant has access to ${tools.length} tools:',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 12),
-              if (tools.isEmpty)
-                const Text('No tools currently available')
-              else
-                ...tools.map((tool) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 2),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.build, size: 16, color: Colors.blue),
-                          const SizedBox(width: 8),
-                          Expanded(child: Text(tool)),
-                        ],
-                      ),
-                    )),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
+    ToolsInfoDialog.show(context, tools);
   }
 }

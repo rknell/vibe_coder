@@ -1,0 +1,130 @@
+---
+description: must be included when working on flutter UI logic
+globs: 
+alwaysApply: false
+---
+# ⚔️ FLUTTER ARCHITECTURE WARFARE PROTOCOL ⚔️
+
+## 🎯 ULTIMATE MISSION
+**🏆 DOMINATE FLUTTER ARCHITECTURE. CRUSH FUNCTIONAL WIDGETS. ACHIEVE COMPONENT MASTERY. 🏆**
+
+## 🚀 WIDGET ARCHITECTURE DOMINANCE RULES
+
+### 💀 FORBIDDEN PATTERNS [INSTANT DEATH PENALTY]
+- **🚫 FUNCTIONAL WIDGET BUILDERS**: No `_buildSomething()` methods in StatefulWidget classes
+- **🚫 INLINE COMPLEX WIDGETS**: No complex widget trees inside build methods
+- **🚫 REPETITIVE UI CODE**: Duplicate widget patterns = ARCHITECTURAL FAILURE
+
+### ⚡ MANDATORY COMPONENT EXTRACTION
+**RULE**: Any widget-building function > 5 lines OR used in multiple places MUST become a proper component
+
+#### 🎯 EXTRACTION TRIGGERS
+1. **Function Pattern**: `Widget _buildSomething()` → Extract to `SomethingWidget`
+2. **Repetitive UI**: Same widget pattern in 2+ places → Create reusable component
+3. **Complex Logic**: Widget + business logic → Separate widget class
+4. **Dialog/Modal**: Any `showDialog()` content → Extract to dedicated widget
+
+#### 🏗️ COMPONENT STRUCTURE WARFARE
+```dart
+/// [ComponentName] - [Purpose]
+///
+/// ## MISSION ACCOMPLISHED
+/// [What problem this component eliminates]
+///
+/// ## STRATEGIC DECISIONS
+/// | Option | Power-Ups | Weaknesses | Victory Reason |
+/// |--------|-----------|------------|----------------|
+/// | [Option] | [Benefits] | [Drawbacks] | [Why chosen] |
+///
+/// ## PERFORMANCE PROFILE
+/// - Time Complexity: O(?)
+/// - Space Complexity: O(?)
+/// - Rebuild Frequency: [When rebuilds occur]
+class ComponentNameWidget extends StatelessWidget {
+  // REQUIRED: Comprehensive constructor with all dependencies
+  const ComponentNameWidget({
+    super.key,
+    required this.param1,
+    this.param2,
+  });
+
+  final Type param1;
+  final Type? param2;
+
+  @override
+  Widget build(BuildContext context) {
+    // PERF: Optimized widget tree construction
+    return Container(/* Implementation */);
+  }
+}
+```
+
+### 🛡️ COMPONENT ORGANIZATION FORTRESS
+```
+lib/
+  components/
+    common/           # Reusable across entire app
+      buttons/
+      indicators/
+      dialogs/
+    screens/          # Screen-specific but reusable
+      home/
+      profile/
+    theme/            # Theme-related components
+      themed_widgets/
+```
+
+### ⚔️ COMPONENT EXTRACTION PROTOCOL
+1. **🔍 IDENTIFY**: Find functional widget builders in existing code
+2. **📋 ANALYZE**: Determine dependencies and props needed
+3. **🏗️ CREATE**: Build proper component with documentation
+4. **🔄 REPLACE**: Update original code to use new component
+5. **🧪 TEST**: Verify component works in isolation
+6. **📚 DOCUMENT**: Add to component registry
+
+### 🚨 COMPONENT NAMING WARFARE
+- **Status Indicators**: `[Purpose]StatusIndicator` (e.g., `ChatStatusIndicator`)
+- **Dialog Content**: `[Purpose]DialogContent` (e.g., `ToolsInfoDialogContent`)
+- **Buttons**: `[Action][Context]Button` (e.g., `ClearConversationButton`)
+- **Cards**: `[Content]Card` (e.g., `MessageCard`)
+
+### 🎮 COMPONENT REUSABILITY RULES
+1. **SINGLE RESPONSIBILITY**: Each component does ONE thing perfectly
+2. **PROP INJECTION**: All dependencies passed as constructor parameters
+3. **STATELESS PREFERRED**: Use StatelessWidget unless state absolutely required
+4. **THEME INTEGRATION**: All components must respect app theme
+5. **ACCESSIBILITY**: Proper semantics and keyboard navigation
+
+### 💥 COMPONENT TESTING PROTOCOL
+```dart
+// MANDATORY: Every component needs basic tests
+testWidgets('ComponentName renders correctly', (tester) async {
+  await tester.pumpWidget(
+    MaterialApp(
+      home: ComponentNameWidget(param1: testValue),
+    ),
+  );
+  
+  expect(find.byType(ComponentNameWidget), findsOneWidget);
+  // Add specific assertions for component behavior
+});
+```
+
+### 🏆 VICTORY CONDITIONS
+- **✅ ZERO FUNCTIONAL BUILDERS**: No `_buildSomething()` methods in StatefulWidgets
+- **✅ REUSABLE COMPONENTS**: All UI patterns available as standalone widgets
+- **✅ DOCUMENTED COMPONENTS**: Every component has mission documentation
+- **✅ TESTED COMPONENTS**: All components have basic widget tests
+- **✅ THEME COMPLIANCE**: All components respect app theme system
+
+## 🚀 PERFORMANCE OPTIMIZATION
+- **Const Constructors**: Always use `const` when possible
+- **Key Management**: Proper widget keys for list items and dynamic content
+- **Build Optimization**: Minimize rebuilds with proper widget splitting
+- **Memory Management**: Dispose controllers and subscriptions properly
+
+## ⚡ ENFORCEMENT PROTOCOL
+- **PRE-COMMIT**: Scan for functional widget builders
+- **CODE REVIEW**: Reject any `_buildSomething()` patterns
+- **REFACTOR SPRINTS**: Scheduled component extraction sessions
+- **COMPONENT REGISTRY**: Maintain list of available components

@@ -2,37 +2,47 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:vibe_coder/ai_agent/models/chat_message_model.dart';
 import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
+import 'package:vibe_coder/components/messaging/messages_list.dart';
+import 'package:vibe_coder/components/messaging/chat_input_field.dart';
+import 'package:vibe_coder/components/messaging/message_parts/message_header.dart';
+import 'package:vibe_coder/components/messaging/message_parts/message_content.dart';
+import 'package:vibe_coder/components/messaging/message_parts/message_tool_calls.dart';
+import 'package:vibe_coder/components/messaging/message_parts/message_reasoning_content.dart';
+import 'package:vibe_coder/components/messaging/message_parts/message_timestamp.dart';
+import 'package:vibe_coder/components/messaging/message_parts/message_avatar.dart';
 
 /// MessagingUI Component - Enhanced Chat Interface
 ///
-/// ## Purpose
-/// Production-ready chat interface with auto-scroll, expandable input (1-10 lines),
-/// Shift+Enter send functionality, and automatic focus management for real-time messaging.
+/// ## MISSION ACCOMPLISHED
+/// Production-ready chat interface with component-based architecture eliminating all functional widget builders.
+/// Provides auto-scroll, expandable input, and real-time messaging using proper component separation.
+/// ARCHITECTURAL VICTORY: All functional widget builders extracted to reusable components.
 ///
-/// ## Key Architectural Decisions
-/// | Option | Pros | Cons | Why Chosen |
-/// |--------|------|------|------------|
-/// | ScrollController auto-scroll | Smooth UX, precise control | Memory overhead, state management | Required for chat UX standards |
-/// | KeyboardListener for Shift+Enter | Cross-platform, granular control | Complex event handling | Alternative TextInputAction insufficient |
-/// | TextField minLines/maxLines | Native Flutter expansion | Limited to 10 lines max | Balances usability vs screen space |
-/// | FocusNode re-focusing | Continuous typing flow | Additional state complexity | Essential for productivity |
+/// ## STRATEGIC DECISIONS
+/// | Option | Power-Ups | Weaknesses | Victory Reason |
+/// |--------|-----------|------------|----------------|
+/// | ScrollController auto-scroll | Smooth UX, precise control | Memory overhead | Required for chat UX standards |
+/// | Component Architecture | Reusable, testable | More files | CHOSEN - architectural excellence |
+/// | Functional Builders | Simple | Not reusable | ELIMINATED - violates architecture |
+/// | MessagesListComponent | Clean separation | Slight overhead | CHOSEN - proper component design |
+/// | ChatInputFieldComponent | Encapsulated state | More complex | CHOSEN - single responsibility |
 ///
-/// ## Known Challenges & Solutions
-/// 1. **Keyboard Event Handling**
-///    - Challenge: Multiple shift key variants across platforms
-///    - Solution: Check all shift key variants (shift, shiftLeft, shiftRight)
-/// 2. **Scroll Timing**
-///    - Challenge: ScrollController not ready during widget updates
-///    - Solution: PostFrameCallback ensures scroll controller availability
-/// 3. **Focus Management**
-///    - Challenge: Focus lost after programmatic text clearing
-///    - Solution: Explicit focus request via PostFrameCallback
+/// ## BOSS FIGHTS DEFEATED
+/// 1. **Functional Widget Builder Elimination**
+///    - 🔍 Symptom: `_buildMessagesList()` and `_buildInputField()` methods
+///    - 🎯 Root Cause: UI logic embedded in parent widget
+///    - 💥 Kill Shot: Extracted to MessagesListComponent and ChatInputFieldComponent
 ///
-/// ## Performance Characteristics
+/// 2. **Component Reusability Achievement**
+///    - 🔍 Symptom: Tightly coupled UI elements
+///    - 🎯 Root Cause: Mixed responsibilities in single widget
+///    - 💥 Kill Shot: Clean component separation with prop injection
+///
+/// ## PERFORMANCE PROFILE
 /// - Auto-scroll animation: O(1) - single animation operation
-/// - Message rendering: O(n) where n = message count
-/// - Text field expansion: O(1) - native Flutter optimization
-/// - Keyboard event handling: O(1) - direct key comparison
+/// - Message rendering: O(n) where n = message count (delegated to MessagesListComponent)
+/// - Component composition: O(1) - efficient widget tree construction
+/// - State management: O(1) - simplified with component extraction
 ///
 /// A UI component that displays a list of chat messages with an input field.
 ///
@@ -85,8 +95,6 @@ class MessagingUI extends StatefulWidget {
 }
 
 class _MessagingUIState extends State<MessagingUI> {
-  late TextEditingController _textController;
-  final FocusNode _focusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
 
   // Message length tracking for auto-scroll
@@ -95,7 +103,6 @@ class _MessagingUIState extends State<MessagingUI> {
   @override
   void initState() {
     super.initState();
-    _textController = TextEditingController(text: widget.inputText ?? '');
     _previousMessageCount = widget.messages.length;
 
     // PERF: Auto-scroll complexity O(1) - single animation operation
@@ -110,10 +117,6 @@ class _MessagingUIState extends State<MessagingUI> {
   @override
   void didUpdateWidget(MessagingUI oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Update controller text if inputText prop changes
-    if (widget.inputText != oldWidget.inputText && widget.inputText != null) {
-      _textController.text = widget.inputText!;
-    }
 
     // Auto-scroll to bottom when message count increases
     // PERF: O(1) length comparison - efficient message change detection
@@ -133,8 +136,6 @@ class _MessagingUIState extends State<MessagingUI> {
 
   @override
   void dispose() {
-    _textController.dispose();
-    _focusNode.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -157,55 +158,6 @@ class _MessagingUIState extends State<MessagingUI> {
     }
   }
 
-  /// Handles message sending with validation and focus management
-  ///
-  /// Validates non-empty trimmed text, calls callback, clears field,
-  /// and restores focus for continuous typing workflow
-  void _handleSendMessage() {
-    final text = _textController.text.trim();
-    if (text.isNotEmpty && widget.onSendMessage != null) {
-      widget.onSendMessage!(text);
-
-      // Clear text field completely and restore focus
-      _textController.clear();
-
-      // Ensure focus is restored and no residual text remains
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        // Double-check text is cleared (prevents carriage return issue)
-        if (_textController.text.isNotEmpty) {
-          _textController.clear();
-        }
-        _focusNode.requestFocus();
-      });
-    }
-  }
-
-  /// Keyboard event handler for Shift+Enter functionality
-  ///
-  /// PERF: Event handling complexity O(1) - direct key comparison
-  /// Checks multiple shift key variants for cross-platform compatibility
-  /// Prevents Enter propagation when Shift is pressed
-  bool _handleKeyEvent(KeyEvent event) {
-    // Handle Shift+Enter to send message - check both KeyDown and KeyRepeat
-    if (event is KeyDownEvent || event is KeyRepeatEvent) {
-      final isShiftPressed = HardwareKeyboard.instance.logicalKeysPressed
-              .contains(LogicalKeyboardKey.shift) ||
-          HardwareKeyboard.instance.logicalKeysPressed
-              .contains(LogicalKeyboardKey.shiftLeft) ||
-          HardwareKeyboard.instance.logicalKeysPressed
-              .contains(LogicalKeyboardKey.shiftRight);
-
-      if (isShiftPressed && event.logicalKey == LogicalKeyboardKey.enter) {
-        // Prevent any Enter key processing by TextField
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _handleSendMessage();
-        });
-        return true; // Consume the event completely
-      }
-    }
-    return false; // Don't consume the event
-  }
-
   @override
   Widget build(BuildContext context) {
     final effectiveTheme = widget.theme ?? MessagingTheme.defaultTheme(context);
@@ -213,162 +165,22 @@ class _MessagingUIState extends State<MessagingUI> {
     return Column(
       children: [
         Expanded(
-          child: _buildMessagesList(context, effectiveTheme),
-        ),
-        if (widget.showInput) _buildInputField(context),
-      ],
-    );
-  }
-
-  /// Builds the scrollable messages list or empty state
-  ///
-  /// PERF: ListView.builder provides O(1) visible item rendering
-  /// Only renders visible items, efficient for large message lists
-  Widget _buildMessagesList(
-      BuildContext context, MessagingTheme effectiveTheme) {
-    if (widget.messages.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.chat_outlined,
-              size: 64,
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurface
-                  .withValues(alpha: 0.3),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No messages yet',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.6),
-                  ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return ListView.builder(
-      controller: _scrollController,
-      itemCount: widget.messages.length,
-      padding: const EdgeInsets.all(16),
-      itemBuilder: (context, index) {
-        final message = widget.messages[index];
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: MessageBubble(
-            message: message,
-            onTap: widget.onMessageTap != null
-                ? () => widget.onMessageTap!(message)
-                : null,
+          child: MessagesListComponent(
+            messages: widget.messages,
+            scrollController: _scrollController,
+            onMessageTap: widget.onMessageTap,
             showTimestamps: widget.showTimestamps,
             theme: effectiveTheme,
           ),
-        );
-      },
-    );
-  }
-
-  /// Builds the expandable input field with keyboard handling
-  ///
-  /// Features:
-  /// - Expands from 1 to 10 lines automatically
-  /// - Shift+Enter to send, Enter for new line
-  /// - Focus management and visual feedback
-  /// - Helper text and tooltip guidance
-  Widget _buildInputField(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: Border(
-          top: BorderSide(
-            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
-          ),
         ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Expanded(
-            child: KeyboardListener(
-              focusNode: FocusNode(),
-              onKeyEvent: _handleKeyEvent,
-              child: TextField(
-                controller: _textController,
-                focusNode: _focusNode,
-                decoration: InputDecoration(
-                  hintText: widget.inputPlaceholder,
-                  helperText: 'Shift+Enter to send',
-                  helperStyle: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withValues(alpha: 0.6),
-                      ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .outline
-                          .withValues(alpha: 0.3),
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .outline
-                          .withValues(alpha: 0.3),
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide(
-                      color: Theme.of(context).colorScheme.primary,
-                      width: 2,
-                    ),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  filled: true,
-                  fillColor: Theme.of(context)
-                      .colorScheme
-                      .surfaceContainerHighest
-                      .withValues(alpha: 0.3),
-                ),
-                minLines: 1,
-                maxLines: 10,
-                keyboardType: TextInputType.multiline,
-                textInputAction: TextInputAction.newline,
-                textCapitalization: TextCapitalization.sentences,
-              ),
-            ),
+        if (widget.showInput)
+          ChatInputFieldComponent(
+            onSendMessage: widget.onSendMessage,
+            inputText: widget.inputText,
+            inputPlaceholder: widget.inputPlaceholder,
+            enabled: true,
           ),
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: widget.onSendMessage != null ? _handleSendMessage : null,
-            icon: const Icon(Icons.send),
-            tooltip: 'Send message (Shift+Enter)',
-            style: IconButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              foregroundColor: Theme.of(context).colorScheme.onPrimary,
-              shape: const CircleBorder(),
-              padding: const EdgeInsets.all(12),
-            ),
-          ),
-        ],
-      ),
+      ],
     );
   }
 }
@@ -404,7 +216,7 @@ class MessageBubble extends StatelessWidget {
         mainAxisAlignment: messageStyle.alignment,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (messageStyle.showAvatar) _buildAvatar(context),
+          if (messageStyle.showAvatar) MessageAvatar(message: message),
           if (messageStyle.showAvatar) const SizedBox(width: 8),
           Flexible(
             child: Container(
@@ -421,13 +233,14 @@ class MessageBubble extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (message.name != null) _buildHeader(context),
-                  if (message.content != null)
-                    _buildContent(context, messageStyle),
-                  if (message.toolCalls != null) _buildToolCalls(context),
-                  if (message.reasoningContent != null)
-                    _buildReasoningContent(context),
-                  if (showTimestamps) _buildTimestamp(context),
+                  MessageHeader(message: message),
+                  MessageContent(
+                    message: message,
+                    textStyle: messageStyle.textStyle,
+                  ),
+                  MessageToolCalls(message: message),
+                  MessageReasoningContent(message: message),
+                  MessageTimestamp(showTimestamp: showTimestamps),
                 ],
               ),
             ),
@@ -435,162 +248,6 @@ class MessageBubble extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  /// Builds the message header showing the participant name.
-  Widget _buildHeader(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Text(
-        message.name!,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: _getRoleColor(context).withValues(alpha: 0.8),
-            ),
-      ),
-    );
-  }
-
-  /// Builds the main message content.
-  Widget _buildContent(BuildContext context, _MessageStyle messageStyle) {
-    return Text(
-      message.content!,
-      style: messageStyle.textStyle,
-    );
-  }
-
-  /// Builds the tool calls section for assistant messages.
-  Widget _buildToolCalls(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Theme.of(context)
-            .colorScheme
-            .surfaceContainerHighest
-            .withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Tool Calls:',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
-          const SizedBox(height: 4),
-          ...message.toolCalls!.map((toolCall) => Padding(
-                padding: const EdgeInsets.only(bottom: 2),
-                child: Text(
-                  '• ${toolCall['function']?['name'] ?? 'Unknown function'}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontFamily: 'monospace',
-                      ),
-                ),
-              )),
-        ],
-      ),
-    );
-  }
-
-  /// Builds the reasoning content section for deepseek-reasoner model responses.
-  Widget _buildReasoningContent(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.tertiary.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Reasoning:',
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.tertiary,
-                ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            message.reasoningContent!,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontStyle: FontStyle.italic,
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: 0.8),
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Builds a timestamp for the message.
-  Widget _buildTimestamp(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Text(
-        DateTime.now().toString().substring(11, 19), // Simple time format
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(context)
-                  .colorScheme
-                  .onSurface
-                  .withValues(alpha: 0.5),
-            ),
-      ),
-    );
-  }
-
-  /// Builds an avatar for the message based on its role.
-  Widget _buildAvatar(BuildContext context) {
-    final color = _getRoleColor(context);
-    final icon = _getRoleIcon();
-
-    return CircleAvatar(
-      radius: 16,
-      backgroundColor: color.withValues(alpha: 0.2),
-      child: Icon(
-        icon,
-        size: 16,
-        color: color,
-      ),
-    );
-  }
-
-  /// Returns the appropriate color for the message role.
-  Color _getRoleColor(BuildContext context) {
-    switch (message.role) {
-      case MessageRole.system:
-        return Theme.of(context).colorScheme.outline;
-      case MessageRole.user:
-        return Theme.of(context).colorScheme.primary;
-      case MessageRole.assistant:
-        return Theme.of(context).colorScheme.secondary;
-      case MessageRole.tool:
-        return Theme.of(context).colorScheme.tertiary;
-    }
-  }
-
-  /// Returns the appropriate icon for the message role.
-  IconData _getRoleIcon() {
-    switch (message.role) {
-      case MessageRole.system:
-        return Icons.settings;
-      case MessageRole.user:
-        return Icons.person;
-      case MessageRole.assistant:
-        return Icons.smart_toy;
-      case MessageRole.tool:
-        return Icons.build;
-    }
   }
 
   /// Determines the styling for the message based on its role.
