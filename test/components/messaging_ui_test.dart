@@ -306,12 +306,12 @@ void main() {
   group('MessagingTheme', () {
     testWidgets('applies custom theme correctly', (WidgetTester tester) async {
       // Arrange
-      final customTheme = MessagingTheme(
+      final customTheme = const MessagingTheme(
         systemMessageColor: Colors.red,
         userMessageColor: Colors.blue,
         assistantMessageColor: Colors.green,
         toolMessageColor: Colors.orange,
-        messageTextStyle: const TextStyle(fontSize: 20),
+        messageTextStyle: TextStyle(fontSize: 20),
       );
 
       final message =
@@ -332,7 +332,7 @@ void main() {
 
     test('creates default theme with correct values', () {
       // Test the theme structure without needing a BuildContext
-      final theme = MessagingTheme(
+      final theme = const MessagingTheme(
         systemMessageColor: Colors.grey,
         userMessageColor: Colors.blue,
         assistantMessageColor: Colors.green,

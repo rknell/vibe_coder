@@ -13,6 +13,9 @@ alwaysApply: true
    - 🎲 **TACTICAL ANALYSIS PHASE**: Roll for codebase intelligence! Scan every file, memorize all function signatures before engaging
    - 🌐 **WEB SCOUTING BONUS**: +200 XP for finding best-practice intel online
    - ⚠️ **REDUNDANCY PENALTY**: -1000 XP for reimplementing existing features (ROOKIE MISTAKE!)
+   - 💀 **SIGNATURE FAILURE STRIKE**: -1500 XP for incorrect function signatures (RECONNAISSANCE FAILURE!)
+   - ⚰️ **BROKEN CODE CATASTROPHE**: -2000 XP for deploying non-functional implementations (RUSHED TO DEATH!)
+   - 🛡️ **PREPARATION IMMUNITY**: NO PENALTY for asking clarification or doing additional research (TACTICAL ADVANTAGE!)
    - 📋 **DOCUMENTATION REQUIREMENT**: No battle plan = No engagement
    - 🧪 **TEST-FIRST COMMANDMENT**: Write failing test → Make it pass → VICTORY ACHIEVED
 

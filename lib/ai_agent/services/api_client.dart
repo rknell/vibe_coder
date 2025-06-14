@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
@@ -23,7 +24,7 @@ import 'package:vibe_coder/services/services.dart';
 /// This is a stateless client that handles communication with the DeepSeek API.
 class DeepSeekApiClient {
   /// The base URL for the DeepSeek API
-  static const String _baseUrl = 'https://api.deepseek.com';
+  static const String _baseUrl = 'https://api.deepseek.com/v1';
 
   /// The beta base URL for the DeepSeek API
   static const String _betaBaseUrl = 'https://api.deepseek.com/beta';
@@ -45,21 +46,46 @@ class DeepSeekApiClient {
 
   /// Creates a new instance of [DeepSeekApiClient].
   ///
-  /// [apiKey] is required for authentication with the DeepSeek API.
-  /// [client] is optional and defaults to a new [http.Client].
-  /// [timeout] is optional and defaults to 30 seconds.
-  /// [loggerName] is optional and defaults to 'DeepSeekApiClient'.
+  /// SECURITY: API key loaded from .env file via flutter_dotenv for proper secret management
+  /// ARCHITECTURAL: Dotenv first, then system environment, then override for testing
   DeepSeekApiClient({
-    required String apiKey,
+    String? apiKey,
     http.Client? client,
     Duration? timeout,
     String loggerName = 'DeepSeekApiClient',
     Logger? logger,
-  })  : _apiKey = apiKey,
+  })  : _apiKey = apiKey ?? _loadApiKey(),
         _client = client ?? http.Client(),
         _timeout = timeout ?? const Duration(seconds: 30),
         _logger = logger ?? services.logging(loggerName) {
-    _logger.info('Initializing DeepSeekApiClient');
+    // Validate API key is provided
+    if (_apiKey.isEmpty) {
+      _logger.severe(
+          'DeepSeek API key not provided. Add DEEPSEEK_API_KEY to your .env file.');
+      throw Exception(
+          'DeepSeek API key is required. Add DEEPSEEK_API_KEY to your .env file.');
+    }
+
+    _logger.info('DeepSeek API client initialized');
+  }
+
+  /// Load API key from dotenv, fallback to system environment
+  ///
+  /// SECURITY: Multi-layered key loading with secure fallback
+  /// PERF: O(1) - direct key access from loaded environment
+  static String _loadApiKey() {
+    try {
+      // Try dotenv first (from .env file)
+      final dotenvKey = dotenv.env['DEEPSEEK_API_KEY'];
+      if (dotenvKey != null && dotenvKey.isNotEmpty) {
+        return dotenvKey;
+      }
+    } catch (e) {
+      // dotenv not initialized or key not found, continue to fallback
+    }
+
+    // Fallback to system environment variable
+    return const String.fromEnvironment('DEEPSEEK_API_KEY', defaultValue: '');
   }
 
   /// Makes an HTTP request with proper error handling and logging

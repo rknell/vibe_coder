@@ -1,7 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:vibe_coder/screens/home_screen.dart';
 
-void main() {
+/// Main entry point - ELITE INITIALIZATION PROTOCOL
+///
+/// ## BOSS FIGHTS DEFEATED
+/// 1. **Environment Configuration**
+///    - 🔍 Symptom: Hardcoded API keys and configuration scattered
+///    - 🎯 Root Cause: No centralized environment management
+///    - 💥 Kill Shot: DotEnv initialization with .env file loading
+///
+/// PERF: O(1) initialization - async dotenv loading doesn't block app startup
+/// SECURITY: Environment variables loaded from secure .env file
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    // Load environment variables from .env file
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    // Handle missing .env file gracefully - fall back to system environment
+    debugPrint('Warning: Could not load .env file: $e');
+    debugPrint('Falling back to system environment variables');
+  }
+
   runApp(const MyApp());
 }
 

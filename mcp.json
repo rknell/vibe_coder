@@ -1,0 +1,37 @@
+{
+    "mcpServers": {
+        "filesystem": {
+            "command": "npx",
+            "args": [
+                "@modelcontextprotocol/server-filesystem",
+                "/path/to/allowed/directory"
+            ],
+            "env": {
+                "DEBUG": "true"
+            }
+        },
+        "web-search": {
+            "type": "sse",
+            "url": "http://localhost:3000/sse",
+            "env": {
+                "API_KEY": "your-search-api-key"
+            }
+        },
+        "github": {
+            "command": "node",
+            "args": [
+                "path/to/github-mcp-server.js"
+            ],
+            "env": {
+                "GITHUB_TOKEN": "your-github-token"
+            }
+        },
+        "database": {
+            "type": "sse",
+            "url": "https://api.example.com/mcp",
+            "env": {
+                "DB_CONNECTION_STRING": "your-database-connection"
+            }
+        }
+    }
+}

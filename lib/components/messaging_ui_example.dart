@@ -161,12 +161,12 @@ class _MessagingUIExampleScreenState extends State<MessagingUIExampleScreen> {
   void _toggleCustomTheme() {
     setState(() {
       if (_customTheme == null) {
-        _customTheme = MessagingTheme(
+        _customTheme = const MessagingTheme(
           systemMessageColor: Colors.orange,
           userMessageColor: Colors.deepPurple,
           assistantMessageColor: Colors.teal,
           toolMessageColor: Colors.brown,
-          messageTextStyle: const TextStyle(fontSize: 16),
+          messageTextStyle: TextStyle(fontSize: 16),
         );
       } else {
         _customTheme = null;
