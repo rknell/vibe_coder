@@ -207,6 +207,7 @@ class _AgentConfigurationScreenState extends State<AgentConfigurationScreen> {
 
         // Return to previous screen
         if (context.mounted) {
+          // ignore: use_build_context_synchronously
           Navigator.of(context).pop();
         }
       } else {
@@ -331,9 +332,11 @@ class _AgentConfigurationScreenState extends State<AgentConfigurationScreen> {
       );
 
       if (shouldDiscard == true && context.mounted) {
+        // ignore: use_build_context_synchronously
         Navigator.of(context).pop();
       }
     } else if (context.mounted) {
+      // ignore: use_build_context_synchronously
       Navigator.of(context).pop();
     }
   }

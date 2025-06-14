@@ -23,6 +23,8 @@ import 'package:vibe_coder/ai_agent/models/chat_completion_request.dart';
 import 'package:vibe_coder/services/services.dart';
 import 'mcp_function_bridge.dart';
 
+import 'package:vibe_coder/services/debug_logger.dart';
+
 /// Manages multi-round conversations with the DeepSeek Chat API.
 ///
 /// This class provides a way to maintain conversation history across
@@ -347,6 +349,15 @@ $content
           continue;
         }
 
+        // 🛡️ DEBUG LOGGING: Log tool call initiation
+        final stopwatch = Stopwatch()..start();
+        DebugLogger().logToolCall(
+          toolName: actualToolName,
+          serverName: serverName,
+          arguments: argsMap,
+          callId: toolCallId,
+        );
+
         // 📝 TOOL CALL TRACKING: Register tool call for proper ID management
         MCPFunctionBridge.registerToolCall(
           toolCallId: toolCallId,
@@ -362,6 +373,17 @@ $content
             toolName: actualToolName,
             arguments: argsMap,
           );
+          stopwatch.stop();
+
+          // 🛡️ DEBUG LOGGING: Log successful tool response
+          DebugLogger().logToolResponse(
+            toolName: actualToolName,
+            serverName: serverName,
+            isSuccess: true,
+            result: result.content.first.text,
+            callId: toolCallId,
+            duration: stopwatch.elapsed,
+          );
 
           // Add successful tool response with proper tool_call_id
           _addToolResponse(toolCallId, result.content.first.text);
@@ -369,7 +391,19 @@ $content
           // 🧹 CLEANUP: Complete tool call tracking
           MCPFunctionBridge.completeToolCall(toolCallId);
         } catch (e) {
+          stopwatch.stop();
           _logger.warning('MCP tool call failed: $functionName - $e');
+
+          // 🛡️ DEBUG LOGGING: Log failed tool response
+          DebugLogger().logToolResponse(
+            toolName: actualToolName,
+            serverName: serverName,
+            isSuccess: false,
+            error: e.toString(),
+            callId: toolCallId,
+            duration: stopwatch.elapsed,
+          );
+
           _addToolErrorResponse(
               toolCallId, 'Error: Tool "$functionName" failed: $e');
 
@@ -378,6 +412,17 @@ $content
         }
       } catch (e, stackTrace) {
         _logger.severe('Error processing tool call: $e', e, stackTrace);
+
+        // 🛡️ DEBUG LOGGING: Log critical tool processing error
+        DebugLogger().logSystemEvent(
+          'TOOL CALL PROCESSING ERROR',
+          'Critical error occurred while processing tool call',
+          details: {
+            'error': e.toString(),
+            'stackTrace': stackTrace.toString(),
+            'toolCall': toolCall,
+          },
+        );
       }
     }
 

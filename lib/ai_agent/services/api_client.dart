@@ -19,6 +19,7 @@ import 'package:vibe_coder/ai_agent/models/streaming_fim_completion_response.dar
 import 'package:vibe_coder/ai_agent/models/token_usage.dart';
 import 'package:vibe_coder/ai_agent/models/user_balance_response.dart';
 import 'package:vibe_coder/services/services.dart';
+import 'package:vibe_coder/services/debug_logger.dart';
 
 /// A client for interacting with the DeepSeek API.
 /// This is a stateless client that handles communication with the DeepSeek API.
@@ -43,6 +44,9 @@ class DeepSeekApiClient {
 
   /// Whether the client has been disposed
   bool _isDisposed = false;
+
+  /// 🛡️ DEBUG INTELLIGENCE: Comprehensive API communication logging
+  final DebugLogger _debugLogger = DebugLogger();
 
   /// Creates a new instance of [DeepSeekApiClient].
   ///
@@ -285,12 +289,43 @@ class DeepSeekApiClient {
       ChatCompletionRequest request,
       {bool useBeta = false}) async {
     final body = jsonEncode(request.toJson());
+    final stopwatch = Stopwatch()..start();
+    final requestId = _generateRequestId();
+    const endpoint = '/chat/completions';
+    final url = useBeta ? '$_betaBaseUrl$endpoint' : '$_baseUrl$endpoint';
+
+    // 🛡️ DEBUG LOGGING: Log API request
+    _debugLogger.logApiRequest(
+      method: 'POST',
+      url: url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $_apiKey',
+        if (useBeta) 'beta': 'true',
+      },
+      body: jsonDecode(body), // Convert back to Map for structured logging
+      requestId: requestId,
+    );
 
     try {
       final response = await _postRequest(
-        '/chat/completions',
+        endpoint,
         body: body,
         useBeta: useBeta,
+      );
+      stopwatch.stop();
+
+      // 🛡️ DEBUG LOGGING: Log successful API response
+      _debugLogger.logApiResponse(
+        method: 'POST',
+        url: url,
+        statusCode: response.statusCode,
+        headers: response.headers,
+        responseBody: response.body.length > 1000
+            ? '${response.body.substring(0, 1000)}...[truncated]'
+            : response.body,
+        requestId: requestId,
+        duration: stopwatch.elapsed,
       );
 
       try {
@@ -412,23 +447,58 @@ class DeepSeekApiClient {
       } catch (e) {
         // Handle JSON parsing errors specifically
         _logger.severe('Error processing API response: $e');
+
+        // 🛡️ DEBUG LOGGING: Log processing error
+        _debugLogger.logApiResponse(
+          method: 'POST',
+          url: url,
+          statusCode: response.statusCode,
+          headers: response.headers,
+          responseBody: response.body,
+          requestId: requestId,
+          duration: stopwatch.elapsed,
+          error: 'Failed to process API response: $e',
+        );
+
         throw DeepSeekApiException(
           message: 'Failed to process API response: $e',
-          requestId: 'unknown',
+          requestId: requestId,
           statusCode: 500,
           errorType: 'processing_error',
           requestData: null, // Don't include request data
         );
       }
     } catch (e) {
+      stopwatch.stop();
+
       if (e is DeepSeekApiException) {
+        // 🛡️ DEBUG LOGGING: Log API exception
+        _debugLogger.logApiResponse(
+          method: 'POST',
+          url: url,
+          statusCode: e.statusCode,
+          requestId: requestId,
+          duration: stopwatch.elapsed,
+          error: e.message,
+        );
         rethrow;
       } else {
         // Handle other errors
         _logger.severe('Error during chat completion: $e');
+
+        // 🛡️ DEBUG LOGGING: Log general error
+        _debugLogger.logApiResponse(
+          method: 'POST',
+          url: url,
+          statusCode: 500,
+          requestId: requestId,
+          duration: stopwatch.elapsed,
+          error: 'Error during chat completion: $e',
+        );
+
         throw DeepSeekApiException(
           message: 'Error during chat completion: $e',
-          requestId: 'unknown',
+          requestId: requestId,
           statusCode: 500,
           errorType: 'unknown_error',
           requestData: null, // Don't include request data
@@ -549,6 +619,24 @@ class DeepSeekApiClient {
       _logger.severe('Error disposing DeepSeekApiClient', e);
       rethrow;
     }
+  }
+
+  /// Generate unique request ID for tracking
+  ///
+  /// PERF: O(1) - timestamp-based ID generation
+  String _generateRequestId() {
+    return 'req_${DateTime.now().millisecondsSinceEpoch}_${_getRandomString(6)}';
+  }
+
+  /// Generate random string for request ID
+  ///
+  /// PERF: O(n) where n = length - acceptable for ID generation
+  String _getRandomString(int length) {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    return String.fromCharCodes(Iterable.generate(
+        length,
+        (index) => chars
+            .codeUnitAt((DateTime.now().microsecond + index) % chars.length)));
   }
 }
 

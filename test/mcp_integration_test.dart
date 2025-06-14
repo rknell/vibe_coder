@@ -1,6 +1,5 @@
 // ignore_for_file: avoid_print
 
-import 'dart:convert';
 import 'package:test/test.dart';
 import 'package:logging/logging.dart';
 import 'package:vibe_coder/ai_agent/services/mcp_manager.dart';
@@ -50,11 +49,12 @@ void main() {
         expect(tools.isNotEmpty, isTrue,
             reason: 'Filesystem server should provide tools');
 
-        final resources = await client.listResources();
-        final prompts = await client.listPrompts();
+        // Test resources and prompts availability (may be empty but should not error)
+        await client.listResources();
+        await client.listPrompts();
 
         await client.close();
-      } catch (e, stackTrace) {
+      } catch (e) {
         print('💥 FILESYSTEM TEST FAILED: $e');
         await client.close();
         rethrow;
@@ -81,11 +81,12 @@ void main() {
         expect(tools.isNotEmpty, isTrue,
             reason: 'Memory server should provide tools');
 
-        final resources = await client.listResources();
-        final prompts = await client.listPrompts();
+        // Test resources and prompts availability (may be empty but should not error)
+        await client.listResources();
+        await client.listPrompts();
 
         await client.close();
-      } catch (e, stackTrace) {
+      } catch (e) {
         print('💥 MEMORY TEST FAILED: $e');
         await client.close();
         rethrow;
@@ -101,8 +102,6 @@ void main() {
         await manager.initialize('mcp.json');
 
         final configuredServers = manager.configuredServers;
-        final connectedServers = manager.connectedServers;
-
         expect(configuredServers.isNotEmpty, isTrue,
             reason: 'Should have configured servers');
 
@@ -113,6 +112,7 @@ void main() {
         await manager.closeAll();
       } catch (e, stackTrace) {
         print('💥 CONFIGURATION TEST FAILED: $e');
+        print('STACK: $stackTrace');
         await manager.closeAll();
         rethrow;
       }
@@ -153,6 +153,7 @@ void main() {
         await manager.closeAll();
       } catch (e, stackTrace) {
         print('💥 STABILITY TEST FAILED: $e');
+        print('STACK: $stackTrace');
         await manager.closeAll();
         rethrow;
       }
@@ -180,20 +181,23 @@ void main() {
 
           // Try to call the tool (this might fail depending on the tool's requirements)
           try {
-            final result = await manager.callTool(
+            await manager.callTool(
               serverName: tool.serverName,
               toolName: tool.tool.name,
               arguments: {}, // Empty arguments for basic test
             );
             // Tool call succeeded - this is expected to fail for most tools without proper args
-          } catch (toolError) {
+          } catch (toolError, stackTrace) {
             // Expected for tools without proper arguments - this is normal
+            print('Tool call failed as expected: $toolError');
+            print('STACK: $stackTrace');
           }
         }
 
         await manager.closeAll();
       } catch (e, stackTrace) {
         print('💥 TOOL TEST FAILED: $e');
+        print('STACK: $stackTrace');
         await manager.closeAll();
         rethrow;
       }

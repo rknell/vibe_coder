@@ -39,6 +39,7 @@ void main() {
       Logger.root.level = Level.SEVERE;
       Logger.root.onRecord.listen((record) {
         if (record.level >= Level.SEVERE) {
+          // ignore: avoid_print
           print('${record.level.name}: ${record.message}');
         }
       });

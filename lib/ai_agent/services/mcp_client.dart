@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 import '../models/mcp_models.dart';
+import 'package:vibe_coder/services/debug_logger.dart';
 
 /// Transport type for MCP client
 enum MCPTransportType { http, stdio }
@@ -431,6 +432,20 @@ class MCPClient {
 
   /// Call tool via STDIO
   Future<MCPToolCallResult> _callToolStdio(MCPToolCallRequest request) async {
+    final stopwatch = Stopwatch()..start();
+
+    // 🛡️ DEBUG LOGGING: Log low-level MCP tool call
+    DebugLogger().logSystemEvent(
+      'MCP STDIO TOOL CALL',
+      'Calling tool ${request.name} via STDIO protocol',
+      details: {
+        'toolName': request.name,
+        'arguments': request.arguments,
+        'transportType': 'STDIO',
+        'serverInfo': 'MCP Client STDIO',
+      },
+    );
+
     final rpcRequest = JSONRPCRequest(
       id: _getNextRequestId(),
       method: 'tools/call',
@@ -440,13 +455,66 @@ class MCPClient {
       },
     );
 
-    final response = await _sendStdioRequest(rpcRequest);
+    try {
+      final response = await _sendStdioRequest(rpcRequest);
+      stopwatch.stop();
 
-    if (response.result != null) {
-      return MCPToolCallResult.fromJson(response.result!);
+      if (response.result != null) {
+        final result = MCPToolCallResult.fromJson(response.result!);
+
+        // 🛡️ DEBUG LOGGING: Log successful low-level MCP response
+        DebugLogger().logSystemEvent(
+          'MCP STDIO TOOL SUCCESS',
+          'Tool ${request.name} executed successfully via STDIO',
+          details: {
+            'toolName': request.name,
+            'executionTimeMs': stopwatch.elapsedMilliseconds,
+            'resultType':
+                result.content.isNotEmpty ? result.content.first.type : 'empty',
+            'resultLength': result.content.isNotEmpty
+                ? result.content.first.text.length
+                : 0,
+            'transportType': 'STDIO',
+          },
+        );
+
+        return result;
+      }
+
+      // Handle case where no result is returned
+      stopwatch.stop();
+
+      // 🛡️ DEBUG LOGGING: Log MCP no-result error
+      DebugLogger().logSystemEvent(
+        'MCP STDIO TOOL ERROR',
+        'Tool call failed: no result returned',
+        details: {
+          'toolName': request.name,
+          'executionTimeMs': stopwatch.elapsedMilliseconds,
+          'error': 'No result returned from MCP server',
+          'transportType': 'STDIO',
+        },
+      );
+
+      throw MCPException('Tool call failed: no result returned');
+    } catch (e) {
+      stopwatch.stop();
+
+      // 🛡️ DEBUG LOGGING: Log MCP exception
+      DebugLogger().logSystemEvent(
+        'MCP STDIO TOOL EXCEPTION',
+        'Tool call threw exception: ${e.toString()}',
+        details: {
+          'toolName': request.name,
+          'executionTimeMs': stopwatch.elapsedMilliseconds,
+          'error': e.toString(),
+          'transportType': 'STDIO',
+          'arguments': request.arguments,
+        },
+      );
+
+      rethrow;
     }
-
-    throw MCPException('Tool call failed: no result returned');
   }
 
   /// Read a resource
