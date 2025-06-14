@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 ///
 /// ## MISSION ACCOMPLISHED
 /// Eliminates _buildInputField functional widget builder by creating reusable input component.
-/// Provides expandable text input, Shift+Enter send functionality, and proper focus management.
+/// Provides expandable text input, Ctrl+Enter send functionality, and proper focus management.
 ///
 /// ## STRATEGIC DECISIONS
 /// | Option | Power-Ups | Weaknesses | Victory Reason |
@@ -13,6 +13,8 @@ import 'package:flutter/services.dart';
 /// | Functional Builder | Simple | Not reusable | Rejected - violates architecture |
 /// | StatefulWidget | Full state management | More complex | CHOSEN - required for input state |
 /// | TextFormField | Validation built-in | Overkill | Simple TextField sufficient |
+/// | Shift+Enter | Common pattern | Less professional | Rejected - Ctrl+Enter superior |
+/// | Ctrl+Enter | Professional standard | Slightly complex | CHOSEN - industry standard |
 ///
 /// ## PERFORMANCE PROFILE
 /// - Time Complexity: O(1) - keyboard event handling and text operations
@@ -29,6 +31,11 @@ import 'package:flutter/services.dart';
 ///    - 🔍 Symptom: Complex keyboard handling scattered in parent logic
 ///    - 🎯 Root Cause: Multiple responsibilities in single widget
 ///    - 💥 Kill Shot: Encapsulated keyboard logic in dedicated component
+///
+/// 3. **Shift+Enter Unprofessional Pattern**
+///    - 🔍 Symptom: Shift+Enter shortcut not matching industry standards
+///    - 🎯 Root Cause: User experience inconsistency with professional tools
+///    - 💥 Kill Shot: Upgraded to Ctrl+Enter for professional coding environment
 class ChatInputFieldComponent extends StatefulWidget {
   /// Creates a chat input field with required dependencies
   ///
@@ -108,22 +115,28 @@ class _ChatInputFieldComponentState extends State<ChatInputFieldComponent> {
     }
   }
 
-  /// Keyboard event handler for Shift+Enter functionality
+  /// Keyboard event handler for Ctrl+Enter functionality
   ///
   /// PERF: Event handling complexity O(1) - direct key comparison
-  /// Checks multiple shift key variants for cross-platform compatibility
-  /// Prevents Enter propagation when Shift is pressed
+  /// Checks multiple control key variants for cross-platform compatibility
+  /// Prevents Enter propagation when Ctrl is pressed
   bool _handleKeyEvent(KeyEvent event) {
-    // Handle Shift+Enter to send message - check both KeyDown and KeyRepeat
+    // Handle Ctrl+Enter to send message - check both KeyDown and KeyRepeat
     if (event is KeyDownEvent || event is KeyRepeatEvent) {
-      final isShiftPressed = HardwareKeyboard.instance.logicalKeysPressed
-              .contains(LogicalKeyboardKey.shift) ||
+      final isCtrlPressed = HardwareKeyboard.instance.logicalKeysPressed
+              .contains(LogicalKeyboardKey.control) ||
           HardwareKeyboard.instance.logicalKeysPressed
-              .contains(LogicalKeyboardKey.shiftLeft) ||
+              .contains(LogicalKeyboardKey.controlLeft) ||
           HardwareKeyboard.instance.logicalKeysPressed
-              .contains(LogicalKeyboardKey.shiftRight);
+              .contains(LogicalKeyboardKey.controlRight) ||
+          HardwareKeyboard.instance.logicalKeysPressed
+              .contains(LogicalKeyboardKey.meta) ||
+          HardwareKeyboard.instance.logicalKeysPressed
+              .contains(LogicalKeyboardKey.metaLeft) ||
+          HardwareKeyboard.instance.logicalKeysPressed
+              .contains(LogicalKeyboardKey.metaRight);
 
-      if (isShiftPressed && event.logicalKey == LogicalKeyboardKey.enter) {
+      if (isCtrlPressed && event.logicalKey == LogicalKeyboardKey.enter) {
         // Prevent any Enter key processing by TextField
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _handleSendMessage();
@@ -159,7 +172,7 @@ class _ChatInputFieldComponentState extends State<ChatInputFieldComponent> {
                 enabled: widget.enabled,
                 decoration: InputDecoration(
                   hintText: widget.inputPlaceholder,
-                  helperText: 'Shift+Enter to send',
+                  helperText: 'Ctrl+Enter to send',
                   helperStyle: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: Theme.of(context)
                             .colorScheme
@@ -215,7 +228,7 @@ class _ChatInputFieldComponentState extends State<ChatInputFieldComponent> {
                 ? _handleSendMessage
                 : null,
             icon: const Icon(Icons.send),
-            tooltip: 'Send message (Shift+Enter)',
+            tooltip: 'Send message (Ctrl+Enter)',
             style: IconButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Theme.of(context).colorScheme.onPrimary,

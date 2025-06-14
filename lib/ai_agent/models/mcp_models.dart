@@ -5,15 +5,15 @@ part 'mcp_models.g.dart';
 /// MCP Server Configuration
 @JsonSerializable()
 class MCPServerConfig {
-  final String command;
-  final List<String> args;
+  final String? command;
+  final List<String>? args;
   final Map<String, String>? env;
   final String? type;
   final String? url;
 
   MCPServerConfig({
-    required this.command,
-    required this.args,
+    this.command,
+    this.args,
     this.env,
     this.type,
     this.url,

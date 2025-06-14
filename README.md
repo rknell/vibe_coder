@@ -98,7 +98,7 @@ flutter test --coverage
 - **`MessagingUI`**: Chat interface component
   - Auto-scroll and focus management
   - Expandable input (1-10 lines)
-  - Shift+Enter to send
+  - Ctrl+Enter to send
 
 ### **Configuration**
 

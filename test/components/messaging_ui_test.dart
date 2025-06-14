@@ -441,7 +441,7 @@ void main() {
       ));
 
       expect(find.byType(MessagingUI), findsOneWidget);
-      expect(find.text('Shift+Enter to send'), findsOneWidget);
+      expect(find.text('Ctrl+Enter to send'), findsOneWidget);
       expect(find.byType(TextField), findsOneWidget);
     });
 
@@ -456,9 +456,9 @@ void main() {
         ),
       ));
 
-      expect(find.text('Shift+Enter to send'), findsOneWidget);
+      expect(find.text('Ctrl+Enter to send'), findsOneWidget);
 
-      final tooltip = find.byTooltip('Send message (Shift+Enter)');
+      final tooltip = find.byTooltip('Send message (Ctrl+Enter)');
       expect(tooltip, findsOneWidget);
     });
 
@@ -480,7 +480,7 @@ void main() {
       expect(textField.textInputAction, equals(TextInputAction.newline));
     });
 
-    testWidgets('sends message on Shift+Enter key combination',
+    testWidgets('sends message on Ctrl+Enter key combination',
         (WidgetTester tester) async {
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(
@@ -495,11 +495,11 @@ void main() {
       await tester.enterText(find.byType(TextField), 'Test multiline message');
       await tester.pump();
 
-      // Simulate Shift+Enter
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+      // Simulate Ctrl+Enter
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.control);
       await tester.sendKeyDownEvent(LogicalKeyboardKey.enter);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.enter);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.control);
       await tester.pump();
 
       expect(sentMessages, contains('Test multiline message'));

@@ -8,8 +8,8 @@ part of 'mcp_models.dart';
 
 MCPServerConfig _$MCPServerConfigFromJson(Map<String, dynamic> json) =>
     MCPServerConfig(
-      command: json['command'] as String,
-      args: (json['args'] as List<dynamic>).map((e) => e as String).toList(),
+      command: json['command'] as String?,
+      args: (json['args'] as List<dynamic>?)?.map((e) => e as String).toList(),
       env: (json['env'] as Map<String, dynamic>?)?.map(
         (k, e) => MapEntry(k, e as String),
       ),

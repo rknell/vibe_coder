@@ -33,7 +33,8 @@ class MCPManager {
 
       // Initialize all configured servers
       for (final serverName in _serverConfigs.keys) {
-        await _initializeServer(serverName);
+        _logger.info('🔌 CONNECTING: Attempting to connect to $serverName...');
+        await _connectToServer(serverName);
       }
     } catch (e) {
       _logger.severe('Failed to load MCP configuration: $e');
@@ -41,58 +42,144 @@ class MCPManager {
     }
   }
 
-  /// Initialize a specific MCP server
-  Future<void> _initializeServer(String serverName) async {
+  /// Initialize MCP servers from configuration
+  Future<void> initialize(String configPath) async {
+    _logger.info('🚀 MCP MANAGER: Starting initialization...');
+
     try {
-      final serverConfig = _serverConfigs[serverName];
-      if (serverConfig == null) {
-        throw MCPException('Server configuration not found: $serverName');
-      }
+      await loadConfiguration(configPath);
+      _logger.info(
+          '📋 CONFIG LOADED: ${_serverConfigs.length} servers configured');
 
-      // For HTTP/SSE servers, use the URL directly
-      if (serverConfig.type == 'sse' || serverConfig.url != null) {
-        final client = MCPClient(serverUrl: serverConfig.url!);
-        await client.initialize();
-        _clients[serverName] = client;
-
-        // Load capabilities
-        await _loadServerCapabilities(serverName);
-
-        _logger
-            .info('Initialized MCP server: $serverName (${serverConfig.url})');
-        return;
-      }
-
-      // For stdio servers, we would need to handle process communication
-      // This is more complex and would require additional infrastructure
-      _logger.warning('STDIO MCP servers not yet implemented: $serverName');
-    } catch (e) {
-      _logger.severe('Failed to initialize MCP server $serverName: $e');
+      _logger.info('✅ MCP MANAGER: Initialization completed successfully');
+    } catch (e, stackTrace) {
+      _logger.severe('💥 MCP MANAGER FAILURE: $e', e, stackTrace);
+      rethrow;
     }
   }
 
-  /// Load capabilities from a server
-  Future<void> _loadServerCapabilities(String serverName) async {
-    final client = _clients[serverName];
-    if (client == null) return;
+  /// Connect to a specific server
+  Future<void> _connectToServer(String serverName) async {
+    final config = _serverConfigs[serverName];
+    if (config == null) {
+      _logger.warning(
+          '⚠️ CONFIG MISSING: No configuration for server $serverName');
+      return;
+    }
 
     try {
-      // Load tools
+      _logger.info(
+          '🔧 SERVER CONFIG: $serverName - Type: ${config.type ?? (config.command != null ? 'stdio' : 'unknown')}');
+
+      MCPClient client;
+
+      if (config.type == 'sse' || config.url != null) {
+        _logger
+            .info('🌐 HTTP CLIENT: Creating HTTP/SSE client for $serverName');
+        client = MCPClient(serverUrl: config.url!);
+      } else if (config.command != null) {
+        _logger.info('📟 STDIO CLIENT: Creating STDIO client for $serverName');
+        _logger.info(
+            '📟 STDIO COMMAND: ${config.command} ${config.args?.join(' ') ?? ''}');
+        _logger.info(
+            '📟 STDIO ENV: ${config.env?.keys.join(', ') ?? 'No custom env'}');
+
+        client = MCPClient.stdio(
+          command: config.command!,
+          args: config.args,
+          env: config.env,
+        );
+      } else {
+        _logger.severe(
+            '💀 INVALID CONFIG: Server $serverName has no valid transport configuration');
+        return;
+      }
+
+      _logger.info(
+          '🤝 INITIALIZING: Starting client initialization for $serverName...');
+      await client.initialize();
+      _logger
+          .info('✅ CLIENT READY: $serverName client initialized successfully');
+
+      _clients[serverName] = client;
+      _logger.info('🔗 CLIENT STORED: $serverName added to active clients');
+
+      // Load server capabilities
+      _logger.info('🔍 CAPABILITIES: Loading capabilities for $serverName...');
+      await _loadServerCapabilities(serverName);
+      _logger.info(
+          '✅ CAPABILITIES LOADED: $serverName capabilities loaded successfully');
+    } catch (e, stackTrace) {
+      _logger.severe(
+          '💥 CONNECTION FAILED: Server $serverName failed to connect: $e',
+          e,
+          stackTrace);
+      // Don't rethrow - continue with other servers
+    }
+  }
+
+  /// Load capabilities for a specific server
+  /// Tools are required, resources and prompts are optional
+  Future<void> _loadServerCapabilities(String serverName) async {
+    final client = _clients[serverName];
+    if (client == null) {
+      _logger.warning(
+          '⚠️ NO CLIENT: Cannot load capabilities for disconnected server $serverName');
+      return;
+    }
+
+    try {
+      // Load tools (REQUIRED) - if this fails, server is considered broken
+      _logger.info('🛠️ LOADING TOOLS: Fetching tools for $serverName...');
       final tools = await client.listTools();
       _availableTools[serverName] = tools;
-      _logger.fine('Loaded ${tools.length} tools from $serverName');
+      _logger.info('✅ TOOLS LOADED: $serverName has ${tools.length} tools');
 
-      // Load resources
-      final resources = await client.listResources();
-      _availableResources[serverName] = resources;
-      _logger.fine('Loaded ${resources.length} resources from $serverName');
+      for (int i = 0; i < tools.length; i++) {
+        _logger.info(
+            '🔧 TOOL[$i]: ${tools[i].name} - ${tools[i].description ?? 'No description'}');
+      }
 
-      // Load prompts
-      final prompts = await client.listPrompts();
-      _availablePrompts[serverName] = prompts;
-      _logger.fine('Loaded ${prompts.length} prompts from $serverName');
-    } catch (e) {
-      _logger.warning('Failed to load capabilities from $serverName: $e');
+      // Load resources (OPTIONAL) - graceful degradation if unsupported
+      _logger
+          .info('📚 LOADING RESOURCES: Fetching resources for $serverName...');
+      try {
+        final resources = await client.listResources();
+        _availableResources[serverName] = resources;
+        _logger.info(
+            '✅ RESOURCES LOADED: $serverName has ${resources.length} resources');
+      } catch (e) {
+        _logger.info(
+            'ℹ️ RESOURCES OPTIONAL: $serverName does not support resources');
+        _availableResources[serverName] =
+            []; // Empty list for unsupported capability
+      }
+
+      // Load prompts (OPTIONAL) - graceful degradation if unsupported
+      _logger.info('📝 LOADING PROMPTS: Fetching prompts for $serverName...');
+      try {
+        final prompts = await client.listPrompts();
+        _availablePrompts[serverName] = prompts;
+        _logger.info(
+            '✅ PROMPTS LOADED: $serverName has ${prompts.length} prompts');
+      } catch (e) {
+        _logger
+            .info('ℹ️ PROMPTS OPTIONAL: $serverName does not support prompts');
+        _availablePrompts[serverName] =
+            []; // Empty list for unsupported capability
+      }
+
+      _logger.info(
+          '✅ CAPABILITIES LOADED: $serverName capabilities loaded successfully');
+    } catch (e, stackTrace) {
+      _logger.severe(
+          '💥 CAPABILITIES FAILED: Failed to load required capabilities for $serverName: $e',
+          e,
+          stackTrace);
+      // Remove client only if REQUIRED capabilities (tools) fail
+      _clients.remove(serverName);
+      _logger.warning(
+          '🗑️ CLIENT REMOVED: $serverName removed due to required capability loading failure');
     }
   }
 
@@ -241,6 +328,58 @@ class MCPManager {
 
   /// Check if a server is connected
   bool isServerConnected(String serverName) => _clients.containsKey(serverName);
+
+  /// Get all configured server names (both connected and disconnected)
+  List<String> get configuredServers => _serverConfigs.keys.toList();
+
+  /// Get server configuration
+  MCPServerConfig? getServerConfig(String serverName) =>
+      _serverConfigs[serverName];
+
+  /// Get server status information
+  Map<String, dynamic> getServerStatus(String serverName) {
+    final config = _serverConfigs[serverName];
+    final isConnected = _clients.containsKey(serverName);
+    final tools = _availableTools[serverName] ?? [];
+    final resources = _availableResources[serverName] ?? [];
+    final prompts = _availablePrompts[serverName] ?? [];
+
+    return {
+      'name': serverName,
+      'status': isConnected ? 'connected' : 'disconnected',
+      'type': config?.type ?? (config?.command != null ? 'stdio' : 'unknown'),
+      'url': config?.url,
+      'command': config?.command,
+      'args': config?.args,
+      'toolCount': tools.length,
+      'resourceCount': resources.length,
+      'promptCount': prompts.length,
+      'tools': tools
+          .map((tool) => {
+                'name': tool.name,
+                'description': tool.description ?? 'No description',
+                'uniqueId': '$serverName:${tool.name}',
+              })
+          .toList(),
+      'supported': (config?.type == 'sse' || config?.url != null) ||
+          (config?.command != null),
+      'reason': _getDisconnectionReason(serverName, config),
+    };
+  }
+
+  /// Get the reason why a server is disconnected
+  String? _getDisconnectionReason(String serverName, MCPServerConfig? config) {
+    if (config == null) return 'Configuration not found';
+    if (_clients.containsKey(serverName)) return null; // Connected
+
+    if (config.type == 'sse' || config.url != null) {
+      return 'HTTP/SSE server not reachable or connection failed';
+    } else if (config.command != null) {
+      return 'STDIO process failed to start or crashed';
+    }
+
+    return 'Invalid server configuration';
+  }
 }
 
 /// Tool with server context

@@ -59,34 +59,53 @@ class Agent {
     // Initialize MCP Manager
     mcpManager = MCPManager();
 
-    // Load MCP configuration if provided
-    _initializeMCP();
-
     // Add system prompt and the inbox processing prompt
     final systemPromptAnnotated =
         "YOU ARE $name. \nRole play in the conversation as this person.\n$systemPrompt";
     conversation.addSystemMessage(systemPromptAnnotated);
+
+    logger.info(
+        'Agent constructor completed - MCP initialization will be done async');
   }
 
-  /// Initialize MCP configuration
-  Future<void> _initializeMCP() async {
+  /// Initialize MCP configuration - must be called after Agent construction
+  ///
+  /// PERF: O(n) where n = number of configured servers
+  /// ARCHITECTURAL: Separated from constructor to allow proper async handling
+  Future<void> initializeMCP() async {
     try {
       if (mcpConfigPath != null) {
-        await mcpManager.loadConfiguration(mcpConfigPath!);
-        logger.info('MCP configuration loaded from: $mcpConfigPath');
+        logger.info('🚀 AGENT MCP INIT: Starting with config: $mcpConfigPath');
+        await mcpManager.initialize(mcpConfigPath!);
+        logger.info('📋 MCP CONFIG: Configuration loaded from: $mcpConfigPath');
         logger.info(
-            'Connected to ${mcpManager.connectedServers.length} MCP servers');
+            '🔗 CONNECTED: ${mcpManager.connectedServers.length} MCP servers connected');
+        logger
+            .info('⚙️ CONFIGURED: ${mcpManager.configuredServers.join(', ')}');
 
         // Log available tools
         final allTools = mcpManager.getAllTools();
         logger.info(
-            'Available MCP tools: ${allTools.map((t) => t.uniqueId).join(', ')}');
+            '🛠️ TOOLS AVAILABLE: ${allTools.map((t) => t.uniqueId).join(', ')}');
+
+        if (allTools.isEmpty) {
+          logger.warning(
+              '⚠️ NO TOOLS: No MCP tools are available despite server connections');
+        }
       } else {
-        logger.info('No MCP configuration path provided');
+        logger.info('⚠️ NO CONFIG: No MCP configuration path provided');
       }
-    } catch (e) {
-      logger.severe('Failed to initialize MCP: $e');
+    } catch (e, stackTrace) {
+      logger.severe(
+          '💥 AGENT MCP FAILURE: Failed to initialize MCP: $e', e, stackTrace);
+      rethrow; // Re-throw to allow caller to handle
     }
+  }
+
+  /// Initialize MCP configuration (deprecated - use initializeMCP instead)
+  @Deprecated('Use initializeMCP() instead for proper async handling')
+  Future<void> _initializeMCP() async {
+    await initializeMCP();
   }
 
   /// Get all available MCP tools
@@ -412,10 +431,15 @@ Available tools: ${mcpManager.getAllTools().map((t) => t.uniqueId).join(", ")}
     logger.fine('Conversation history dumped to ${logFile.path}');
   }
 
-  /// Cleanup method to close MCP connections
+  /// Cleanup agent resources
+  ///
+  /// PERF: O(1) - resource cleanup
   Future<void> dispose() async {
-    logger.info('Disposing agent $name');
+    logger.info('Disposing Agent: $name');
+
+    // Close MCP connections
     await mcpManager.closeAll();
-    logger.info('Agent $name disposed');
+
+    logger.info('Agent disposed: $name');
   }
 }

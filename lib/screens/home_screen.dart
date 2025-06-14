@@ -305,7 +305,7 @@ What would you like to work on today?''',
   ///
   /// PERF: O(1) - direct delegation to component
   void _showToolsInfo() {
-    final tools = _chatService.getAvailableTools();
-    ToolsInfoDialog.show(context, tools);
+    final mcpInfo = _chatService.getMCPServerInfo();
+    ToolsInfoDialog.show(context, mcpInfo);
   }
 }

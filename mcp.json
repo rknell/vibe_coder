@@ -1,36 +1,47 @@
 {
     "mcpServers": {
         "filesystem": {
-            "command": "npx",
+            "command": "/home/rknell/Applications/nvm/versions/node/v23.5.0/bin/npx",
             "args": [
                 "@modelcontextprotocol/server-filesystem",
-                "/path/to/allowed/directory"
+                "/home/rknell/Projects/vibe_coder"
             ],
             "env": {
-                "DEBUG": "true"
+                "DEBUG": "false",
+                "NODE_PATH": "/home/rknell/Applications/nvm/versions/node/v23.5.0/bin",
+                "PATH": "/home/rknell/Applications/nvm/versions/node/v23.5.0/bin:/usr/local/bin:/usr/bin:/bin"
+            }
+        },
+        "memory": {
+            "command": "/home/rknell/Applications/nvm/versions/node/v23.5.0/bin/npx",
+            "args": [
+                "@modelcontextprotocol/server-memory"
+            ],
+            "env": {
+                "DEBUG": "false",
+                "NODE_PATH": "/home/rknell/Applications/nvm/versions/node/v23.5.0/bin",
+                "PATH": "/home/rknell/Applications/nvm/versions/node/v23.5.0/bin:/usr/local/bin:/usr/bin:/bin"
             }
         },
         "web-search": {
             "type": "sse",
-            "url": "http://localhost:3000/sse",
+            "url": "http://localhost:3001/mcp/sse",
             "env": {
-                "API_KEY": "your-search-api-key"
+                "API_KEY": "demo-key"
             }
         },
         "github": {
-            "command": "node",
-            "args": [
-                "path/to/github-mcp-server.js"
-            ],
+            "type": "sse",
+            "url": "https://api.github.com/mcp/sse",
             "env": {
                 "GITHUB_TOKEN": "your-github-token"
             }
         },
-        "database": {
+        "example-tools": {
             "type": "sse",
-            "url": "https://api.example.com/mcp",
+            "url": "http://localhost:8080/mcp",
             "env": {
-                "DB_CONNECTION_STRING": "your-database-connection"
+                "API_KEY": "demo-key"
             }
         }
     }

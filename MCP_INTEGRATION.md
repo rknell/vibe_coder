@@ -1,281 +1,131 @@
-# Model Context Protocol (MCP) Integration
+# MCP Integration - Model Context Protocol
 
-This project has been updated to use the **Model Context Protocol (MCP)** for tool interactions, replacing the previous broken tools implementation.
+## 🎯 MISSION ACCOMPLISHED
+VibeCoder now features **comprehensive MCP server integration** with full UI visibility and status monitoring. Users can see all configured MCP servers, their connection status, available tools, and diagnostic information.
 
-## ⚔️ CONQUEST REPORT: MCP INTEGRATION
-
-### 🏆 MISSION ACCOMPLISHED
-Eliminated the broken tools system and replaced it with industry-standard MCP protocol integration, providing scalable tool access across multiple servers.
-
-### ⚔️ STRATEGIC DECISIONS
-
+## ⚡ STRATEGIC DECISIONS
 | Option | Power-Ups | Weaknesses | Victory Reason |
 |--------|-----------|------------|----------------|
-| Fix existing tools | Simple, no API changes | Limited, fragile, non-standard | Rejected - technical debt |
-| Custom tool protocol | Full control, tailored | Maintenance burden, compatibility | Rejected - reinventing wheel |
-| **MCP Integration** | Industry standard, extensible, future-proof | Learning curve, external deps | **CHOSEN - Standards compliance** |
+| Hidden MCP Backend | Simple UI | No debugging visibility | Rejected - user confusion |
+| Basic Tool List | Easy implementation | No server context | Rejected - insufficient intel |
+| **Rich Server Dashboard** | **Full visibility + debugging** | **UI complexity** | **CHOSEN - maximum battlefield awareness** |
 
-### 💀 BOSS FIGHTS DEFEATED
+## 💥 KEY FEATURES
 
-1. **Undefined ToolType/ToolFactory**
-   - 🔍 Symptom: Compilation errors, missing types
-   - 🎯 Root Cause: Incomplete tool system implementation
-   - 💥 Kill Shot: Complete MCP integration with proper models
+### 🏗️ MCP Server Configuration (`mcp.json`)
+- **Multiple Server Types**: STDIO (filesystem, memory) + SSE (web services)
+- **Environment Variables**: Secure API key and token management
+- **Hot Reload**: Configuration changes applied automatically
+- **Flexible Paths**: Support for local tools and remote services
 
-2. **Broken Tool Architecture**
-   - 🔍 Symptom: BaseTool abstract class with no implementations
-   - 🎯 Root Cause: Abandoned tool development
-   - 💥 Kill Shot: MCP client-server architecture
+### 🎮 UI Integration
+- **Server Status Dashboard**: View all configured MCP servers
+- **Connection Monitoring**: Real-time connection status indicators
+- **Tool Discovery**: Automatic detection of available tools per server
+- **Diagnostic Information**: Error messages and connection failure reasons
+- **Rich Tool Display**: Tool names, descriptions, and server contexts
 
-3. **No Tool Discovery Mechanism**
-   - 🔍 Symptom: No way to load external tools
-   - 🎯 Root Cause: Missing configuration system
-   - 💥 Kill Shot: JSON-based MCP server configuration
+### 🚀 Supported Server Types
 
-## What is MCP?
-
-Model Context Protocol (MCP) is an open protocol that standardizes how applications provide context to LLMs. It acts like a "USB-C port for AI applications" - a standardized way to connect AI models to different data sources and tools.
-
-## Architecture
-
-### Core Components
-
-- **MCPClient**: JSON-RPC 2.0 client for communicating with MCP servers
-- **MCPManager**: Manages multiple MCP clients and configurations
-- **Agent**: Updated to use MCP instead of broken tools system
-
-### MCP Features Supported
-
-- ✅ **Tools**: Execute functions via MCP servers
-- ✅ **Resources**: Access data and content
-- ✅ **Prompts**: Use templated messages and workflows
-- ✅ **JSON-RPC 2.0**: Standard protocol communication
-- ✅ **Multiple Servers**: Connect to multiple MCP servers simultaneously
-- ✅ **HTTP/SSE Transport**: Support for web-based MCP servers
-- ⚠️ **STDIO Transport**: Not yet implemented (requires process management)
-
-## Configuration
-
-### MCP Configuration File (`mcp.json`)
-
-Create a `mcp.json` file in your project root:
-
+#### STDIO Servers
 ```json
 {
-  "mcpServers": {
-    "filesystem": {
-      "command": "npx",
-      "args": ["@modelcontextprotocol/server-filesystem", "/path/to/directory"],
-      "env": {
-        "DEBUG": "true"
-      }
-    },
-    "web-search": {
-      "type": "sse",
-      "url": "http://localhost:3000/sse",
-      "env": {
-        "API_KEY": "your-api-key"
-      }
-    }
+  "filesystem": {
+    "command": "npx",
+    "args": ["@modelcontextprotocol/server-filesystem", "/project/path"],
+    "env": {"DEBUG": "false"}
   }
 }
 ```
 
-### Server Types
-
-1. **STDIO Servers** (not yet implemented):
-   ```json
-   {
-     "command": "node",
-     "args": ["server.js"],
-     "env": {"KEY": "value"}
-   }
-   ```
-
-2. **HTTP/SSE Servers**:
-   ```json
-   {
-     "type": "sse",
-     "url": "http://localhost:3000/sse",
-     "env": {"API_KEY": "value"}
-   }
-   ```
-
-## Usage
-
-### Creating an Agent with MCP
-
-```dart
-final agent = Agent(
-  systemPrompt: "You are a helpful assistant",
-  name: "MyAgent",
-  mcpConfigPath: "mcp.json",  // Path to MCP configuration
-);
-
-// MCP will be automatically initialized
-```
-
-### Using MCP Tools
-
-```dart
-// Get available tools
-final tools = agent.getAvailableTools();
-print('Available tools: ${tools.map((t) => t.uniqueId).join(', ')}');
-
-// Call a tool
-final result = await agent.callMCPTool(
-  toolName: "read_file",
-  arguments: {"path": "/path/to/file.txt"},
-);
-
-print('Tool result: ${result.content.first.text}');
-```
-
-### Using MCP Resources
-
-```dart
-// Get available resources
-final resources = await agent.getAvailableResources();
-
-// Access a resource (handled by MCPManager)
-final content = await agent.mcpManager.getResource(
-  serverName: "filesystem",
-  uri: "file:///path/to/document.md",
-);
-```
-
-## Available MCP Servers
-
-Popular MCP servers you can use:
-
-- **@modelcontextprotocol/server-filesystem**: File system operations
-- **@modelcontextprotocol/server-github**: GitHub API integration
-- **@modelcontextprotocol/server-sqlite**: SQLite database operations
-- **@modelcontextprotocol/server-postgres**: PostgreSQL operations
-- **Custom servers**: Build your own using MCP SDKs
-
-## Security Considerations
-
-⚠️ **SECURITY FORTRESS PROTOCOLS**:
-
-- **Environment Variables**: All secrets must be in env vars, never hardcoded
-- **Validation**: All MCP server responses are validated
-- **Error Handling**: Proper error boundaries prevent system crashes
-- **Authentication**: MCP servers can implement their own auth
-
-## Error Handling
-
-The system includes comprehensive error handling:
-
-```dart
-try {
-  final result = await agent.callMCPTool(
-    toolName: "risky_operation",
-    arguments: {"data": "test"},
-  );
-} on MCPException catch (e) {
-  // Handle MCP-specific errors
-  logger.severe('MCP Error: ${e.message}');
-} catch (e) {
-  // Handle general errors
-  logger.severe('General Error: $e');
+#### SSE Servers  
+```json
+{
+  "web-search": {
+    "type": "sse",
+    "url": "http://localhost:3001/mcp/sse",
+    "env": {"API_KEY": "demo-key"}
+  }
 }
 ```
 
-## Migration from Old Tools
+## 🔧 ACCESSING MCP INFORMATION
 
-### Before (Broken)
-```dart
-// ❌ This was broken
-final tools = [ToolType.filesystem, ToolType.web];
-final agent = Agent(
-  systemPrompt: "...",
-  name: "agent",
-  tools: tools,  // ToolType undefined!
-);
+### In HomeScreen
+1. Click the **Info** button (ℹ️) in the app bar
+2. View the **MCP Servers & Tools** dialog
+3. See server connection status and available tools
+4. Expand server cards for detailed tool information
+
+### Server Status Indicators
+- 🟢 **Connected**: Server online with tools loaded
+- 🔴 **Disconnected**: Server offline or connection failed  
+- 🟠 **Not Supported**: STDIO servers (implementation pending)
+
+## 💀 BOSS FIGHTS DEFEATED
+
+### 1. **Information Blackout**
+- **🔍 Symptom**: "No tools available" with zero context
+- **🎯 Root Cause**: MCP servers hidden from user interface  
+- **💥 Kill Shot**: Comprehensive server status dashboard
+
+### 2. **MCP Debugging Nightmare**
+- **🔍 Symptom**: Cannot diagnose MCP connection failures
+- **🎯 Root Cause**: No visibility into server states and errors
+- **💥 Kill Shot**: Connection status + failure reason display
+
+### 3. **Tool Discovery Mystery**
+- **🔍 Symptom**: Users unaware of available AI capabilities
+- **🎯 Root Cause**: Hidden tool inventory from MCP servers
+- **💥 Kill Shot**: Rich tool discovery with descriptions
+
+## 🛡️ TECHNICAL ARCHITECTURE
+
+### Core Components
+- **MCPManager**: Server lifecycle and capability management
+- **MCPClient**: JSON-RPC 2.0 communication with MCP servers
+- **ChatService**: Integration bridge to Agent system
+- **ToolsInfoDialog**: Rich UI for server and tool display
+
+### Data Flow
+```
+mcp.json → MCPManager → Agent → ChatService → HomeScreen → ToolsInfoDialog
 ```
 
-### After (MCP)
-```dart
-// ✅ Now working with MCP
-final agent = Agent(
-  systemPrompt: "...",
-  name: "agent",
-  mcpConfigPath: "mcp.json",  // Load from config
-);
-```
+### Performance Profile
+- **Server Discovery**: O(n) where n = configured servers
+- **Tool Loading**: O(n*m) where n = servers, m = tools per server  
+- **UI Rendering**: O(n*m) for server+tool display matrix
+- **Memory Usage**: Minimal - JSON configs + tool metadata only
 
-## Development Setup
+## 🚀 CONFIGURATION EXAMPLES
 
-1. **Install Dependencies**:
-   ```bash
-   flutter pub get
-   flutter packages pub run build_runner build
-   ```
+### Current Configuration
+The app is configured with 5 example servers:
+- **filesystem**: Local file operations (STDIO)
+- **memory**: Persistent memory storage (STDIO)  
+- **web-search**: Web search capabilities (SSE - demo URL)
+- **github**: GitHub API integration (SSE - placeholder)
+- **example-tools**: Demo tool server (SSE - local)
 
-2. **Create MCP Config**:
-   ```bash
-   cp mcp.json.example mcp.json
-   # Edit mcp.json with your server configurations
-   ```
+### Adding New Servers
+1. Edit `mcp.json` in project root
+2. Add server configuration with appropriate type
+3. Restart app or hot reload to apply changes
+4. Check connection status in MCP dialog
 
-3. **Test MCP Integration**:
-   ```dart
-   final agent = Agent(
-     systemPrompt: "Test assistant",
-     name: "TestAgent", 
-     mcpConfigPath: "mcp.json",
-   );
-   
-   // Check if servers connected
-   print('Connected servers: ${agent.mcpManager.connectedServers}');
-   ```
+## ⚠️ CURRENT LIMITATIONS
+- **STDIO Support**: Not yet implemented (shows as "Not supported")
+- **Server URLs**: Demo URLs - replace with actual service endpoints
+- **Authentication**: Basic env var support - extend for complex auth
 
-## Troubleshooting
-
-### Common Issues
-
-1. **"MCP configuration file not found"**
-   - Ensure `mcp.json` exists in project root
-   - Check file path in Agent constructor
-
-2. **"Server not found or not initialized"**
-   - Check server configuration in `mcp.json`
-   - Verify server is running (for HTTP/SSE servers)
-   - Check logs for initialization errors
-
-3. **"Tool not found"**
-   - Verify tool exists: `agent.getAvailableTools()`
-   - Check server connection: `agent.mcpManager.connectedServers`
-   - Refresh capabilities: `agent.mcpManager.refreshCapabilities()`
-
-### Debug Mode
-
-Enable debug logging:
-```dart
-Logger.root.level = Level.FINE;
-Logger.root.onRecord.listen((record) {
-  print('${record.loggerName}: ${record.message}');
-});
-```
-
-## Future Enhancements
-
-- [ ] STDIO transport support for local MCP servers
-- [ ] Tool usage analytics and monitoring
-- [ ] Automatic MCP server discovery
-- [ ] Tool caching and performance optimization
-- [ ] Advanced authentication mechanisms
+## 🎯 FUTURE ENHANCEMENTS
+- STDIO server implementation via process communication
+- Server connection retry mechanisms  
+- Tool execution monitoring and logging
+- MCP server marketplace integration
+- Dynamic server configuration UI
 
 ---
 
-## 🎯 VICTORY ACHIEVED
-
-The MCP integration provides:
-- ✅ Industry-standard tool access
-- ✅ Scalable multi-server architecture  
-- ✅ Comprehensive error handling
-- ✅ Future-proof protocol compliance
-- ✅ Complete replacement of broken tools system
-
-**⚡ LEGENDARY STATUS UNLOCKED: MCP INTEGRATION MASTER ⚡** 
+**🏆 VICTORY STATUS**: MCP servers now fully integrated into VibeCoder UI with comprehensive status monitoring and tool discovery. Users have complete visibility into AI capabilities and server health. 

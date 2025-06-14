@@ -88,6 +88,11 @@ When providing code examples, make them complete and runnable.''',
         mcpConfigPath: 'mcp.json',
       );
 
+      // Initialize MCP after agent creation
+      _logger.info('Initializing MCP servers...');
+      await _agent!.initializeMCP();
+      _logger.info('MCP initialization completed');
+
       _updateState(ChatServiceState.ready);
       _logger.info('ChatService initialized successfully');
     } catch (e, stackTrace) {
@@ -180,7 +185,37 @@ When providing code examples, make them complete and runnable.''',
   List<String> getAvailableTools() {
     if (_agent == null) return [];
 
-    return _agent!.getAvailableTools().map((tool) => tool.uniqueId).toList();
+    final mcpTools = _agent!.getAvailableTools();
+    return mcpTools.map((tool) => tool.uniqueId).toList();
+  }
+
+  /// Get detailed MCP server and tool information
+  Map<String, dynamic> getMCPServerInfo() {
+    if (_agent == null) {
+      return {
+        'servers': <Map<String, dynamic>>[],
+        'totalTools': 0,
+        'connectedServers': 0,
+        'configuredServers': 0,
+      };
+    }
+
+    final mcpManager = _agent!.mcpManager;
+    final configuredServers = mcpManager.configuredServers;
+    final connectedServers = mcpManager.connectedServers;
+    final allTools = mcpManager.getAllTools();
+
+    // Get detailed status for all configured servers
+    final serverInfo = configuredServers.map((serverName) {
+      return mcpManager.getServerStatus(serverName);
+    }).toList();
+
+    return {
+      'servers': serverInfo,
+      'totalTools': allTools.length,
+      'connectedServers': connectedServers.length,
+      'configuredServers': configuredServers.length,
+    };
   }
 
   /// Handle errors with consistent logging and state management
