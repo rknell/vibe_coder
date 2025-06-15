@@ -45,38 +45,57 @@ class _MessagingUIExampleScreenState extends State<MessagingUIExampleScreen> {
     ),
     ChatMessage(
       role: MessageRole.assistant,
-      content: 'I\'ll demonstrate by calling a function.',
+      content:
+          'I\'ll demonstrate by calling multiple functions to show you how tool calls work.',
       name: 'Assistant',
       toolCalls: [
         {
-          'function': {'name': 'calculate_sum'},
+          'id': 'call_demo_001',
           'type': 'function',
-          'id': 'call_1',
+          'function': {
+            'name': 'memory_search',
+            'arguments': '{"query": "UI examples", "limit": 3}'
+          },
         },
         {
-          'function': {'name': 'get_weather'},
+          'id': 'call_demo_002',
           'type': 'function',
-          'id': 'call_2',
+          'function': {
+            'name': 'filesystem_list_directory',
+            'arguments': '{"path": "/home/user/examples"}'
+          },
+        },
+        {
+          'id': 'call_demo_003',
+          'type': 'function',
+          'function': {
+            'name': 'calculate_sum',
+            'arguments': '{"numbers": [1, 2, 3, 4, 5]}'
+          },
         },
       ],
       reasoningContent:
-          'The user wants to see tool calls, so I should demonstrate calling functions. I\'ll call both a calculation function and a weather function to show multiple tool calls.',
+          'The user wants to see tool calls, so I should demonstrate multiple function calls. I\'ll search memory, list files, and do a calculation to show different types of tools.',
     ),
     ChatMessage(
       role: MessageRole.tool,
-      content: 'Function calculate_sum returned: 42',
-      toolCallId: 'call_1',
+      content: 'Found 2 UI examples: MessagingUI, ToolCallDisplay',
+      toolCallId: 'call_demo_001',
     ),
     ChatMessage(
       role: MessageRole.tool,
-      content:
-          'Function get_weather returned: {"temperature": 22, "condition": "sunny"}',
-      toolCallId: 'call_2',
+      content: 'Directory contents: example1.dart, example2.dart, demo.md',
+      toolCallId: 'call_demo_002',
+    ),
+    ChatMessage(
+      role: MessageRole.tool,
+      content: 'Sum calculation result: 15',
+      toolCallId: 'call_demo_003',
     ),
     ChatMessage(
       role: MessageRole.assistant,
       content:
-          'As you can see, the tool calls were executed successfully! The sum calculation returned 42, and the weather is 22°C and sunny.',
+          'Perfect! As you can see above, the tool calls were executed successfully:\n• Memory search found UI examples\n• Directory listing showed example files\n• Calculation computed the sum as 15\n\nThe tool calls section shows up as expandable cards with the tool names and status indicators!',
       name: 'Assistant',
     ),
   ];

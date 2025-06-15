@@ -135,21 +135,44 @@ class ChatService {
       );
 
       // Send to AI agent and get response with configuration-driven parameters
+      // Use two-phase approach to show tool calls in UI
       final stopwatch = Stopwatch()..start();
       final config = _configurationService.currentConfig;
       final response = await _agent!.conversation.sendUserMessageAndGetResponse(
         userMessage,
         useBeta: config.useBetaFeatures,
         isReasoner: config.useReasonerModel,
+        processToolCallsImmediately:
+            false, // 🔧 NEW: Allow UI to show tool calls
       );
       stopwatch.stop();
 
-      // Add assistant response to stream
+      // Add assistant response to stream (this may contain tool calls)
       final assistantMessage = ChatMessage(
         role: MessageRole.assistant,
         content: response,
+        toolCalls: _agent!.conversation.lastToolCalls,
       );
       _messageStreamController.add(assistantMessage);
+
+      // 🔧 NEW: Process tool calls if present and continue conversation
+      if (_agent!.conversation.hasUnprocessedToolCalls) {
+        _logger.info('🔧 Processing tool calls for visible UI display');
+
+        final followUpResponse = await _agent!.conversation.processAndContinue(
+          useBeta: config.useBetaFeatures,
+          isReasoner: config.useReasonerModel,
+        );
+
+        if (followUpResponse != null) {
+          // Add the follow-up response to the stream
+          final followUpMessage = ChatMessage(
+            role: MessageRole.assistant,
+            content: followUpResponse,
+          );
+          _messageStreamController.add(followUpMessage);
+        }
+      }
 
       // 🛡️ DEBUG LOGGING: Log assistant response with timing
       _debugLogger.logChatMessage(

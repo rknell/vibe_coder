@@ -165,7 +165,10 @@ $content
         _messages.firstWhereOrNull((item) => item.contextId == contextId);
     if (existingContext != null) {
       existingContext.content = annotatedContent;
+      _logger.fine('Updated existing context message with ID "$contextId"');
+      return; // Exit early to prevent duplicate addition
     }
+
     var firstIndex = _messages.indexWhere(
         (item) => item.contextId == null && _messages.indexOf(item) != 0);
     var newMessage = ChatMessage(
@@ -200,9 +203,7 @@ $content
   void addSystemMessage(String content) {
     _logger.fine('Adding system message');
     final message = ChatMessage(
-      role: MessageRole.user,
-      content: content,
-    );
+        role: MessageRole.user, content: content, contextId: "system");
     _messages.add(message);
   }
 
@@ -249,16 +250,33 @@ $content
   ///
   /// [toolCallId] The ID of the tool call this message is responding to.
   /// [content] The result returned by the tool.
-  void addToolMessage(String toolCallId, String content) {
-    _logger.fine('Adding tool message for tool call ID: $toolCallId');
+  // void addToolMessage(String toolCallId, String content) {
+  //   _logger.fine('Adding tool message for tool call ID: $toolCallId');
 
-    final toolMessage = ChatMessage(
-      role: MessageRole.tool,
-      content: content,
-      toolCallId: toolCallId,
-    );
+  //   final toolMessage = ChatMessage(
+  //     role: MessageRole.tool,
+  //     content: content,
+  //     toolCallId: toolCallId,
+  //   );
 
-    _messages.add(toolMessage);
+  //   _messages.add(toolMessage);
+  // }
+
+  /// Returns true if the last message in the conversation contains tool calls that need to be processed.
+  // bool get hasUnprocessedToolCalls {
+  //   if (_messages.isEmpty) return false;
+  //   final lastMessage = _messages.last;
+  //   return lastMessage.role == MessageRole.assistant &&
+  //       lastMessage.toolCalls != null &&
+  //       lastMessage.toolCalls!.isNotEmpty;
+  // }
+
+  /// Gets the list of tool calls from the last assistant message, if any exist.
+  List<Map<String, dynamic>>? get lastToolCalls {
+    if (_messages.isEmpty) return null;
+    final lastMessage = _messages.last;
+    if (lastMessage.role != MessageRole.assistant) return null;
+    return lastMessage.toolCalls;
   }
 
   /// Returns true if the last message in the conversation contains tool calls that need to be processed.
@@ -270,12 +288,40 @@ $content
         lastMessage.toolCalls!.isNotEmpty;
   }
 
-  /// Gets the list of tool calls from the last assistant message, if any exist.
-  List<Map<String, dynamic>>? get lastToolCalls {
-    if (_messages.isEmpty) return null;
-    final lastMessage = _messages.last;
-    if (lastMessage.role != MessageRole.assistant) return null;
-    return lastMessage.toolCalls;
+  /// Processes any pending tool calls and continues the conversation.
+  ///
+  /// This method should be called after the UI has had a chance to display
+  /// the assistant message with tool calls. It will process the tool calls
+  /// and generate a follow-up response.
+  ///
+  /// Returns the assistant's follow-up response after processing tool calls,
+  /// or null if there were no tool calls to process.
+  Future<String?> processAndContinue({
+    bool useBeta = false,
+    bool? isReasoner,
+    ToolChoice? toolChoice,
+  }) async {
+    if (!hasUnprocessedToolCalls) {
+      _logger.fine('No unprocessed tool calls found');
+      return null;
+    }
+
+    _logger
+        .info('🔧 Processing pending tool calls and continuing conversation');
+
+    // Process tool calls through Agent's MCP system
+    final toolResponses = await processToolCalls();
+
+    if (toolResponses) {
+      // Send a follow-up message with the tool results
+      return await sendMessage(
+        useBeta: useBeta,
+        isReasoner: isReasoner,
+        toolChoice: toolChoice,
+      );
+    }
+
+    return null;
   }
 
   /// Processes tool calls using the Agent's MCP integration.
@@ -317,7 +363,7 @@ $content
         } catch (e) {
           _logger.warning('Failed to parse tool arguments: $e');
           _addToolErrorResponse(
-              toolCallId, 'Error: Failed to parse arguments: $e');
+              toolCallId, 'Error: Failed to parse arguments: $e', functionName);
           continue;
         }
 
@@ -345,7 +391,9 @@ $content
           _logger.warning(
               'Cannot find server for tool: $functionName (MCP format: $mcpToolUniqueId)');
           _addToolErrorResponse(
-              toolCallId, 'Error: Server not found for tool "$functionName".');
+              toolCallId,
+              'Error: Server not found for tool "$functionName".',
+              functionName);
           continue;
         }
 
@@ -386,7 +434,8 @@ $content
           );
 
           // Add successful tool response with proper tool_call_id
-          _addToolResponse(toolCallId, result.content.first.text);
+          _addToolResponse(
+              toolCallId, result.content.first.text, actualToolName);
 
           // 🧹 CLEANUP: Complete tool call tracking
           MCPFunctionBridge.completeToolCall(toolCallId);
@@ -404,8 +453,8 @@ $content
             duration: stopwatch.elapsed,
           );
 
-          _addToolErrorResponse(
-              toolCallId, 'Error: Tool "$functionName" failed: $e');
+          _addToolErrorResponse(toolCallId,
+              'Error: Tool "$functionName" failed: $e', actualToolName);
 
           // 🧹 CLEANUP: Complete tool call tracking even on failure
           MCPFunctionBridge.completeToolCall(toolCallId);
@@ -432,21 +481,25 @@ $content
   }
 
   /// Adds a successful tool response to the conversation
-  void _addToolResponse(String toolCallId, String response) {
+  void _addToolResponse(
+      String toolCallId, String response, String actualToolName) {
     final toolMessage = ChatMessage(
       role: MessageRole.tool,
       content: response,
       toolCallId: toolCallId,
+      contextId: actualToolName,
     );
     _messages.add(toolMessage);
   }
 
   /// Adds an error tool response to the conversation
-  void _addToolErrorResponse(String toolCallId, String errorMessage) {
+  void _addToolErrorResponse(
+      String toolCallId, String errorMessage, String actualToolName) {
     final toolMessage = ChatMessage(
       role: MessageRole.tool,
       content: errorMessage,
       toolCallId: toolCallId,
+      contextId: actualToolName,
     );
     _messages.add(toolMessage);
   }
@@ -488,41 +541,6 @@ When working on to-do tasks:
 - If a task refers to sending information, mark it complete once sent
 - If a task refers to reviewing something, mark it complete once reviewed and results communicated
 """);
-
-    // Add agent context files if they exist
-    if (agent.contextFiles.isNotEmpty) {
-      final fileContentBuilder = StringBuffer();
-
-      // Process each file in the agent's context files list
-      for (final filename in agent.contextFiles) {
-        // TODO: Implement virtualFileService in new API
-        // Read file content from shared storage
-        // final content = services.virtualFileService.readFile(filename);
-        const content = 'TODO: Implement file reading in new API';
-
-        // Skip files that don't exist
-        if (content.startsWith('Error:')) {
-          _logger.warning('Failed to load context file "$filename": $content');
-          continue;
-        }
-
-        fileContentBuilder.writeln("""
-File: $filename
----
-$content
----
-""");
-      }
-
-      final contextContent = fileContentBuilder.toString();
-      if (contextContent.isNotEmpty) {
-        addContext("agent files", contextContent);
-      } else {
-        removeContext("agent files");
-      }
-    } else {
-      removeContext("agent files");
-    }
   }
 
   /// Sends the current conversation to the DeepSeek API and gets a response.
@@ -613,20 +631,14 @@ $content
       _reasoningContent[_messages.length - 1] = reasoningContent;
     }
 
-    // Check if we received tool calls and process via MCP
+    // Check if we received tool calls - return immediately to allow UI update
     if (assistantMessage.toolCalls != null &&
         assistantMessage.toolCalls!.isNotEmpty) {
-      // Process tool calls through Agent's MCP system
-      final toolResponses = await processToolCalls();
-
-      if (toolResponses) {
-        // Send a follow-up message with the tool results
-        return await sendMessage(
-          useBeta: useBeta,
-          isReasoner: isReasoner,
-          toolChoice: toolChoice,
-        );
-      }
+      _logger.info(
+          '🔧 Tool calls received - returning to allow UI update before processing');
+      // Return the content immediately so the UI can display the tool calls
+      // Tool processing will be handled by a separate call
+      return assistantContent;
     }
 
     return assistantContent;
@@ -646,25 +658,40 @@ $content
   /// 1. Adds the user message to the conversation
   /// 2. Sends the updated conversation to the API
   /// 3. Returns the assistant's response
+  /// 4. If tool calls are present, processes them and continues
   ///
   /// [userMessage] is the content of the user's message.
   /// [useBeta] can be set to true to use beta features.
   /// [isReasoner] set to true when using the deepseek-reasoner model.
   /// Tools are now handled by Agent's MCP integration.
   /// [toolChoice] Controls which tools can be called.
+  /// [processToolCallsImmediately] Whether to process tool calls in the same call (default: true for backward compatibility)
   Future<String> sendUserMessageAndGetResponse(
     String userMessage, {
     bool useBeta = false,
     bool? isReasoner,
     ToolChoice? toolChoice,
+    bool processToolCallsImmediately = true,
   }) async {
     addUserMessage(userMessage);
 
-    return await sendMessage(
+    final response = await sendMessage(
       useBeta: useBeta,
       isReasoner: isReasoner,
       toolChoice: toolChoice,
     );
+
+    // If tool calls are present and we should process them immediately
+    if (processToolCallsImmediately && hasUnprocessedToolCalls) {
+      final followUpResponse = await processAndContinue(
+        useBeta: useBeta,
+        isReasoner: isReasoner,
+        toolChoice: toolChoice,
+      );
+      return followUpResponse ?? response;
+    }
+
+    return response;
   }
 
   /// Clears the conversation history, starting a new conversation.

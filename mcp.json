@@ -57,6 +57,28 @@
                 "DOCKER_CONTAINER=true",
                 "mcp/puppeteer"
             ]
+        },
+        "notepad": {
+            "command": "dart",
+            "args": [
+                "mcp/notepad_server.dart",
+                "--persist-dir",
+                "./data/notepads"
+            ],
+            "env": {
+                "DEBUG": "false"
+            }
+        },
+        "todo": {
+            "command": "dart",
+            "args": [
+                "mcp/todo_server.dart",
+                "--persist-dir",
+                "./data/todos"
+            ],
+            "env": {
+                "DEBUG": "false"
+            }
         }
     }
 }

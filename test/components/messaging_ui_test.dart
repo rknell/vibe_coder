@@ -256,8 +256,8 @@ void main() {
       ));
 
       // Assert
-      // The new MessageToolCallsEnhanced component shows "Tool Call" instead of "Tool Calls:"
-      expect(find.textContaining('Tool Call'), findsOneWidget);
+      // The new MessageToolCallsEnhanced component shows "Tool Calls" header and individual tool calls
+      expect(find.text('Tool Calls (1)'), findsOneWidget);
       expect(find.text('test_function'), findsOneWidget);
     });
 
@@ -419,8 +419,8 @@ void main() {
       expect(find.text('Complete message'), findsOneWidget);
       expect(find.text('Reasoning:'), findsOneWidget);
       expect(find.text('My reasoning'), findsOneWidget);
-      // The new MessageToolCallsEnhanced component shows "Tool Call" instead of "Tool Calls:"
-      expect(find.textContaining('Tool Call'), findsOneWidget);
+      // The new MessageToolCallsEnhanced component shows "Tool Calls" header and individual tool calls
+      expect(find.text('Tool Calls (1)'), findsOneWidget);
       expect(find.text('example_function'), findsOneWidget);
     });
   });
