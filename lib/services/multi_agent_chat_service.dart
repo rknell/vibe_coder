@@ -405,6 +405,27 @@ class MultiAgentChatService {
     }
   }
 
+  /// Update agent configuration
+  ///
+  /// PERF: O(1) - direct agent manager delegation
+  /// 🎯 ENHANCEMENT: Allows updating temperature, AI model, and other settings for existing agents
+  Future<void> updateAgent(String agentId, AgentModel updatedAgent) async {
+    _ensureInitialized();
+
+    _logger.info('🔧 MULTI-AGENT: Updating agent configuration: $agentId');
+
+    try {
+      // Update through agent manager
+      await _agentManager.updateAgent(agentId, updatedAgent);
+
+      _logger.info('✅ MULTI-AGENT: Agent updated successfully: $agentId');
+    } catch (e, stackTrace) {
+      _logger.severe(
+          '💥 MULTI-AGENT: Failed to update agent: $e', e, stackTrace);
+      rethrow;
+    }
+  }
+
   /// Get message stream for specific agent
   ///
   /// PERF: O(1) - HashMap lookup with stream creation
@@ -465,6 +486,87 @@ class MultiAgentChatService {
       'connectedServers': connectedServers.length,
       'configuredServers': configuredServers.length,
     };
+  }
+
+  /// Refresh all MCP servers for current agent
+  ///
+  /// PERF: O(n) where n = number of servers - parallel refresh for optimal performance
+  /// 🎯 WARRIOR ENHANCEMENT: Comprehensive server refresh with error handling
+  Future<Map<String, dynamic>> refreshAllMCPServers() async {
+    _ensureInitialized();
+
+    if (_currentAgentId == null) {
+      throw MultiAgentChatException('No active agent to refresh MCP servers');
+    }
+
+    final activeAgent = _agentManager.getActiveAgent(_currentAgentId!);
+    if (activeAgent == null) {
+      throw MultiAgentChatException('Active agent not found');
+    }
+
+    _logger.info(
+        '🔄 MULTI-AGENT: Refreshing all MCP servers for agent: $_currentAgentId');
+
+    try {
+      // Refresh capabilities for all servers
+      await activeAgent.mcpManager.refreshCapabilities();
+
+      // Return updated server info
+      final updatedInfo = getCurrentAgentMCPInfo();
+
+      _logger.info('✅ MULTI-AGENT: All MCP servers refreshed successfully');
+      return updatedInfo;
+    } catch (e, stackTrace) {
+      _logger.severe('💥 MULTI-AGENT: Failed to refresh all MCP servers: $e', e,
+          stackTrace);
+      rethrow;
+    }
+  }
+
+  /// Refresh individual MCP server for current agent
+  ///
+  /// PERF: O(1) - single server refresh with immediate response
+  /// 🎯 WARRIOR ENHANCEMENT: Targeted server refresh for optimal performance
+  Future<Map<String, dynamic>> refreshMCPServer(String serverName) async {
+    _ensureInitialized();
+
+    if (_currentAgentId == null) {
+      throw MultiAgentChatException('No active agent to refresh MCP server');
+    }
+
+    final activeAgent = _agentManager.getActiveAgent(_currentAgentId!);
+    if (activeAgent == null) {
+      throw MultiAgentChatException('Active agent not found');
+    }
+
+    _logger.info(
+        '🔄 MULTI-AGENT: Refreshing MCP server: $serverName for agent: $_currentAgentId');
+
+    try {
+      final mcpManager = activeAgent.mcpManager;
+
+      // Check if server is configured
+      if (!mcpManager.configuredServers.contains(serverName)) {
+        throw MultiAgentChatException(
+            'Server not found in configuration: $serverName');
+      }
+
+      // Refresh capabilities for specific server
+      await mcpManager.refreshServerCapabilities(serverName);
+
+      // Return updated server info
+      final updatedInfo = getCurrentAgentMCPInfo();
+
+      _logger.info(
+          '✅ MULTI-AGENT: MCP server refreshed successfully: $serverName');
+      return updatedInfo;
+    } catch (e, stackTrace) {
+      _logger.severe(
+          '💥 MULTI-AGENT: Failed to refresh MCP server $serverName: $e',
+          e,
+          stackTrace);
+      rethrow;
+    }
   }
 
   /// Handle agent list updates

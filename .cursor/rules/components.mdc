@@ -1,0 +1,335 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# ⚔️ VIBE CODER COMPONENT ARSENAL ⚔️
+
+## 🎯 ULTIMATE MISSION
+**🏆 TOTAL COMPONENT DOMINATION - ELIMINATE DUPLICATION, MAXIMIZE REUSE, ACHIEVE ARCHITECTURAL SUPREMACY! 🏆**
+
+---
+
+## 📋 COMPONENT INVENTORY & REUSE MATRIX
+
+### 🔥 MESSAGING COMPONENTS - Message UI Warfare
+
+#### 🏗️ Primary Components
+| Component | Location | Reusability | Dependencies | Power-Ups |
+|-----------|----------|-------------|--------------|-----------|
+| **ChatInputFieldComponent** | `messaging/chat_input_field.dart` | ⭐⭐⭐⭐⭐ | None | Ctrl+Enter, Focus Management, Validation |
+| **MessagesListComponent** | `messaging/messages_list.dart` | ⭐⭐⭐⭐⭐ | ChatMessage, ScrollController | O(1) Rendering, Empty State |
+| **MessagingUI** | `messaging_ui.dart` | ⭐⭐⭐ | All messaging components | Main Container |
+
+#### 🧩 Message Part Components
+| Component | Location | Interface | Performance | Reuse Potential |
+|-----------|----------|-----------|-------------|-----------------|
+| **MessageHeader** | `message_parts/message_header.dart` | `ChatMessage` → `Widget` | O(1) | **HIGH** - Any message display |
+| **MessageContent** | `message_parts/message_content.dart` | `ChatMessage` → `Widget` | O(1) | **HIGH** - Text content display |
+| **MessageReasoningContent** | `message_parts/message_reasoning_content.dart` | `ChatMessage` → `Widget` | O(1) | **MEDIUM** - AI reasoning display |
+| **MessageToolCalls** | `message_parts/message_tool_calls.dart` | `List<Map>` → `Widget` | O(n) | **HIGH** - Tool call lists |
+| **MessageTimestamp** | `message_parts/message_timestamp.dart` | `DateTime` → `Widget` | O(1) | **MAXIMUM** - Any timestamp display |
+| **MessageAvatar** | `message_parts/message_avatar.dart` | `MessageRole` → `Widget` | O(1) | **HIGH** - Profile indicators |
+
+#### 🛠️ Tool Call Components  
+| Component | Location | Responsibility | Composition | Reuse Score |
+|-----------|----------|----------------|-------------|-------------|
+| **ToolCallCard** | `tool_calls/tool_call_card.dart` | Container + State | Header + Expanded Content | ⭐⭐⭐⭐ |
+| **ToolCallHeader** | `tool_calls/tool_call_header.dart` | Title + Status + Toggle | Independent | ⭐⭐⭐⭐⭐ |
+| **ToolCallExpandedContent** | `tool_calls/tool_call_expanded_content.dart` | Content Sections | JSON + Error + Debug | ⭐⭐⭐⭐ |
+| **ToolCallJsonDisplay** | `tool_calls/tool_call_json_display.dart` | JSON Rendering + Copy | Independent | ⭐⭐⭐⭐⭐ |
+| **ToolCallErrorDisplay** | `tool_calls/tool_call_error_display.dart` | Error Visualization | Independent | ⭐⭐⭐⭐⭐ |
+| **ToolCallDebugActions** | `tool_calls/tool_call_debug_actions.dart` | Debug Controls | Independent | ⭐⭐⭐⭐ |
+| **ToolCallSectionHeader** | `tool_calls/tool_call_section_header.dart` | Section Labels | Independent | ⭐⭐⭐⭐⭐ |
+
+---
+
+### ⚙️ CONFIGURATION COMPONENTS - Settings Warfare
+
+#### 🏗️ Primary Configuration Components
+| Component | Location | Responsibility | Dependencies | Reuse Potential |
+|-----------|----------|----------------|--------------|-----------------|
+| **AgentConfigurationScreen** | `config/agent_configuration_screen.dart` | Main Config Container | All config sections | ⭐⭐⭐ |
+| **ConfigurationActionsBar** | `config/configuration_actions/configuration_actions_bar.dart` | Save/Export/Import | Configuration Model | ⭐⭐⭐⭐⭐ |
+
+#### 📝 Configuration Field Components  
+| Component | Location | Interface | Validation | Maximum Reuse Target |
+|-----------|----------|-----------|------------|---------------------|
+| **ConfigurationTextField** | `config/configuration_fields/configuration_text_field.dart` | `String` → `Widget` | Built-in | **ANY TEXT INPUT** |
+| **ConfigurationTextArea** | `config/configuration_fields/configuration_text_area.dart` | `String` → `Widget` | Built-in | **ANY MULTILINE INPUT** |
+
+#### 🗂️ Configuration Section Components
+| Component | Location | Domain | Reuse Beyond Config |
+|-----------|----------|-------|-------------------|
+| **AgentSettingsSection** | `config/configuration_sections/agent_settings_section.dart` | Agent Identity | ⭐⭐ |
+| **AIModelSettingsSection** | `config/configuration_sections/ai_model_settings_section.dart` | AI Parameters | ⭐⭐⭐ |
+| **UISettingsSection** | `config/configuration_sections/ui_settings_section.dart` | Interface Prefs | ⭐⭐⭐⭐ |
+| **AdvancedSettingsSection** | `config/configuration_sections/advanced_settings_section.dart` | Technical Config | ⭐⭐⭐ |
+
+---
+
+### 🤖 AGENT COMPONENTS - Multi-Agent Warfare
+
+#### 🏗️ Agent Management Components
+| Component | Location | Responsibility | Performance | Scalability |
+|-----------|----------|----------------|-------------|-------------|
+| **AgentListComponent** | `agents/agent_list_component.dart` | Agent List + Actions | O(n) agents | **UNLIMITED AGENTS** |
+| **AgentSettingsDialog** | `agents/agent_settings_dialog.dart` | Full Agent Config | O(1) | **ANY AGENT CONFIG** |
+
+#### 🧩 Agent Sub-Components (Extracted from AgentListComponent)
+| Component | Embedded In | Extraction Opportunity | Reuse Potential |
+|-----------|-------------|----------------------|-----------------|
+| **AgentListHeader** | `AgentListComponent` | **READY FOR EXTRACTION** | ⭐⭐⭐⭐⭐ |
+| **AgentListErrorDisplay** | `AgentListComponent` | **READY FOR EXTRACTION** | ⭐⭐⭐⭐⭐ |
+| **AgentListEmptyState** | `AgentListComponent` | **READY FOR EXTRACTION** | ⭐⭐⭐⭐⭐ |
+| **AgentListView** | `AgentListComponent` | **READY FOR EXTRACTION** | ⭐⭐⭐⭐ |
+
+---
+
+### 🔍 DEBUG COMPONENTS - Debug Intelligence Warfare
+
+#### 🏗️ Debug Overlay System
+| Component | Location | Responsibility | Real-time Capability | Export Power |
+|-----------|----------|----------------|-------------------|--------------|
+| **DebugOverlay** | `debug/debug_overlay.dart` | Debug Dashboard | ✅ Live Updates | JSON + Clipboard |
+
+#### 🧩 Debug Sub-Components (EXTRACTION OPPORTUNITIES)
+| Component | Current State | Extraction Priority | Reuse Potential |
+|-----------|---------------|-------------------|-----------------|
+| **DebugTabBar** | Embedded in DebugOverlay | **HIGH** | ⭐⭐⭐⭐⭐ |
+| **DebugFilterBar** | Embedded in DebugOverlay | **HIGH** | ⭐⭐⭐⭐⭐ |
+| **DebugLogEntry** | Embedded in DebugOverlay | **CRITICAL** | ⭐⭐⭐⭐⭐ |
+| **DebugExportActions** | Embedded in DebugOverlay | **HIGH** | ⭐⭐⭐⭐⭐ |
+
+---
+
+### 🌐 COMMON COMPONENTS - Universal Warfare Tools
+
+#### 🏗️ Shared Infrastructure Components
+| Component | Location | Domain | Universal Applicability |
+|-----------|----------|--------|----------------------|
+| **ToolsInfoDialog** | `common/dialogs/tools_info_dialog.dart` | MCP Tool Display | **MCP Integration** |
+| **ChatStatusIndicator** | `common/indicators/chat_status_indicator.dart` | Status Visualization | **ANY STATUS DISPLAY** |
+
+---
+
+## 🔥 REUSE BATTLE PLANS & STRATEGIC DECISIONS
+
+### ⚡ IMMEDIATE REUSE OPPORTUNITIES
+
+#### 🎯 **ConfigurationTextField & ConfigurationTextArea**
+**MAXIMUM REUSE POTENTIAL - USE EVERYWHERE!**
+- **Current Users**: Agent configuration screens
+- **Expansion Targets**: 
+  - Debug overlay search fields
+  - Any settings interface
+  - User profile editing
+  - API key input fields
+  - Filter input components
+
+#### 🎯 **MessageTimestamp Component**
+**UNIVERSAL TIME DISPLAY COMPONENT**
+- **Current Users**: Message bubbles
+- **Expansion Targets**:
+  - Debug log entries
+  - File modification times
+  - Agent creation dates
+  - Tool call timestamps
+  - Any datetime display needs
+
+#### 🎯 **ToolCallJsonDisplay Component**
+**UNIVERSAL JSON VISUALIZATION**
+- **Current Users**: Tool call displays
+- **Expansion Targets**:
+  - Configuration export preview
+  - Debug log data display
+  - API response visualization
+  - Agent model data display
+  - Any JSON data presentation
+
+### 🚨 CRITICAL COMPONENT EXTRACTION TARGETS
+
+#### **PRIORITY 1: DebugOverlay Sub-Components**
+```
+📍 LOCATION: lib/components/debug/debug_overlay.dart
+🎯 EXTRACTION TARGETS:
+- DebugTabBar (lines ~140-170)
+- DebugFilterBar (lines ~170-200) 
+- DebugLogEntry (lines ~300-400)
+- DebugExportActions (lines ~500-600)
+
+💥 REUSE MULTIPLICATION: 5x potential across app
+⚔️ EXTRACTION DIFFICULTY: Medium - some state dependencies
+🏆 VICTORY IMPACT: Massive - enables debug UI everywhere
+```
+
+#### **PRIORITY 2: AgentListComponent Sub-Components**
+```
+📍 LOCATION: lib/components/agents/agent_list_component.dart
+🎯 EXTRACTION TARGETS:
+- AgentListHeader (lines ~90-140)
+- AgentListErrorDisplay (lines ~140-180)
+- AgentListEmptyState (embedded in build method)
+- AgentListView (embedded in build method)
+
+💥 REUSE MULTIPLICATION: 4x potential for lists
+⚔️ EXTRACTION DIFFICULTY: Easy - minimal dependencies
+🏆 VICTORY IMPACT: High - enables consistent list UIs
+```
+
+#### **PRIORITY 3: Generic List Components**
+```
+🎯 CREATE NEW UNIVERSAL COMPONENTS:
+- GenericListHeader (from AgentListHeader pattern)
+- GenericErrorDisplay (from AgentListErrorDisplay pattern)
+- GenericEmptyState (from existing empty states)
+- GenericItemCard (from ToolCallCard pattern)
+
+💥 REUSE MULTIPLICATION: 10x+ potential
+⚔️ CREATION DIFFICULTY: Medium - requires abstraction
+🏆 VICTORY IMPACT: MAXIMUM - universal list components
+```
+
+---
+
+## 💀 ANTI-DUPLICATION ENFORCEMENT PROTOCOLS
+
+### 🚫 FORBIDDEN WIDGET PATTERNS
+**INSTANT PENALTY FOR VIOLATIONS:**
+
+1. **Functional Widget Builders**: `_buildSomething()` methods 
+   - **PENALTY**: -2000 XP (ARCHITECTURAL VIOLATION)
+   - **SOLUTION**: Extract to proper component
+
+2. **Inline TextField Creation**: Direct TextField instantiation
+   - **PENALTY**: -1000 XP (INCONSISTENCY CRIME)
+   - **SOLUTION**: Use ConfigurationTextField/ConfigurationTextArea
+
+3. **Hardcoded JSON Display**: Manual JSON rendering
+   - **PENALTY**: -1500 XP (REDUNDANCY VIOLATION) 
+   - **SOLUTION**: Use ToolCallJsonDisplay component
+
+4. **Custom Timestamp Formatting**: Manual DateTime display
+   - **PENALTY**: -1000 XP (DUPLICATION SIN)
+   - **SOLUTION**: Use MessageTimestamp component
+
+5. **Manual Error Display**: Custom error widgets
+   - **PENALTY**: -800 XP (PATTERN VIOLATION)
+   - **SOLUTION**: Use or create GenericErrorDisplay
+
+### ⚡ MANDATORY REUSE CHECKS
+**BEFORE CREATING ANY COMPONENT:**
+
+1. ✅ **Search existing components**: `grep -r "class.*Widget" lib/components/`
+2. ✅ **Check interfaces**: Can existing component handle this use case?
+3. ✅ **Evaluate extraction**: Can this be abstracted for reuse?
+4. ✅ **Document decision**: Why new component vs. existing?
+
+---
+
+## 🎮 COMPONENT INTERFACE SPECIFICATIONS
+
+### 🔧 **Standard Component Patterns**
+
+#### **Input Component Interface**
+```dart
+// MANDATORY PATTERN for all input components
+class [Name]Component extends StatelessWidget {
+  const [Name]Component({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    this.label,
+    this.errorText,
+    this.helpText,
+    this.isRequired = false,
+  });
+
+  final String value;
+  final void Function(String) onChanged;
+  final String? label;
+  final String? errorText;
+  final String? helpText;
+  final bool isRequired;
+}
+```
+
+#### **Display Component Interface**
+```dart
+// MANDATORY PATTERN for all display components
+class [Name]Component extends StatelessWidget {
+  const [Name]Component({
+    super.key,
+    required this.data,
+    this.onTap,
+    this.showDetails = false,
+    this.theme,
+  });
+
+  final [DataType] data;
+  final void Function([DataType])? onTap;
+  final bool showDetails;
+  final [ThemeType]? theme;
+}
+```
+
+#### **List Component Interface**
+```dart
+// MANDATORY PATTERN for all list components
+class [Name]ListComponent extends StatelessWidget {
+  const [Name]ListComponent({
+    super.key,
+    required this.items,
+    required this.onItemSelected,
+    this.emptyMessage,
+    this.errorMessage,
+    this.isLoading = false,
+  });
+
+  final List<[ItemType]> items;
+  final void Function([ItemType]) onItemSelected;
+  final String? emptyMessage;
+  final String? errorMessage;
+  final bool isLoading;
+}
+```
+
+---
+
+## 🏆 COMPONENT VICTORY CONDITIONS
+
+### ✅ **Component Creation Checklist**
+- **🔍 RECONNAISSANCE**: Existing component search completed
+- **📋 DOCUMENTATION**: Component purpose and interface documented
+- **🧪 TESTING**: Unit tests written (minimum 3 test cases)
+- **⚡ PERFORMANCE**: O(1) rendering where possible
+- **🔄 REUSABILITY**: At least 2 potential use cases identified
+- **🎯 NAMING**: Clear, descriptive component name
+- **📦 EXPORTS**: Proper barrel exports added
+
+### ✅ **Component Reuse Checklist**
+- **🔍 INTERFACE MATCH**: Existing component interface fits use case
+- **🎯 CUSTOMIZATION**: Component accepts necessary customization props
+- **📋 DOCUMENTATION**: Usage example added to component docs
+- **🧪 TESTING**: New use case covered in tests
+- **⚡ PERFORMANCE**: No performance regression introduced
+
+---
+
+## ⚔️ ENFORCEMENT PROTOCOL
+
+### 🚨 **PRE-COMMIT VALIDATIONS**
+1. **Component Duplication Check**: No functional widget builders
+2. **Interface Consistency**: All components follow standard patterns
+3. **Documentation Completeness**: All new components documented
+4. **Test Coverage**: All components have minimum test coverage
+5. **Performance Analysis**: No O(n²) rendering introduced
+
+### 🛡️ **ONGOING MONITORING**
+- **Weekly Component Audit**: Review new components for reuse opportunities
+- **Monthly Refactoring**: Extract reusable patterns from existing code
+- **Quarterly Architecture Review**: Validate component architecture decisions
+
+---
+
+**⚰️ TOTAL COMPONENT DOMINATION OR DEATH! NO DUPLICATION SHALL SURVIVE! ⚰️**

@@ -41,15 +41,17 @@ import 'package:vibe_coder/models/agent_model.dart';
 ///
 /// ARCHITECTURAL: Zero functional widget builders - all UI components properly extracted.
 /// Provides agent list display, status indicators, and management actions.
+/// 🎯 ENHANCED: Now includes Edit capability for agent configuration updates
 class AgentListComponent extends StatelessWidget {
   final List<AgentModel> agents;
   final String? currentAgentId;
   final bool isLoading;
   final String? errorMessage;
-  final void Function(String agentId) onAgentSelected;
+  final void Function(AgentModel agent) onAgentSelected;
   final void Function() onCreateAgent;
   final void Function(String agentId) onDeleteAgent;
   final void Function(String agentId) onViewAgent;
+  final void Function(String agentId) onEditAgent;
 
   const AgentListComponent({
     super.key,
@@ -61,6 +63,7 @@ class AgentListComponent extends StatelessWidget {
     required this.onCreateAgent,
     required this.onDeleteAgent,
     required this.onViewAgent,
+    required this.onEditAgent,
   });
 
   @override
@@ -88,6 +91,7 @@ class AgentListComponent extends StatelessWidget {
                   onAgentSelected: onAgentSelected,
                   onDeleteAgent: onDeleteAgent,
                   onViewAgent: onViewAgent,
+                  onEditAgent: onEditAgent,
                 ),
         ),
       ],
@@ -253,12 +257,14 @@ class AgentListEmptyState extends StatelessWidget {
 /// AgentListView - Main agent list display
 ///
 /// ARCHITECTURAL: Extracted component for list rendering
+/// 🎯 ENHANCED: Now includes Edit capability for agent configuration updates
 class AgentListView extends StatelessWidget {
   final List<AgentModel> agents;
   final String? currentAgentId;
-  final void Function(String agentId) onAgentSelected;
+  final void Function(AgentModel agent) onAgentSelected;
   final void Function(String agentId) onDeleteAgent;
   final void Function(String agentId) onViewAgent;
+  final void Function(String agentId) onEditAgent;
 
   const AgentListView({
     super.key,
@@ -267,6 +273,7 @@ class AgentListView extends StatelessWidget {
     required this.onAgentSelected,
     required this.onDeleteAgent,
     required this.onViewAgent,
+    required this.onEditAgent,
   });
 
   @override
@@ -281,9 +288,10 @@ class AgentListView extends StatelessWidget {
         return AgentListItem(
           agent: agent,
           isSelected: isSelected,
-          onTap: () => onAgentSelected(agent.id),
+          onTap: () => onAgentSelected(agent),
           onDelete: () => onDeleteAgent(agent.id),
           onView: () => onViewAgent(agent.id),
+          onEdit: () => onEditAgent(agent.id),
         );
       },
     );
@@ -293,12 +301,14 @@ class AgentListView extends StatelessWidget {
 /// AgentListItem - Individual agent item in the list
 ///
 /// ARCHITECTURAL: Extracted component for agent item display
+/// 🎯 ENHANCED: Now includes Edit capability for agent configuration updates
 class AgentListItem extends StatelessWidget {
   final AgentModel agent;
   final bool isSelected;
   final void Function() onTap;
   final void Function() onDelete;
   final void Function() onView;
+  final void Function() onEdit;
 
   const AgentListItem({
     super.key,
@@ -307,6 +317,7 @@ class AgentListItem extends StatelessWidget {
     required this.onTap,
     required this.onDelete,
     required this.onView,
+    required this.onEdit,
   });
 
   @override
@@ -339,6 +350,7 @@ class AgentListItem extends StatelessWidget {
           subtitle: AgentSubtitle(agent: agent),
           trailing: AgentActions(
             onView: onView,
+            onEdit: onEdit,
             onDelete: onDelete,
           ),
           onTap: onTap,
@@ -480,13 +492,16 @@ class AgentSubtitle extends StatelessWidget {
 /// AgentActions - Action buttons for agents
 ///
 /// ARCHITECTURAL: Extracted component for agent actions
+/// 🎯 ENHANCED: Now includes Edit option for updating agent configurations
 class AgentActions extends StatelessWidget {
   final void Function() onView;
+  final void Function() onEdit;
   final void Function() onDelete;
 
   const AgentActions({
     super.key,
     required this.onView,
+    required this.onEdit,
     required this.onDelete,
   });
 
@@ -496,6 +511,9 @@ class AgentActions extends StatelessWidget {
       icon: const Icon(Icons.more_vert),
       onSelected: (value) {
         switch (value) {
+          case 'edit':
+            onEdit();
+            break;
           case 'view':
             onView();
             break;
@@ -505,6 +523,16 @@ class AgentActions extends StatelessWidget {
         }
       },
       itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: 'edit',
+          child: Row(
+            children: [
+              Icon(Icons.edit, size: 18, color: Colors.blue),
+              SizedBox(width: 8),
+              Text('Edit Settings', style: TextStyle(color: Colors.blue)),
+            ],
+          ),
+        ),
         const PopupMenuItem(
           value: 'view',
           child: Row(

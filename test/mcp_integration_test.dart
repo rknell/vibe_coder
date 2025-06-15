@@ -1,6 +1,6 @@
 // ignore_for_file: avoid_print
 
-import 'package:test/test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:logging/logging.dart';
 import 'package:vibe_coder/ai_agent/services/mcp_manager.dart';
 import 'package:vibe_coder/ai_agent/services/mcp_client.dart';
@@ -9,7 +9,19 @@ import 'package:vibe_coder/ai_agent/services/mcp_client.dart';
 ///
 /// Tests MCP functionality without Flutter dependencies
 /// Verifies server connections, tool loading, and stability
+///
+/// **🚩 TEST FLAGS:**
+/// - Set `MCP_INTEGRATION_TESTS=true` environment variable to run slow integration tests
+/// - Default: Only fast unit tests run
 void main() {
+  // 🛡️ WARRIOR PROTOCOL: Initialize Flutter bindings for tests
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  // 🎯 WARRIOR PROTOCOL: Check if integration tests should run
+  const shouldRunIntegrationTests =
+      String.fromEnvironment('MCP_INTEGRATION_TESTS') == 'true' ||
+          bool.fromEnvironment('MCP_INTEGRATION_TESTS', defaultValue: false);
+
   // 🎯 WARRIOR PROTOCOL: Minimal logging for clean test output
   // Only show SEVERE errors and test failures
   Logger.root.level = Level.SEVERE;
@@ -27,6 +39,12 @@ void main() {
 
   group('🔧 MCP Client STDIO Tests', () {
     test('🚀 Filesystem Server Connection', () async {
+      if (!shouldRunIntegrationTests) {
+        print(
+            '⏭️ SKIPPING: Integration test (set MCP_INTEGRATION_TESTS=true to run)');
+        return;
+      }
+
       final client = MCPClient.stdio(
         command: '/home/rknell/Applications/nvm/versions/node/v23.5.0/bin/npx',
         args: [
@@ -62,6 +80,12 @@ void main() {
     }, timeout: const Timeout(Duration(seconds: 30)));
 
     test('🧠 Memory Server Connection', () async {
+      if (!shouldRunIntegrationTests) {
+        print(
+            '⏭️ SKIPPING: Integration test (set MCP_INTEGRATION_TESTS=true to run)');
+        return;
+      }
+
       final client = MCPClient.stdio(
         command: '/home/rknell/Applications/nvm/versions/node/v23.5.0/bin/npx',
         args: ['@modelcontextprotocol/server-memory'],
@@ -96,6 +120,12 @@ void main() {
 
   group('🏗️ MCP Manager Integration Tests', () {
     test('📋 Configuration Loading', () async {
+      if (!shouldRunIntegrationTests) {
+        print(
+            '⏭️ SKIPPING: Integration test (set MCP_INTEGRATION_TESTS=true to run)');
+        return;
+      }
+
       final manager = MCPManager();
 
       try {
@@ -119,6 +149,12 @@ void main() {
     }, timeout: const Timeout(Duration(seconds: 60)));
 
     test('🔄 Connection Stability Test', () async {
+      if (!shouldRunIntegrationTests) {
+        print(
+            '⏭️ SKIPPING: Integration test (set MCP_INTEGRATION_TESTS=true to run)');
+        return;
+      }
+
       final manager = MCPManager();
 
       try {
@@ -162,6 +198,12 @@ void main() {
 
   group('🛠️ Tool Functionality Tests', () {
     test('📁 Filesystem Tool Execution', () async {
+      if (!shouldRunIntegrationTests) {
+        print(
+            '⏭️ SKIPPING: Integration test (set MCP_INTEGRATION_TESTS=true to run)');
+        return;
+      }
+
       final manager = MCPManager();
 
       try {

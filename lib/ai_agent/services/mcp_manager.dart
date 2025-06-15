@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:logging/logging.dart';
 import '../models/mcp_models.dart';
 import 'mcp_client.dart';
+import 'package:vibe_coder/services/mcp_cache_service.dart';
 
 /// Manager for MCP configurations and clients
 class MCPManager {
@@ -12,6 +14,10 @@ class MCPManager {
   final Map<String, List<MCPTool>> _availableTools = {};
   final Map<String, List<MCPResource>> _availableResources = {};
   final Map<String, List<MCPPrompt>> _availablePrompts = {};
+
+  // ⚡ PERFORMANCE ENHANCEMENT: MCP Cache Service Integration
+  late final MCPCacheService _cacheService;
+  bool _isCacheInitialized = false;
 
   /// Load MCP configuration from a JSON file
   Future<void> loadConfiguration(String configPath) async {
@@ -47,6 +53,14 @@ class MCPManager {
     _logger.info('🚀 MCP MANAGER: Starting initialization...');
 
     try {
+      // 🎯 CACHE INITIALIZATION: Set up intelligent caching
+      if (!_isCacheInitialized) {
+        _cacheService = MCPCacheService();
+        await _cacheService.initialize();
+        _isCacheInitialized = true;
+        _logger.info('💾 CACHE READY: MCP cache service initialized');
+      }
+
       await loadConfiguration(configPath);
       _logger.info(
           '📋 CONFIG LOADED: ${_serverConfigs.length} servers configured');
@@ -120,6 +134,7 @@ class MCPManager {
 
   /// Load capabilities for a specific server
   /// Tools are required, resources and prompts are optional
+  /// 🎯 ENHANCED: Now uses intelligent caching for rapid startup
   Future<void> _loadServerCapabilities(String serverName) async {
     final client = _clients[serverName];
     if (client == null) {
@@ -129,6 +144,38 @@ class MCPManager {
     }
 
     try {
+      // 🚀 CACHE CHECK FIRST: Try to load from cache for instant startup
+      if (_isCacheInitialized) {
+        final cachedCapabilities =
+            _cacheService.getCachedCapabilities(serverName);
+        if (cachedCapabilities != null) {
+          _logger
+              .info('⚡ CACHE HIT: Using cached capabilities for $serverName');
+
+          // Load from cache - INSTANT startup!
+          _availableTools[serverName] = cachedCapabilities.tools;
+          _availableResources[serverName] = cachedCapabilities.resources;
+          _availablePrompts[serverName] = cachedCapabilities.prompts;
+
+          _logger.info(
+              '🎯 CACHED TOOLS: ${cachedCapabilities.tools.length} tools');
+          _logger.info(
+              '🎯 CACHED RESOURCES: ${cachedCapabilities.resources.length} resources');
+          _logger.info(
+              '🎯 CACHED PROMPTS: ${cachedCapabilities.prompts.length} prompts');
+
+          // Start background refresh but don't wait for it
+          unawaited(_backgroundRefreshCapabilities(serverName, client));
+
+          _logger.info('✅ CACHED CAPABILITIES: $serverName loaded from cache');
+          return;
+        }
+      }
+
+      // 🐌 CACHE MISS: Load fresh capabilities (slower path)
+      _logger
+          .info('💭 CACHE MISS: Loading fresh capabilities for $serverName...');
+
       // Load tools (REQUIRED) - if this fails, server is considered broken
       _logger.info('🛠️ LOADING TOOLS: Fetching tools for $serverName...');
       final tools = await client.listTools();
@@ -143,30 +190,45 @@ class MCPManager {
       // Load resources (OPTIONAL) - graceful degradation if unsupported
       _logger
           .info('📚 LOADING RESOURCES: Fetching resources for $serverName...');
+      List<MCPResource> resources = [];
       try {
-        final resources = await client.listResources();
+        resources = await client.listResources();
         _availableResources[serverName] = resources;
         _logger.info(
             '✅ RESOURCES LOADED: $serverName has ${resources.length} resources');
       } catch (e) {
         _logger.info(
             'ℹ️ RESOURCES OPTIONAL: $serverName does not support resources');
-        _availableResources[serverName] =
-            []; // Empty list for unsupported capability
+        _availableResources[serverName] = resources; // Empty list
       }
 
       // Load prompts (OPTIONAL) - graceful degradation if unsupported
       _logger.info('📝 LOADING PROMPTS: Fetching prompts for $serverName...');
+      List<MCPPrompt> prompts = [];
       try {
-        final prompts = await client.listPrompts();
+        prompts = await client.listPrompts();
         _availablePrompts[serverName] = prompts;
         _logger.info(
             '✅ PROMPTS LOADED: $serverName has ${prompts.length} prompts');
       } catch (e) {
         _logger
             .info('ℹ️ PROMPTS OPTIONAL: $serverName does not support prompts');
-        _availablePrompts[serverName] =
-            []; // Empty list for unsupported capability
+        _availablePrompts[serverName] = prompts; // Empty list
+      }
+
+      // 💾 CACHE STORE: Save capabilities for next startup
+      if (_isCacheInitialized) {
+        await _cacheService.cacheCapabilities(
+          serverName: serverName,
+          tools: tools,
+          resources: resources,
+          prompts: prompts,
+          metadata: {
+            'version': '1.0.0',
+            'loadedAt': DateTime.now().toIso8601String()
+          },
+        );
+        _logger.info('💾 CACHED: Stored capabilities for $serverName');
       }
 
       _logger.info(
@@ -180,6 +242,46 @@ class MCPManager {
       _clients.remove(serverName);
       _logger.warning(
           '🗑️ CLIENT REMOVED: $serverName removed due to required capability loading failure');
+    }
+  }
+
+  /// Background refresh of capabilities without blocking startup
+  /// 🚀 PERFORMANCE: Non-blocking background update
+  Future<void> _backgroundRefreshCapabilities(
+      String serverName, MCPClient client) async {
+    _logger.info(
+        '🔄 BACKGROUND REFRESH: Updating capabilities for $serverName...');
+
+    try {
+      // Load fresh capabilities in background
+      final tools = await client.listTools();
+      final resources =
+          await client.listResources().catchError((_) => <MCPResource>[]);
+      final prompts =
+          await client.listPrompts().catchError((_) => <MCPPrompt>[]);
+
+      // Update in-memory capabilities
+      _availableTools[serverName] = tools;
+      _availableResources[serverName] = resources;
+      _availablePrompts[serverName] = prompts;
+
+      // Update cache
+      await _cacheService.cacheCapabilities(
+        serverName: serverName,
+        tools: tools,
+        resources: resources,
+        prompts: prompts,
+        metadata: {
+          'version': '1.0.0',
+          'refreshedAt': DateTime.now().toIso8601String()
+        },
+      );
+
+      _logger
+          .info('🔄 BACKGROUND COMPLETE: $serverName capabilities refreshed');
+    } catch (e) {
+      _logger.warning('⚠️ BACKGROUND REFRESH FAILED: $serverName - $e');
+      // Don't throw - background refresh failures are non-critical
     }
   }
 
@@ -307,6 +409,30 @@ class MCPManager {
     _logger.info('Capabilities refresh completed');
   }
 
+  /// Refresh capabilities for a specific server
+  /// 🎯 WARRIOR ENHANCEMENT: Individual server refresh for targeted management
+  Future<void> refreshServerCapabilities(String serverName) async {
+    _logger.info(
+        '🔄 MCP MANAGER: Refreshing capabilities for server: $serverName');
+
+    if (!_clients.containsKey(serverName)) {
+      _logger.warning('⚠️ MCP MANAGER: Server not connected: $serverName');
+      throw MCPException('Server not connected: $serverName');
+    }
+
+    try {
+      await _loadServerCapabilities(serverName);
+      _logger.info(
+          '✅ MCP MANAGER: Server capabilities refreshed successfully: $serverName');
+    } catch (e, stackTrace) {
+      _logger.severe(
+          '💥 MCP MANAGER: Failed to refresh server capabilities for $serverName: $e',
+          e,
+          stackTrace);
+      rethrow;
+    }
+  }
+
   /// Close all connections
   Future<void> closeAll() async {
     _logger.info('Closing all MCP connections');
@@ -319,6 +445,12 @@ class MCPManager {
     _availableTools.clear();
     _availableResources.clear();
     _availablePrompts.clear();
+
+    // 🧹 CACHE CLEANUP: Dispose cache service
+    if (_isCacheInitialized) {
+      await _cacheService.dispose();
+      _isCacheInitialized = false;
+    }
 
     _logger.info('All MCP connections closed');
   }

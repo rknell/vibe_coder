@@ -93,6 +93,20 @@ alwaysApply: true
 - **⚠️ BANNED WEAPONS:**
   - Hardcoded credentials (INSTANT DEATH)
   - eval(), unsafe shell commands (NUCLEAR OPTION)
+  - `late` variables (NULL SAFETY DESTROYER)
+
+### 🚫 NULL SAFETY FORTRESS
+- **💀 BANNED: `late` VARIABLES** (TOTAL ANNIHILATION)
+  - `late` variables bypass null safety guarantees (CATASTROPHIC VULNERABILITY)
+  - They promise initialization but offer NO COMPILE-TIME PROTECTION
+  - Runtime null errors = MISSION FAILURE at production deployment
+  - **⚔️ MANDATORY ALTERNATIVES:**
+    - Direct initialization: `final controller = TextEditingController();`
+    - Nullable types with null checks: `TextEditingController? _controller;`
+    - Factory constructors for complex initialization
+    - Dependency injection for external dependencies
+  - **💥 PENALTY**: -3000 XP for ANY `late` variable usage (NULL SAFETY VIOLATION!)
+  - **🛡️ EXCEPTION**: ONLY TabController and animation controllers in StatefulWidget (Framework requirement)
 
 ### 🚀 PERFORMANCE OPTIMIZATION
 - Annotate time/space complexity in comments (BIG-O MASTERY)
