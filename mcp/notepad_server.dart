@@ -19,7 +19,7 @@ import 'base_mcp.dart';
 /// 4. **Persistence Options**: Memory + optional file persistence
 /// 5. **Schema Validation**: Proper input validation and error handling
 class NotepadMCPServer extends BaseMCPServer {
-  /// In-memory storage for agent notepads (session_id -> notepad_content)
+  /// In-memory storage for agent notepads (agent_name -> notepad_content)
   final Map<String, String> _notepads = {};
 
   /// Optional file persistence directory
@@ -219,7 +219,8 @@ class NotepadMCPServer extends BaseMCPServer {
 
   /// 📖 **READ OPERATION**: Get current notepad content
   Future<MCPToolResult> _readNotepad(MCPSession session) async {
-    final content = _getSessionNotepad(session.id);
+    final agentName = getAgentNameFromSession(session);
+    final content = _getAgentNotepad(agentName);
 
     if (content.isEmpty) {
       return MCPToolResult(
@@ -237,8 +238,9 @@ class NotepadMCPServer extends BaseMCPServer {
       MCPSession session, String content) async {
     _validateContentSize(content);
 
-    _notepads[session.id] = content;
-    await _persistNotepad(session.id, content);
+    final agentName = getAgentNameFromSession(session);
+    _notepads[agentName] = content;
+    await _persistNotepad(agentName, content);
 
     final wordCount =
         content.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
@@ -258,14 +260,15 @@ class NotepadMCPServer extends BaseMCPServer {
     String content,
     String separator,
   ) async {
-    final existing = _getSessionNotepad(session.id);
+    final agentName = getAgentNameFromSession(session);
+    final existing = _getAgentNotepad(agentName);
     final newContent =
         existing.isEmpty ? content : existing + separator + content;
 
     _validateContentSize(newContent);
 
-    _notepads[session.id] = newContent;
-    await _persistNotepad(session.id, newContent);
+    _notepads[agentName] = newContent;
+    await _persistNotepad(agentName, newContent);
 
     return MCPToolResult(
       content: [
@@ -281,14 +284,15 @@ class NotepadMCPServer extends BaseMCPServer {
     String content,
     String separator,
   ) async {
-    final existing = _getSessionNotepad(session.id);
+    final agentName = getAgentNameFromSession(session);
+    final existing = _getAgentNotepad(agentName);
     final newContent =
         existing.isEmpty ? content : content + separator + existing;
 
     _validateContentSize(newContent);
 
-    _notepads[session.id] = newContent;
-    await _persistNotepad(session.id, newContent);
+    _notepads[agentName] = newContent;
+    await _persistNotepad(agentName, newContent);
 
     return MCPToolResult(
       content: [
@@ -300,10 +304,11 @@ class NotepadMCPServer extends BaseMCPServer {
 
   /// 🗑️ **CLEAR OPERATION**: Remove all content
   Future<MCPToolResult> _clearNotepad(MCPSession session) async {
-    final previousSize = _getSessionNotepad(session.id).length;
+    final agentName = getAgentNameFromSession(session);
+    final previousSize = _getAgentNotepad(agentName).length;
 
-    _notepads[session.id] = '';
-    await _persistNotepad(session.id, '');
+    _notepads[agentName] = '';
+    await _persistNotepad(agentName, '');
 
     return MCPToolResult(
       content: [
@@ -319,7 +324,8 @@ class NotepadMCPServer extends BaseMCPServer {
     String query,
     bool caseSensitive,
   ) async {
-    final content = _getSessionNotepad(session.id);
+    final agentName = getAgentNameFromSession(session);
+    final content = _getAgentNotepad(agentName);
 
     if (content.isEmpty) {
       return MCPToolResult(
@@ -359,7 +365,8 @@ class NotepadMCPServer extends BaseMCPServer {
 
   /// 📊 **INFO OPERATION**: Get notepad statistics
   Future<MCPToolResult> _getNotepadInfo(MCPSession session) async {
-    final content = _getSessionNotepad(session.id);
+    final agentName = getAgentNameFromSession(session);
+    final content = _getAgentNotepad(agentName);
 
     if (content.isEmpty) {
       return MCPToolResult(
@@ -384,7 +391,7 @@ class NotepadMCPServer extends BaseMCPServer {
         '- Size: $characters characters\n'
         '- Words: $words\n'
         '- Lines: ${lines.length} ($nonEmptyLines non-empty)\n'
-        '- Session: $session.id\n'
+        '- Agent: $agentName\n'
         '- Last modified: ${DateTime.now().toIso8601String()}';
 
     return MCPToolResult(
@@ -402,13 +409,13 @@ class NotepadMCPServer extends BaseMCPServer {
     }
   }
 
-  /// 📂 **SESSION ISOLATION**: Get notepad for specific session
-  String _getSessionNotepad(String sessionId) {
-    return _notepads[sessionId] ?? '';
+  /// 🎯 **AGENT ISOLATION**: Get notepad for specific agent
+  String _getAgentNotepad(String agentName) {
+    return _notepads[agentName] ?? '';
   }
 
-  /// 💾 **PERSISTENCE**: Save notepad to file (optional)
-  Future<void> _persistNotepad(String sessionId, String content) async {
+  /// 💾 **PERSISTENCE**: Save notepad to file (agent-based)
+  Future<void> _persistNotepad(String agentName, String content) async {
     if (persistenceDirectory == null) return;
 
     try {
@@ -417,37 +424,45 @@ class NotepadMCPServer extends BaseMCPServer {
         await dir.create(recursive: true);
       }
 
-      final file = File('${persistenceDirectory!}/notepad_$sessionId.txt');
+      final file = File('${persistenceDirectory!}/notepad_$agentName.txt');
       await file.writeAsString(content);
     } catch (e) {
       // Log error but don't fail the operation
       stderr.writeln(
-          'Warning: Failed to persist notepad for session $sessionId: $e');
+          'Warning: Failed to persist notepad for agent $agentName: $e');
     }
   }
 
-  /// 🔄 **RESTORE**: Load notepad from file on startup
-  Future<void> _loadPersistedNotepad(String sessionId) async {
+  /// 🔄 **RESTORE**: Load notepad from file for agent
+  Future<void> _loadPersistedNotepad(String agentName) async {
     if (persistenceDirectory == null) return;
 
     try {
-      final file = File('${persistenceDirectory!}/notepad_$sessionId.txt');
+      final file = File('${persistenceDirectory!}/notepad_$agentName.txt');
       if (await file.exists()) {
         final content = await file.readAsString();
-        _notepads[sessionId] = content;
+        _notepads[agentName] = content;
       }
     } catch (e) {
       stderr.writeln(
-          'Warning: Failed to load persisted notepad for session $sessionId: $e');
+          'Warning: Failed to load persisted notepad for agent $agentName: $e');
     }
+  }
+
+  /// 🔄 **AGENT DATA LOADING**: Override base class method
+  @override
+  Future<void> loadAgentData(String agentName) async {
+    await super.loadAgentData(agentName);
+    await _loadPersistedNotepad(agentName);
   }
 
   /// 📚 **RESOURCES**: Expose notepad as a resource for reading
   @override
   Future<List<MCPResource>> getAvailableResources(MCPSession session) async {
+    final agentName = getAgentNameFromSession(session);
     return [
       MCPResource(
-        uri: 'notepad://${session.id}',
+        uri: 'notepad://$agentName',
         name: 'Agent Notepad',
         description: 'Your personal notepad content',
         mimeType: 'text/plain',
@@ -457,8 +472,9 @@ class NotepadMCPServer extends BaseMCPServer {
 
   @override
   Future<MCPContent> readResource(MCPSession session, String uri) async {
-    if (uri == 'notepad://${session.id}') {
-      final content = _getSessionNotepad(session.id);
+    final agentName = getAgentNameFromSession(session);
+    if (uri == 'notepad://$agentName') {
+      final content = _getAgentNotepad(agentName);
       return MCPContent.text(content.isEmpty ? 'Empty notepad' : content);
     }
 
@@ -501,7 +517,8 @@ class NotepadMCPServer extends BaseMCPServer {
     String name,
     Map<String, dynamic> arguments,
   ) async {
-    final content = _getSessionNotepad(session.id);
+    final agentName = getAgentNameFromSession(session);
+    final content = _getAgentNotepad(agentName);
 
     switch (name) {
       case 'organize_notepad':
@@ -533,14 +550,14 @@ class NotepadMCPServer extends BaseMCPServer {
     }
   }
 
-  /// 🚀 **LIFECYCLE**: Load persisted data on session creation
+  /// 🚀 **LIFECYCLE**: Load persisted data on startup
   @override
   Future<void> onInitialized() async {
     await super.onInitialized();
 
-    // Load any persisted notepads for existing sessions
-    for (final sessionId in _notepads.keys) {
-      await _loadPersistedNotepad(sessionId);
+    // Load any persisted notepads for existing agents
+    for (final agentName in _notepads.keys) {
+      await _loadPersistedNotepad(agentName);
     }
   }
 }

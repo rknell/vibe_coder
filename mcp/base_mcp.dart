@@ -32,9 +32,6 @@ abstract class BaseMCPServer {
   /// Active sessions for multi-agent support
   final Map<String, MCPSession> _sessions = {};
 
-  /// Request ID counter for JSON-RPC
-  int _requestId = 0;
-
   /// Server state
   bool _isRunning = false;
   // ignore: unused_field
@@ -360,8 +357,57 @@ abstract class BaseMCPServer {
     return _sessions.values.first;
   }
 
-  String _generateSessionId() {
-    return 'session_${DateTime.now().millisecondsSinceEpoch}_${_requestId++}';
+  /// 🎯 **AGENT IDENTIFICATION**: Extract agent name from client info
+  ///
+  /// Extracts a stable agent identifier from client information for persistent sessions
+  String _extractAgentName(Map<String, dynamic>? clientInfo) {
+    if (clientInfo == null) {
+      return 'unknown_agent';
+    }
+
+    // Try multiple fields that might contain agent name
+    final agentName = clientInfo['name'] as String? ??
+        clientInfo['agentName'] as String? ??
+        clientInfo['clientName'] as String? ??
+        clientInfo['identifier'] as String? ??
+        'unknown_agent';
+
+    // Sanitize agent name for filesystem safety
+    final sanitized =
+        agentName.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_').toLowerCase();
+
+    _log('debug', 'Extracted agent name: $sanitized from clientInfo',
+        clientInfo);
+    return sanitized;
+  }
+
+  /// 🔄 **SESSION MANAGEMENT**: Get or create agent-based session
+  ///
+  /// Creates a new session or retrieves existing one based on agent name
+  String _getOrCreateAgentSession(
+    String agentName,
+    Map<String, dynamic>? clientInfo,
+    Map<String, dynamic>? clientCapabilities,
+  ) {
+    // Use agent name as session ID for persistence
+    final sessionId = 'agent_$agentName';
+
+    // Check if session already exists
+    if (_sessions.containsKey(sessionId)) {
+      _log('debug', 'Reusing existing session for agent: $agentName');
+      return sessionId;
+    }
+
+    // Create new session with agent name
+    _sessions[sessionId] = MCPSession(
+      id: sessionId,
+      agentName: agentName,
+      clientInfo: clientInfo,
+      clientCapabilities: clientCapabilities,
+    );
+
+    _log('info', 'Created new session for agent: $agentName');
+    return sessionId;
   }
 
   void _sendMessage(MCPMessage message) {
@@ -437,6 +483,21 @@ abstract class BaseMCPServer {
   Future<void> onCancelled(String? requestId) async {
     _log('info', 'Request cancelled: $requestId');
   }
+
+  /// 🔄 **AGENT DATA LOADING**: Load persistent data for agent sessions
+  ///
+  /// Subclasses should override this to load agent-specific data on startup
+  Future<void> loadAgentData(String agentName) async {
+    _log('debug', 'Loading agent data for: $agentName');
+    // Default implementation - subclasses override for specific data loading
+  }
+
+  /// 📂 **AGENT NAME EXTRACTION**: Get agent name from session
+  ///
+  /// Utility method to extract agent name from session for subclasses
+  String getAgentNameFromSession(MCPSession session) {
+    return session.agentName;
+  }
 }
 
 /// 📋 **SESSION MANAGEMENT**: Per-agent context isolation
@@ -444,6 +505,7 @@ abstract class BaseMCPServer {
 /// Each agent gets its own session with isolated state and capabilities
 class MCPSession {
   final String id;
+  final String agentName;
   final Map<String, dynamic>? clientInfo;
   final Map<String, dynamic>? clientCapabilities;
   final DateTime createdAt;
@@ -451,13 +513,24 @@ class MCPSession {
 
   MCPSession({
     required this.id,
+    String? agentName,
     this.clientInfo,
     this.clientCapabilities,
-  })  : createdAt = DateTime.now(),
+  })  : agentName = agentName ?? _extractAgentNameFromId(id),
+        createdAt = DateTime.now(),
         state = {};
+
+  /// Extract agent name from session ID for backward compatibility
+  static String _extractAgentNameFromId(String sessionId) {
+    if (sessionId.startsWith('agent_')) {
+      return sessionId.substring(6); // Remove 'agent_' prefix
+    }
+    return 'unknown_agent';
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
+        'agentName': agentName,
         'clientInfo': clientInfo,
         'clientCapabilities': clientCapabilities,
         'createdAt': createdAt.toIso8601String(),

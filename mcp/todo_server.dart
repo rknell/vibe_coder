@@ -21,7 +21,7 @@ import 'base_mcp.dart';
 /// 4. **Filtering & Search**: Find tasks by status, priority, due date
 /// 5. **Bulk Operations**: Mark multiple tasks, clear completed
 class TodoMCPServer extends BaseMCPServer {
-  /// In-memory storage for agent TODO lists (session_id -> List<TodoTask>)
+  /// In-memory storage for agent TODO lists (agent_name -> List<TodoTask>)
   final Map<String, List<TodoTask>> _todoLists = {};
 
   /// Optional file persistence directory
@@ -332,7 +332,8 @@ class TodoMCPServer extends BaseMCPServer {
   /// ➕ **ADD TASK**: Create new task with metadata
   Future<MCPToolResult> _addTask(
       MCPSession session, Map<String, dynamic> args) async {
-    final todoList = _getSessionTodoList(session.id);
+    final agentName = getAgentNameFromSession(session);
+    final todoList = _getAgentTodoList(agentName);
 
     if (todoList.length >= maxTasksPerAgent) {
       throw MCPServerException(
@@ -389,7 +390,7 @@ class TodoMCPServer extends BaseMCPServer {
   /// 📋 **LIST TASKS**: Show filtered task list
   Future<MCPToolResult> _listTasks(
       MCPSession session, Map<String, dynamic> args) async {
-    final todoList = _getSessionTodoList(session.id);
+    final todoList = _getSessionTodoList(session);
 
     if (todoList.isEmpty) {
       return MCPToolResult(
@@ -520,7 +521,7 @@ class TodoMCPServer extends BaseMCPServer {
     int taskId,
     TaskStatus newStatus,
   ) async {
-    final todoList = _getSessionTodoList(session.id);
+    final todoList = _getSessionTodoList(session);
     final taskIndex = todoList.indexWhere((t) => t.id == taskId);
 
     if (taskIndex == -1) {
@@ -537,7 +538,8 @@ class TodoMCPServer extends BaseMCPServer {
     );
 
     todoList[taskIndex] = updatedTask;
-    await _persistTodoList(session.id, todoList);
+    final agentName = getAgentNameFromSession(session);
+    await _persistTodoList(agentName, todoList);
 
     return MCPToolResult(
       content: [
@@ -553,7 +555,7 @@ class TodoMCPServer extends BaseMCPServer {
   /// ✏️ **EDIT TASK**: Update task details
   Future<MCPToolResult> _editTask(
       MCPSession session, Map<String, dynamic> args) async {
-    final todoList = _getSessionTodoList(session.id);
+    final todoList = _getSessionTodoList(session);
     final taskId = args['task_id'] as int;
     final taskIndex = todoList.indexWhere((t) => t.id == taskId);
 
@@ -600,7 +602,8 @@ class TodoMCPServer extends BaseMCPServer {
     );
 
     todoList[taskIndex] = updatedTask;
-    await _persistTodoList(session.id, todoList);
+    final agentName = getAgentNameFromSession(session);
+    await _persistTodoList(agentName, todoList);
 
     return MCPToolResult(
       content: [
@@ -617,7 +620,7 @@ class TodoMCPServer extends BaseMCPServer {
 
   /// 🗑️ **DELETE TASK**: Remove task from list
   Future<MCPToolResult> _deleteTask(MCPSession session, int taskId) async {
-    final todoList = _getSessionTodoList(session.id);
+    final todoList = _getSessionTodoList(session);
     final taskIndex = todoList.indexWhere((t) => t.id == taskId);
 
     if (taskIndex == -1) {
@@ -625,7 +628,8 @@ class TodoMCPServer extends BaseMCPServer {
     }
 
     final task = todoList.removeAt(taskIndex);
-    await _persistTodoList(session.id, todoList);
+    final agentName = getAgentNameFromSession(session);
+    await _persistTodoList(agentName, todoList);
 
     return MCPToolResult(
       content: [
@@ -642,7 +646,7 @@ class TodoMCPServer extends BaseMCPServer {
     String query,
     bool caseSensitive,
   ) async {
-    final todoList = _getSessionTodoList(session.id);
+    final todoList = _getSessionTodoList(session);
 
     if (todoList.isEmpty) {
       return MCPToolResult(
@@ -692,13 +696,14 @@ class TodoMCPServer extends BaseMCPServer {
 
   /// 🧹 **CLEAR COMPLETED**: Remove all completed tasks
   Future<MCPToolResult> _clearCompleted(MCPSession session) async {
-    final todoList = _getSessionTodoList(session.id);
+    final todoList = _getSessionTodoList(session);
     final initialCount = todoList.length;
 
     todoList.removeWhere((task) => task.status == TaskStatus.completed);
 
     final removedCount = initialCount - todoList.length;
-    await _persistTodoList(session.id, todoList);
+    final agentName = getAgentNameFromSession(session);
+    await _persistTodoList(agentName, todoList);
 
     return MCPToolResult(
       content: [
@@ -711,7 +716,7 @@ class TodoMCPServer extends BaseMCPServer {
 
   /// 📊 **STATISTICS**: Get TODO list statistics
   Future<MCPToolResult> _getStatistics(MCPSession session) async {
-    final todoList = _getSessionTodoList(session.id);
+    final todoList = _getSessionTodoList(session);
 
     if (todoList.isEmpty) {
       return MCPToolResult(
@@ -793,8 +798,14 @@ class TodoMCPServer extends BaseMCPServer {
 
   /// 🔧 **UTILITY METHODS**: Helper functions
 
-  List<TodoTask> _getSessionTodoList(String sessionId) {
-    return _todoLists.putIfAbsent(sessionId, () => []);
+  List<TodoTask> _getAgentTodoList(String agentName) {
+    return _todoLists.putIfAbsent(agentName, () => []);
+  }
+
+  /// Get TODO list for a session (converts session to agent name)
+  List<TodoTask> _getSessionTodoList(MCPSession session) {
+    final agentName = getAgentNameFromSession(session);
+    return _getAgentTodoList(agentName);
   }
 
   int _getNextTaskId(List<TodoTask> todoList) {
@@ -828,10 +839,10 @@ class TodoMCPServer extends BaseMCPServer {
     }
   }
 
-  /// 💾 **PERSISTENCE**: Save/load TODO lists
+  /// 💾 **PERSISTENCE**: Save/load TODO lists (agent-based)
 
   Future<void> _persistTodoList(
-      String sessionId, List<TodoTask> todoList) async {
+      String agentName, List<TodoTask> todoList) async {
     if (persistenceDirectory == null) return;
 
     try {
@@ -840,51 +851,59 @@ class TodoMCPServer extends BaseMCPServer {
         await dir.create(recursive: true);
       }
 
-      final file = File('${persistenceDirectory!}/todo_$sessionId.json');
+      final file = File('${persistenceDirectory!}/todo_$agentName.json');
       final jsonData = todoList.map((task) => task.toJson()).toList();
       await file.writeAsString(jsonEncode(jsonData));
     } catch (e) {
       stderr.writeln(
-          'Warning: Failed to persist TODO list for session $sessionId: $e');
+          'Warning: Failed to persist TODO list for agent $agentName: $e');
     }
   }
 
-  Future<void> _loadPersistedTodoList(String sessionId) async {
+  Future<void> _loadPersistedTodoList(String agentName) async {
     if (persistenceDirectory == null) return;
 
     try {
-      final file = File('${persistenceDirectory!}/todo_$sessionId.json');
+      final file = File('${persistenceDirectory!}/todo_$agentName.json');
       if (await file.exists()) {
         final jsonStr = await file.readAsString();
         final jsonList = jsonDecode(jsonStr) as List<dynamic>;
         final todoList =
             jsonList.map((json) => TodoTask.fromJson(json)).toList();
-        _todoLists[sessionId] = todoList;
+        _todoLists[agentName] = todoList;
       }
     } catch (e) {
       stderr.writeln(
-          'Warning: Failed to load persisted TODO list for session $sessionId: $e');
+          'Warning: Failed to load persisted TODO list for agent $agentName: $e');
     }
+  }
+
+  /// 🔄 **AGENT DATA LOADING**: Override base class method
+  @override
+  Future<void> loadAgentData(String agentName) async {
+    await super.loadAgentData(agentName);
+    await _loadPersistedTodoList(agentName);
   }
 
   /// 📚 **RESOURCES**: Expose TODO list as resources
   @override
   Future<List<MCPResource>> getAvailableResources(MCPSession session) async {
+    final agentName = getAgentNameFromSession(session);
     return [
       MCPResource(
-        uri: 'todo://${session.id}/list',
+        uri: 'todo://$agentName/list',
         name: 'TODO List',
         description: 'Your complete task list',
         mimeType: 'application/json',
       ),
       MCPResource(
-        uri: 'todo://${session.id}/pending',
+        uri: 'todo://$agentName/pending',
         name: 'Pending Tasks',
         description: 'Tasks that need to be done',
         mimeType: 'application/json',
       ),
       MCPResource(
-        uri: 'todo://${session.id}/completed',
+        uri: 'todo://$agentName/completed',
         name: 'Completed Tasks',
         description: 'Tasks that have been finished',
         mimeType: 'application/json',
@@ -894,17 +913,18 @@ class TodoMCPServer extends BaseMCPServer {
 
   @override
   Future<MCPContent> readResource(MCPSession session, String uri) async {
-    final todoList = _getSessionTodoList(session.id);
+    final todoList = _getSessionTodoList(session);
+    final agentName = getAgentNameFromSession(session);
 
-    if (uri == 'todo://${session.id}/list') {
+    if (uri == 'todo://$agentName/list') {
       final jsonData = todoList.map((task) => task.toJson()).toList();
       return MCPContent.text(jsonEncode(jsonData));
-    } else if (uri == 'todo://${session.id}/pending') {
+    } else if (uri == 'todo://$agentName/pending') {
       final pending =
           todoList.where((t) => t.status == TaskStatus.pending).toList();
       final jsonData = pending.map((task) => task.toJson()).toList();
       return MCPContent.text(jsonEncode(jsonData));
-    } else if (uri == 'todo://${session.id}/completed') {
+    } else if (uri == 'todo://$agentName/completed') {
       final completed =
           todoList.where((t) => t.status == TaskStatus.completed).toList();
       final jsonData = completed.map((task) => task.toJson()).toList();
@@ -942,7 +962,7 @@ class TodoMCPServer extends BaseMCPServer {
     String name,
     Map<String, dynamic> arguments,
   ) async {
-    final todoList = _getSessionTodoList(session.id);
+    final todoList = _getSessionTodoList(session);
 
     switch (name) {
       case 'prioritize_tasks':

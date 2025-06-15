@@ -79,6 +79,17 @@
             "env": {
                 "DEBUG": "false"
             }
+        },
+        "company-directory": {
+            "command": "dart",
+            "args": [
+                "mcp/company_directory_server.dart",
+                "--persist-dir",
+                "./data/company_directory"
+            ],
+            "env": {
+                "DEBUG": "false"
+            }
         }
     }
 }
