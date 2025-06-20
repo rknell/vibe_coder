@@ -4,6 +4,7 @@ import 'package:vibe_coder/ai_agent/agent.dart';
 import 'package:vibe_coder/ai_agent/models/chat_message_model.dart';
 import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
 import 'package:vibe_coder/services/debug_logger.dart';
+import 'package:vibe_coder/services/global_mcp_service.dart';
 import 'package:vibe_coder/models/agent_configuration.dart';
 import 'package:vibe_coder/services/configuration_service.dart';
 
@@ -250,21 +251,28 @@ class ChatService {
       };
     }
 
-    final mcpManager = _agent!.mcpManager;
-    final configuredServers = mcpManager.configuredServers;
-    final connectedServers = mcpManager.connectedServers;
-    final allTools = mcpManager.getAllTools();
+    final globalMCP = GlobalMCPService.instance;
+    if (!globalMCP.isInitialized) {
+      return {
+        'servers': <Map<String, dynamic>>[],
+        'totalTools': 0,
+        'connectedServers': 0,
+        'configuredServers': 0,
+      };
+    }
 
-    // Get detailed status for all configured servers
-    final serverInfo = configuredServers.map((serverName) {
-      return mcpManager.getServerStatus(serverName);
-    }).toList();
+    // Use the global MCP service's built-in server info method
+    final mcpInfo = globalMCP.getMCPServerInfo();
+    final servers = mcpInfo['servers'] as Map<String, dynamic>;
+
+    // Convert to the expected format for compatibility
+    final serverList = servers.values.toList();
 
     return {
-      'servers': serverInfo,
-      'totalTools': allTools.length,
-      'connectedServers': connectedServers.length,
-      'configuredServers': configuredServers.length,
+      'servers': serverList,
+      'totalTools': mcpInfo['toolCount'],
+      'connectedServers': mcpInfo['connectedCount'],
+      'configuredServers': mcpInfo['totalCount'],
     };
   }
 

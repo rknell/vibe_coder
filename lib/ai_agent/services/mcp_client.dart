@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 import '../models/mcp_models.dart';
 import 'package:vibe_coder/services/debug_logger.dart';
+import 'package:vibe_coder/services/mcp_process_manager.dart';
 
 /// Transport type for MCP client
 enum MCPTransportType { http, stdio }
@@ -22,6 +23,7 @@ class MCPClient {
   final List<String>? args;
   final Map<String, String>? env;
   Process? _process;
+  SharedMCPProcess? _sharedProcess;
   StreamSubscription<String>? _stdoutSubscription;
   StreamSubscription<String>? _stderrSubscription;
 
@@ -86,26 +88,39 @@ class MCPClient {
     _logger.info('HTTP connection established');
   }
 
-  /// Initialize STDIO transport
+  /// Initialize STDIO transport using shared process manager
+  ///
+  /// PERF: O(1) - reuses existing processes, O(n) for new process creation
+  /// ARCHITECTURAL: Uses MCPProcessManager to prevent multiple server instances
   Future<void> _initializeStdio() async {
     if (command == null) {
       throw MCPException('Command is required for STDIO transport');
     }
 
     try {
-      _logger
-          .info('🚀 STDIO INIT: Starting process: $command ${args?.join(' ')}');
+      _logger.info(
+          '🔍 STDIO INIT: Requesting shared process for: $command ${args?.join(' ')}');
       _logger.info('🔧 STDIO ENV: ${env?.keys.join(', ') ?? 'No custom env'}');
 
-      _process = await Process.start(
-        command!,
-        args ?? [],
-        environment: env,
-        mode: ProcessStartMode.normal,
+      // Use process manager to get or create shared process
+      final processManager = MCPProcessManager.instance;
+      final serverName =
+          '${command}_${args?.join('_') ?? ''}'; // Create unique server name
+
+      _sharedProcess = await processManager.getOrCreateProcess(
+        serverName: serverName,
+        command: command!,
+        args: args,
+        env: env,
       );
 
-      _logger.info(
-          '✅ STDIO PROCESS: Started successfully (PID: ${_process!.pid})');
+      // Get reference to the underlying process
+      _process = _sharedProcess!.process;
+
+      _logger
+          .info('✅ STDIO SHARED: Using shared process (PID: ${_process!.pid})');
+      _logger.info('🔗 PROCESS KEY: ${_sharedProcess!.processKey}');
+      _logger.info('🏢 SERVER NAME: ${_sharedProcess!.serverName}');
 
       // Set up stdout listener for responses
       _stdoutSubscription = _process!.stdout
@@ -114,12 +129,14 @@ class MCPClient {
           .listen(
         (line) {
           if (line.trim().isNotEmpty) {
-            _logger.info('📥 STDIO STDOUT: $line');
+            _logger
+                .info('📥 STDIO STDOUT [${_sharedProcess!.serverName}]: $line');
             _handleStdioResponse(line);
           }
         },
         onError: (error) {
-          _logger.severe('💥 STDIO STDOUT ERROR: $error');
+          _logger.severe(
+              '💥 STDIO STDOUT ERROR [${_sharedProcess!.serverName}]: $error');
         },
       );
 
@@ -130,22 +147,26 @@ class MCPClient {
           .listen(
         (line) {
           if (line.trim().isNotEmpty) {
-            _logger.warning('⚠️ STDIO STDERR: $line');
+            _logger.warning(
+                '⚠️ STDIO STDERR [${_sharedProcess!.serverName}]: $line');
           }
         },
         onError: (error) {
-          _logger.severe('💥 STDIO STDERR ERROR: $error');
+          _logger.severe(
+              '💥 STDIO STDERR ERROR [${_sharedProcess!.serverName}]: $error');
         },
       );
 
       // Send initialization request
-      _logger.info('🤝 STDIO HANDSHAKE: Sending initialization...');
+      _logger.info(
+          '🤝 STDIO HANDSHAKE: Sending initialization to shared process...');
       await _sendStdioInitialization();
 
       _logger.info(
-          '🎯 STDIO SUCCESS: Process initialized and handshake completed');
+          '🎯 STDIO SUCCESS: Shared process initialized and handshake completed');
     } catch (e) {
-      _logger.severe('💀 STDIO FAILURE: Failed to start process: $e');
+      _logger
+          .severe('💀 STDIO FAILURE: Failed to initialize shared process: $e');
       await _cleanup();
       rethrow;
     }
@@ -597,35 +618,47 @@ class MCPClient {
     return [];
   }
 
-  /// Cleanup resources
+  /// Cleanup resources with shared process management
+  ///
+  /// PERF: O(1) - cancels subscriptions and releases process reference
+  /// ARCHITECTURAL: Disposes shared process handle, process terminates when no more references
   Future<void> _cleanup() async {
     _pendingRequests.clear();
 
     await _stdoutSubscription?.cancel();
     await _stderrSubscription?.cancel();
 
-    if (_process != null) {
-      _process!.kill();
-      await _process!.exitCode;
-      _process = null;
+    // Release shared process reference instead of directly killing
+    if (_sharedProcess != null) {
+      _logger.info('🔗 CLEANUP: Releasing shared process reference');
+      _sharedProcess!.dispose();
+      _sharedProcess = null;
     }
+
+    // Clear process reference (don't kill directly - managed by process manager)
+    _process = null;
   }
 
-  /// Close the client
+  /// Close the client with shared process management
+  ///
+  /// PERF: O(1) - releases resources and shared process references
+  /// ARCHITECTURAL: Graceful shutdown with process sharing support
   Future<void> close() async {
-    _logger.info('Closing MCP client');
+    _logger.info('🚪 CLOSING: MCP client shutdown initiated');
 
     switch (transportType) {
       case MCPTransportType.http:
         _httpClient.close();
+        _logger.info('🌐 HTTP CLIENT: Closed HTTP client');
         break;
       case MCPTransportType.stdio:
         await _cleanup();
+        _logger.info('📟 STDIO CLIENT: Released shared process resources');
         break;
     }
 
     _isInitialized = false;
-    _logger.info('MCP client closed');
+    _logger.info('✅ CLIENT CLOSED: MCP client shutdown complete');
   }
 }
 

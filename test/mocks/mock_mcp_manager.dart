@@ -1,10 +1,11 @@
 import 'package:vibe_coder/ai_agent/services/mcp_manager.dart';
 import 'package:vibe_coder/ai_agent/models/mcp_models.dart';
 
-/// 🎭 **MOCK MCP MANAGER**
+/// �� **MOCK MCP MANAGER WITH PROCESS TRACKING**
 ///
 /// Provides instant responses for unit testing without network calls
 /// Follows warrior protocol with O(1) performance and no side effects
+/// Enhanced with process management simulation for shared process testing
 class MockMCPManager implements MCPManager {
   final Map<String, MCPServerConfig> _mockServerConfigs = {
     'mock-filesystem': MCPServerConfig(
@@ -51,6 +52,10 @@ class MockMCPManager implements MCPManager {
     ),
   ];
 
+  // 🎯 PROCESS MANAGEMENT SIMULATION: Track process creation for testing
+  final Map<String, int> _processCreationCount = {};
+  final Map<String, Set<String>> _processReferences = {};
+
   @override
   List<String> get configuredServers => _mockServerConfigs.keys.toList();
 
@@ -81,15 +86,6 @@ class MockMCPManager implements MCPManager {
   @override
   Future<void> refreshCapabilities() async {
     // 🚀 INSTANT REFRESH - No network calls
-    await Future.delayed(Duration.zero);
-  }
-
-  @override
-  Future<void> refreshServerCapabilities(String serverName) async {
-    // 🚀 INSTANT SERVER REFRESH - Mock individual server refresh
-    if (!_mockServerConfigs.containsKey(serverName)) {
-      throw Exception('Server not found: $serverName');
-    }
     await Future.delayed(Duration.zero);
   }
 
@@ -188,6 +184,57 @@ class MockMCPManager implements MCPManager {
       'supported': true,
       'reason': null,
     };
+  }
+
+  // 🎯 PROCESS MANAGEMENT TESTING: Additional methods for testing shared process behavior
+
+  /// Simulate process creation for testing
+  void simulateProcessCreation(String serverName, String clientId) {
+    _processCreationCount[serverName] =
+        (_processCreationCount[serverName] ?? 0) + 1;
+    _processReferences[serverName] ??= <String>{};
+    _processReferences[serverName]!.add(clientId);
+  }
+
+  /// Simulate process release for testing
+  void simulateProcessRelease(String serverName, String clientId) {
+    _processReferences[serverName]?.remove(clientId);
+    if (_processReferences[serverName]?.isEmpty ?? true) {
+      _processReferences.remove(serverName);
+    }
+  }
+
+  /// Get process creation count for testing
+  int getProcessCreationCount(String serverName) {
+    return _processCreationCount[serverName] ?? 0;
+  }
+
+  /// Get active reference count for testing
+  int getActiveReferenceCount(String serverName) {
+    return _processReferences[serverName]?.length ?? 0;
+  }
+
+  /// Get all process statistics for testing
+  Map<String, dynamic> getProcessStats() {
+    return {
+      'totalProcessesCreated': _processCreationCount.values
+          .fold<int>(0, (sum, count) => sum + count),
+      'activeProcesses': _processReferences.length,
+      'processDetails': _processReferences.entries
+          .map((entry) => {
+                'serverName': entry.key,
+                'activeReferences': entry.value.length,
+                'creationCount': _processCreationCount[entry.key] ?? 0,
+                'referencingClients': entry.value.toList(),
+              })
+          .toList(),
+    };
+  }
+
+  /// Reset process tracking for testing
+  void resetProcessTracking() {
+    _processCreationCount.clear();
+    _processReferences.clear();
   }
 
   // Additional mock methods for testing specific scenarios

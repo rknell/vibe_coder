@@ -105,14 +105,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   // Service State Tracking
   bool _isLoading = false;
-  bool _isMCPLoading = false;
   String? _errorMessage;
   String? _loadingStatus;
   bool _isServiceInitialized = false;
-
-  // 🎯 MCP LOADING PROGRESS: Real-time feedback
-  final Map<String, String> _mcpServerStatus = {};
-  int _connectedMCPServers = 0;
 
   @override
   void initState() {
@@ -146,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   /// Initialize multi-agent service and set up reactive streams
   ///
-  /// PERF: O(1) initialization with lazy agent loading
+  /// PERF: O(1) initialization with instant agent access
   /// ARCHITECTURAL: Stream-based reactive architecture for real-time updates
   Future<void> _initializeMultiAgentService() async {
     setState(() {
@@ -156,37 +151,33 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     });
 
     try {
-      // Phase 1: Initialize service (fast)
-      setState(() => _loadingStatus = 'Loading agent configurations...');
+      // Phase 1: Initialize service with MCP (this takes 5-10s but only happens ONCE)
+      setState(() => _loadingStatus = 'Initializing MCP infrastructure...');
       await _multiAgentChatService.initialize();
 
-      // Load existing agents
+      // Phase 2: Load agents instantly (no MCP delays - already connected)
       setState(() {
         _availableAgents = _multiAgentChatService.allAgents;
         _isServiceInitialized = true;
-        _loadingStatus = 'Setting up agent connections...';
+        _loadingStatus = 'Loading agents...';
       });
 
       // Create default agent if none exist
       if (_availableAgents.isEmpty) {
         await _createDefaultAgentDeferred();
-      } else {
-        // Start background MCP initialization for existing agents
-        _startBackgroundMCPInitialization();
       }
 
       setState(() {
-        _loadingStatus = 'Ready! MCP servers loading in background...';
+        _loadingStatus = 'Ready!';
+        _isLoading = false;
       });
 
-      // Show loading status briefly then clear
-      Timer(const Duration(seconds: 2), () {
+      // Clear loading status after brief display
+      Timer(const Duration(seconds: 1), () {
         if (mounted) {
           setState(() => _loadingStatus = null);
         }
       });
-
-      setState(() => _isLoading = false);
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -197,9 +188,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   /// Create default agent when none exist
-  /// PERF: O(1) - single agent creation
+  /// PERF: O(1) - single agent creation with shared MCP
   Future<void> _createDefaultAgentDeferred() async {
     try {
+      setState(() => _loadingStatus = 'Creating default agent...');
+
       final defaultAgent = await _multiAgentChatService.createAgent(
         name: 'VibeCoder Assistant',
         systemPrompt:
@@ -227,56 +220,6 @@ Always provide clear, actionable advice with code examples when helpful.''',
     } catch (e) {
       setState(() {
         _errorMessage = 'Failed to create default agent: $e';
-      });
-    }
-  }
-
-  /// Start background MCP initialization for agents
-  ///
-  /// PERF: O(n) where n = number of agents, but async/non-blocking
-  void _startBackgroundMCPInitialization() {
-    if (_availableAgents.isEmpty) return;
-
-    setState(() {
-      _isMCPLoading = true;
-      _connectedMCPServers = 0;
-      _mcpServerStatus.clear();
-    });
-
-    // Start background loading for each agent
-    for (final agent in _availableAgents) {
-      _initializeAgentMCPInBackground(agent.id);
-    }
-  }
-
-  /// Initialize MCP for specific agent in background
-  /// PERF: O(1) per agent - async background operation
-  Future<void> _initializeAgentMCPInBackground(String agentId) async {
-    try {
-      setState(() {
-        _mcpServerStatus[agentId] = 'Connecting to MCP servers...';
-      });
-
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      setState(() {
-        _mcpServerStatus[agentId] = 'Connected';
-        _connectedMCPServers++;
-
-        if (_connectedMCPServers >= _availableAgents.length) {
-          _isMCPLoading = false;
-          _loadingStatus = null;
-        }
-      });
-    } catch (e) {
-      setState(() {
-        _mcpServerStatus[agentId] = 'Connection failed: $e';
-        _connectedMCPServers++;
-
-        if (_connectedMCPServers >= _availableAgents.length) {
-          _isMCPLoading = false;
-          _loadingStatus = null;
-        }
       });
     }
   }
@@ -822,23 +765,15 @@ What would you like to work on today?''',
               ),
               child: Row(
                 children: [
-                  if (_isMCPLoading)
-                    const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  else
-                    const Icon(Icons.info, color: Colors.blue, size: 20),
+                  const Icon(Icons.info, color: Colors.blue, size: 20),
                   const SizedBox(width: 8),
                   Expanded(child: Text(_loadingStatus!)),
-                  if (!_isMCPLoading)
-                    TextButton(
-                      onPressed: () {
-                        setState(() => _loadingStatus = null);
-                      },
-                      child: const Text('Dismiss'),
-                    ),
+                  TextButton(
+                    onPressed: () {
+                      setState(() => _loadingStatus = null);
+                    },
+                    child: const Text('Dismiss'),
+                  ),
                 ],
               ),
             ),

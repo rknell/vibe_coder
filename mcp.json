@@ -69,12 +69,12 @@
                 "DEBUG": "false"
             }
         },
-        "todo": {
+        "task_list": {
             "command": "dart",
             "args": [
-                "mcp/todo_server.dart",
+                "mcp/task_list_server.dart",
                 "--persist-dir",
-                "./data/todos"
+                "./data/task_lists"
             ],
             "env": {
                 "DEBUG": "false"

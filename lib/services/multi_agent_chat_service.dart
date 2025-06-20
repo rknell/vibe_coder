@@ -42,6 +42,7 @@ import 'package:vibe_coder/ai_agent/models/chat_message_model.dart';
 import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
 import 'package:vibe_coder/services/agent_manager.dart';
 import 'package:vibe_coder/services/debug_logger.dart';
+import 'package:vibe_coder/services/global_mcp_service.dart';
 
 /// MultiAgentChatService - Universal Multi-Agent Conversation Controller
 ///
@@ -94,14 +95,20 @@ class MultiAgentChatService {
 
   /// Initialize the multi-agent chat service
   ///
-  /// PERF: O(1) initialization - agents loaded lazily on demand
-  /// ARCHITECTURAL: Initializes agent manager and sets up reactive streams
+  /// PERF: O(n) where n = MCP servers - initializes global MCP once, then O(1) agent loading
+  /// ARCHITECTURAL: Initializes shared MCP infrastructure then agent manager
   Future<void> initialize() async {
     if (_isInitialized) return;
 
     _logger.info('🚀 MULTI-AGENT CHAT: Initializing multi-agent chat service');
 
     try {
+      // 🎯 PERFORMANCE ENHANCEMENT: Initialize global MCP service ONCE
+      _logger.info('🔗 GLOBAL MCP: Starting shared MCP infrastructure...');
+      await GlobalMCPService.instance.initialize('mcp.json');
+      _logger.info(
+          '✅ GLOBAL MCP: Shared infrastructure ready - all agents will use instant connections');
+
       // Initialize agent manager
       await _agentManager.initialize();
 
@@ -111,8 +118,13 @@ class MultiAgentChatService {
 
       _isInitialized = true;
 
+      final mcpInfo = GlobalMCPService.instance.getMCPServerInfo();
+      _logger.info('✅ MULTI-AGENT CHAT: Service initialized successfully');
+      _logger.info('📊 AGENTS: ${_agentManager.agentCount} agents loaded');
       _logger.info(
-          '✅ MULTI-AGENT CHAT: Service initialized with ${_agentManager.agentCount} agents');
+          '🔗 MCP SERVERS: ${mcpInfo['connectedCount']}/${mcpInfo['totalCount']} connected');
+      _logger.info(
+          '🛠️ MCP TOOLS: ${mcpInfo['toolCount']} tools available globally');
     } catch (e, stackTrace) {
       _logger.severe(
           '💥 MULTI-AGENT CHAT: Initialization failed: $e', e, stackTrace);
@@ -468,30 +480,36 @@ class MultiAgentChatService {
       };
     }
 
-    final activeAgent = _agentManager.getActiveAgent(_currentAgentId!);
-    if (activeAgent == null) return {};
+    // Use global MCP service instead of per-agent MCP manager
+    try {
+      final globalMCP = GlobalMCPService.instance;
+      if (!globalMCP.isInitialized) {
+        return {
+          'servers': <Map<String, dynamic>>[],
+          'totalTools': 0,
+          'connectedServers': 0,
+          'configuredServers': 0,
+          'error': 'Global MCP service not initialized'
+        };
+      }
 
-    final mcpManager = activeAgent.mcpManager;
-    final configuredServers = mcpManager.configuredServers;
-    final connectedServers = mcpManager.connectedServers;
-    final allTools = mcpManager.getAllTools();
-
-    final serverInfo = configuredServers.map((serverName) {
-      return mcpManager.getServerStatus(serverName);
-    }).toList();
-
-    return {
-      'servers': serverInfo,
-      'totalTools': allTools.length,
-      'connectedServers': connectedServers.length,
-      'configuredServers': configuredServers.length,
-    };
+      return globalMCP.getMCPServerInfo();
+    } catch (e) {
+      _logger.warning('⚠️ MULTI-AGENT: Failed to get MCP info: $e');
+      return {
+        'servers': <Map<String, dynamic>>[],
+        'totalTools': 0,
+        'connectedServers': 0,
+        'configuredServers': 0,
+        'error': e.toString()
+      };
+    }
   }
 
-  /// Refresh all MCP servers for current agent
+  /// Refresh all MCP servers for current agent with configuration reload
   ///
   /// PERF: O(n) where n = number of servers - parallel refresh for optimal performance
-  /// 🎯 WARRIOR ENHANCEMENT: Comprehensive server refresh with error handling
+  /// 🎯 WARRIOR ENHANCEMENT: Complete infrastructure refresh including mcp.json reload
   Future<Map<String, dynamic>> refreshAllMCPServers() async {
     _ensureInitialized();
 
@@ -508,16 +526,19 @@ class MultiAgentChatService {
         '🔄 MULTI-AGENT: Refreshing all MCP servers for agent: $_currentAgentId');
 
     try {
-      // Refresh capabilities for all servers
-      await activeAgent.mcpManager.refreshCapabilities();
+      // Refresh with configuration reload from mcp.json
+      await activeAgent.refreshMCPWithConfig();
 
       // Return updated server info
       final updatedInfo = getCurrentAgentMCPInfo();
 
-      _logger.info('✅ MULTI-AGENT: All MCP servers refreshed successfully');
+      _logger.info(
+          '✅ MULTI-AGENT: All MCP servers refreshed successfully (including config reload)');
       return updatedInfo;
     } catch (e, stackTrace) {
-      _logger.severe('💥 MULTI-AGENT: Failed to refresh all MCP servers: $e', e,
+      _logger.severe(
+          '💥 MULTI-AGENT: Failed to refresh all MCP servers with config: $e',
+          e,
           stackTrace);
       rethrow;
     }
@@ -543,16 +564,19 @@ class MultiAgentChatService {
         '🔄 MULTI-AGENT: Refreshing MCP server: $serverName for agent: $_currentAgentId');
 
     try {
-      final mcpManager = activeAgent.mcpManager;
+      final globalMCP = GlobalMCPService.instance;
+      if (!globalMCP.isInitialized) {
+        throw MultiAgentChatException('Global MCP service not initialized');
+      }
 
       // Check if server is configured
-      if (!mcpManager.configuredServers.contains(serverName)) {
+      if (!globalMCP.configuredServers.contains(serverName)) {
         throw MultiAgentChatException(
             'Server not found in configuration: $serverName');
       }
 
-      // Refresh capabilities for specific server
-      await mcpManager.refreshServerCapabilities(serverName);
+      // Refresh capabilities using global service
+      await globalMCP.refreshAllServers();
 
       // Return updated server info
       final updatedInfo = getCurrentAgentMCPInfo();

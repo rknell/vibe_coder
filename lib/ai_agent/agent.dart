@@ -3,9 +3,10 @@ import 'package:vibe_coder/ai_agent/services/company_directory_service.dart';
 import 'package:vibe_coder/ai_agent/services/conversation_manager.dart';
 import 'package:vibe_coder/ai_agent/models/inbox_message.dart';
 import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
-import 'package:vibe_coder/ai_agent/services/mcp_manager.dart';
 import 'package:vibe_coder/ai_agent/models/mcp_models.dart';
+import 'package:vibe_coder/ai_agent/services/mcp_manager.dart';
 import 'package:vibe_coder/services/services.dart';
+import 'package:vibe_coder/services/global_mcp_service.dart';
 import 'dart:io';
 import 'dart:convert';
 
@@ -20,8 +21,7 @@ class Agent {
   final Agent? supervisor;
   final List<String> contextFiles; // List of filenames to include in context
 
-  // MCP Integration
-  late final MCPManager mcpManager;
+  // MCP Integration - now uses shared global service
   final String? mcpConfigPath;
 
   late final Logger logger;
@@ -49,8 +49,7 @@ class Agent {
     logger.info('Agent "$name" initialized');
     logger.info('System prompt: $systemPrompt');
 
-    // Initialize MCP Manager
-    mcpManager = MCPManager();
+    // MCP is now handled by GlobalMCPService - no per-agent initialization needed
 
     // Add system prompt and the inbox processing prompt
     final systemPromptAnnotated =
@@ -61,58 +60,74 @@ class Agent {
         'Agent constructor completed - MCP initialization will be done async');
   }
 
-  /// Initialize MCP configuration - must be called after Agent construction
+  /// Initialize MCP configuration - INSTANT since MCP is pre-initialized globally
   ///
-  /// PERF: O(n) where n = number of configured servers
-  /// ARCHITECTURAL: Separated from constructor to allow proper async handling
+  /// PERF: O(1) - instant validation, no network calls or initialization
+  /// ARCHITECTURAL: Uses shared GlobalMCPService instead of per-agent connections
   Future<void> initializeMCP() async {
+    logger.info('⚡ AGENT MCP: Using shared global MCP service (INSTANT)');
+
     try {
-      if (mcpConfigPath != null) {
-        logger.info('🚀 AGENT MCP INIT: Starting with config: $mcpConfigPath');
-        await mcpManager.initialize(mcpConfigPath!);
-        logger.info('📋 MCP CONFIG: Configuration loaded from: $mcpConfigPath');
-        logger.info(
-            '🔗 CONNECTED: ${mcpManager.connectedServers.length} MCP servers connected');
+      final globalMCP = GlobalMCPService.instance;
+
+      if (!globalMCP.isInitialized) {
+        logger.warning(
+            '⚠️ AGENT MCP: Global MCP service not initialized yet - deferring');
+        return;
+      }
+
+      final toolCount = globalMCP.getAllTools().length;
+      final serverCount = globalMCP.connectedServers.length;
+
+      logger.info(
+          '✅ AGENT MCP: Connected to global MCP infrastructure (INSTANT)');
+      logger.info('🔗 SERVERS: $serverCount connected servers');
+      logger.info('🛠️ TOOLS: $toolCount available tools');
+
+      if (toolCount == 0) {
         logger
-            .info('⚙️ CONFIGURED: ${mcpManager.configuredServers.join(', ')}');
-
-        // Log available tools
-        final allTools = mcpManager.getAllTools();
-        logger.info(
-            '🛠️ TOOLS AVAILABLE: ${allTools.map((t) => t.uniqueId).join(', ')}');
-
-        if (allTools.isEmpty) {
-          logger.warning(
-              '⚠️ NO TOOLS: No MCP tools are available despite server connections');
-        }
-      } else {
-        logger.info('⚠️ NO CONFIG: No MCP configuration path provided');
+            .warning('⚠️ NO TOOLS: No MCP tools available from global service');
       }
     } catch (e, stackTrace) {
-      logger.severe(
-          '💥 AGENT MCP FAILURE: Failed to initialize MCP: $e', e, stackTrace);
-      rethrow; // Re-throw to allow caller to handle
+      logger.severe('💥 AGENT MCP: Failed to access global MCP service: $e', e,
+          stackTrace);
+      // Don't rethrow - agent can still function without MCP
+      logger.warning('🛡️ AGENT DEGRADED: Continuing without MCP tools');
     }
   }
 
-  /// Get all available MCP tools
+  /// Get all available MCP tools from global service
+  ///
+  /// PERF: O(1) - direct access to shared MCP infrastructure
   List<MCPToolWithServer> getAvailableTools() {
-    return mcpManager.getAllTools();
+    final globalMCP = GlobalMCPService.instance;
+    if (!globalMCP.isInitialized) {
+      logger.warning('⚠️ AGENT: Global MCP service not initialized');
+      return [];
+    }
+    return globalMCP.getAllTools();
   }
 
-  /// Call an MCP tool
+  /// Call an MCP tool using global service
+  ///
+  /// PERF: O(1) - direct delegation to shared connections
   Future<MCPToolCallResult> callMCPTool({
     required String toolName,
     required Map<String, dynamic> arguments,
   }) async {
-    final serverName = mcpManager.findServerForTool(toolName);
+    final globalMCP = GlobalMCPService.instance;
+    if (!globalMCP.isInitialized) {
+      throw Exception('Global MCP service not initialized');
+    }
+
+    final serverName = globalMCP.findServerForTool(toolName);
     if (serverName == null) {
       throw Exception('Tool not found: $toolName');
     }
 
     logger.info('Calling MCP tool: $toolName on server: $serverName');
 
-    final result = await mcpManager.callTool(
+    final result = await globalMCP.callTool(
       serverName: serverName,
       toolName: toolName,
       arguments: arguments,
@@ -122,26 +137,62 @@ class Agent {
     return result;
   }
 
-  /// Get MCP resources
+  /// Get MCP resources from global service
+  ///
+  /// PERF: O(1) - direct access to shared resources
   Future<List<MCPResource>> getAvailableResources() async {
-    final allResources = <MCPResource>[];
+    final globalMCP = GlobalMCPService.instance;
+    if (!globalMCP.isInitialized) {
+      logger.warning('⚠️ AGENT: Global MCP service not initialized');
+      return [];
+    }
 
-    for (final entry in mcpManager.availableResources.entries) {
+    final allResources = <MCPResource>[];
+    for (final entry in globalMCP.availableResources.entries) {
       allResources.addAll(entry.value);
     }
 
     return allResources;
   }
 
-  /// Get MCP prompts
+  /// Get MCP prompts from global service
+  ///
+  /// PERF: O(1) - direct access to shared prompts
   Future<List<MCPPrompt>> getAvailablePrompts() async {
-    final allPrompts = <MCPPrompt>[];
+    final globalMCP = GlobalMCPService.instance;
+    if (!globalMCP.isInitialized) {
+      logger.warning('⚠️ AGENT: Global MCP service not initialized');
+      return [];
+    }
 
-    for (final entry in mcpManager.availablePrompts.entries) {
+    final allPrompts = <MCPPrompt>[];
+    for (final entry in globalMCP.availablePrompts.entries) {
       allPrompts.addAll(entry.value);
     }
 
     return allPrompts;
+  }
+
+  /// Refresh all MCP servers using global service
+  ///
+  /// PERF: O(n) where n = number of servers - delegates to shared service
+  /// 🎯 WARRIOR ENHANCEMENT: Uses global service for consistent refresh across all agents
+  Future<void> refreshMCPWithConfig() async {
+    logger.info('🔄 AGENT MCP: Requesting global MCP refresh');
+
+    try {
+      final globalMCP = GlobalMCPService.instance;
+      if (!globalMCP.isInitialized) {
+        logger.warning('⚠️ AGENT MCP: Global MCP service not initialized');
+        return;
+      }
+
+      await globalMCP.refreshAllServers();
+      logger.info('✅ AGENT MCP: Global refresh completed successfully');
+    } catch (e, stackTrace) {
+      logger.severe('💥 AGENT MCP: Global refresh failed: $e', e, stackTrace);
+      rethrow;
+    }
   }
 
   /// Adds a file to the agent's context files list
@@ -274,7 +325,7 @@ class Agent {
       -------
       Complete this task. Use appropriate MCP tools as needed.
       
-      Available MCP tools: ${mcpManager.getAllTools().map((t) => t.uniqueId).join(', ')}
+      Available MCP tools: ${GlobalMCPService.instance.getAllTools().map((t) => t.uniqueId).join(', ')}
       
       Current date and time: ${DateTime.now().toIso8601String()}
       """);
@@ -317,7 +368,7 @@ class Agent {
       -------
       Process this message and create any necessary tasks.
       
-      Available MCP tools: ${mcpManager.getAllTools().map((t) => t.uniqueId).join(', ')}
+      Available MCP tools: ${GlobalMCPService.instance.getAllTools().map((t) => t.uniqueId).join(', ')}
       
       Current date & time: ${DateTime.now().toIso8601String()}
       """);
@@ -363,8 +414,8 @@ ${contextFiles.join("\n")}
 
 MCP Status
 -----------
-Connected servers: ${mcpManager.connectedServers.join(", ")}
-Available tools: ${mcpManager.getAllTools().map((t) => t.uniqueId).join(", ")}
+Connected servers: ${GlobalMCPService.instance.connectedServers.join(", ")}
+Available tools: ${GlobalMCPService.instance.getAllTools().map((t) => t.uniqueId).join(", ")}
 
 ----------------
 """;
@@ -420,13 +471,11 @@ Available tools: ${mcpManager.getAllTools().map((t) => t.uniqueId).join(", ")}
 
   /// Cleanup agent resources
   ///
-  /// PERF: O(1) - resource cleanup
+  /// PERF: O(1) - resource cleanup - now uses shared global MCP service
   Future<void> dispose() async {
     logger.info('Disposing Agent: $name');
 
-    // Close MCP connections
-    await mcpManager.closeAll();
-
-    logger.info('Agent disposed: $name');
+    // MCP connections are shared globally - no need to close per agent
+    logger.info('Agent disposed: $name (MCP connections remain shared)');
   }
 }

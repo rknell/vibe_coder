@@ -254,8 +254,8 @@ class AgentManager {
 
   /// Activate agent for interaction
   ///
-  /// PERF: O(1) - Agent instantiation + MCP initialization
-  /// ARCHITECTURAL: Creates runtime Agent instance from AgentModel
+  /// PERF: O(1) - Agent instantiation with shared MCP (no per-agent initialization)
+  /// ARCHITECTURAL: Creates runtime Agent instance from AgentModel with instant MCP access
   Future<Agent> activateAgent(String agentId) async {
     _ensureInitialized();
 
@@ -283,8 +283,9 @@ class AgentManager {
         contextFiles: List.from(agentModel.contextFiles),
       );
 
-      // Initialize MCP connections
-      await agent.initializeMCP();
+      // SKIP MCP initialization - GlobalMCP is already connected
+      // Agent will use GlobalMCPService.instance automatically
+      _logger.info('⚡ INSTANT MCP: Using shared GlobalMCPService connections');
 
       // Restore conversation history
       for (final message in agentModel.conversationHistory) {
@@ -302,8 +303,8 @@ class AgentManager {
       _agentModels[agentId] = updatedModel;
       await _persistAgents();
 
-      _logger
-          .info('✅ AGENT ACTIVATED: Agent "${agentModel.name}" is now active');
+      _logger.info(
+          '✅ AGENT ACTIVATED: Agent "${agentModel.name}" is now active (INSTANT)');
 
       // Notify UI
       _notifyAgentUpdated(updatedModel);

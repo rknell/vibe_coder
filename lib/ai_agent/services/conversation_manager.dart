@@ -22,8 +22,8 @@ import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
 import 'package:vibe_coder/ai_agent/models/chat_completion_request.dart';
 import 'package:vibe_coder/services/services.dart';
 import 'mcp_function_bridge.dart';
-
 import 'package:vibe_coder/services/debug_logger.dart';
+import 'package:vibe_coder/services/global_mcp_service.dart';
 
 /// Manages multi-round conversations with the DeepSeek Chat API.
 ///
@@ -383,7 +383,8 @@ $content
         } else {
           // Fallback: use existing logic to find server (should rarely happen)
           serverName =
-              agent.mcpManager.findServerForTool(mcpToolUniqueId) ?? '';
+              GlobalMCPService.instance.findServerForTool(mcpToolUniqueId) ??
+                  '';
           actualToolName = mcpToolUniqueId;
         }
 
@@ -416,7 +417,7 @@ $content
 
         // Call tool through Agent's MCP system
         try {
-          final result = await agent.mcpManager.callTool(
+          final result = await GlobalMCPService.instance.callTool(
             serverName: serverName,
             toolName: actualToolName,
             arguments: argsMap,

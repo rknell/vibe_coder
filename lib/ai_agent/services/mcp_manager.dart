@@ -409,30 +409,6 @@ class MCPManager {
     _logger.info('Capabilities refresh completed');
   }
 
-  /// Refresh capabilities for a specific server
-  /// 🎯 WARRIOR ENHANCEMENT: Individual server refresh for targeted management
-  Future<void> refreshServerCapabilities(String serverName) async {
-    _logger.info(
-        '🔄 MCP MANAGER: Refreshing capabilities for server: $serverName');
-
-    if (!_clients.containsKey(serverName)) {
-      _logger.warning('⚠️ MCP MANAGER: Server not connected: $serverName');
-      throw MCPException('Server not connected: $serverName');
-    }
-
-    try {
-      await _loadServerCapabilities(serverName);
-      _logger.info(
-          '✅ MCP MANAGER: Server capabilities refreshed successfully: $serverName');
-    } catch (e, stackTrace) {
-      _logger.severe(
-          '💥 MCP MANAGER: Failed to refresh server capabilities for $serverName: $e',
-          e,
-          stackTrace);
-      rethrow;
-    }
-  }
-
   /// Close all connections
   Future<void> closeAll() async {
     _logger.info('Closing all MCP connections');
