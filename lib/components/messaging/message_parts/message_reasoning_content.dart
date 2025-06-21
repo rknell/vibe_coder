@@ -120,7 +120,8 @@ class MessageReasoningContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Only render if message has reasoning content
-    if (message.reasoningContent == null || message.reasoningContent!.isEmpty) {
+    final reasoningContent = message.reasoningContent;
+    if (reasoningContent == null || reasoningContent.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -156,7 +157,7 @@ class MessageReasoningContent extends StatelessWidget {
           // MARKDOWN SUPREMACY: Rich markdown reasoning content with theming
           // URL LAUNCHER SUPREMACY: Functional reasoning link clicking with system integration
           MarkdownBody(
-            data: message.reasoningContent!,
+            data: reasoningContent,
             selectable: true,
             styleSheet:
                 MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
@@ -204,7 +205,7 @@ class MessageReasoningContent extends StatelessWidget {
               // Style headers with reasoning-appropriate sizing
               h1: Theme.of(context).textTheme.bodySmall?.copyWith(
                     fontSize:
-                        (Theme.of(context).textTheme.bodySmall!.fontSize ??
+                        (Theme.of(context).textTheme.bodySmall?.fontSize ??
                                 12) *
                             1.3,
                     fontWeight: FontWeight.bold,
@@ -213,7 +214,7 @@ class MessageReasoningContent extends StatelessWidget {
                   ),
               h2: Theme.of(context).textTheme.bodySmall?.copyWith(
                     fontSize:
-                        (Theme.of(context).textTheme.bodySmall!.fontSize ??
+                        (Theme.of(context).textTheme.bodySmall?.fontSize ??
                                 12) *
                             1.2,
                     fontWeight: FontWeight.bold,
@@ -222,7 +223,7 @@ class MessageReasoningContent extends StatelessWidget {
                   ),
               h3: Theme.of(context).textTheme.bodySmall?.copyWith(
                     fontSize:
-                        (Theme.of(context).textTheme.bodySmall!.fontSize ??
+                        (Theme.of(context).textTheme.bodySmall?.fontSize ??
                                 12) *
                             1.1,
                     fontWeight: FontWeight.bold,

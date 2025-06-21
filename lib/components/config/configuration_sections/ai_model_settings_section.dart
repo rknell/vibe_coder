@@ -192,31 +192,31 @@ class AiModelSettingsSection extends StatelessWidget {
   ///
   /// PERF: O(1) - direct boolean update
   void _updateBetaFeatures(bool value) {
-    final updatedConfig = configuration.copyWith(useBetaFeatures: value);
-    onConfigurationChanged(updatedConfig);
+    configuration.useBetaFeatures = value;
+    onConfigurationChanged(configuration);
   }
 
   /// Update reasoner model setting
   ///
   /// PERF: O(1) - direct boolean update
   void _updateReasonerModel(bool value) {
-    final updatedConfig = configuration.copyWith(useReasonerModel: value);
-    onConfigurationChanged(updatedConfig);
+    configuration.useReasonerModel = value;
+    onConfigurationChanged(configuration);
   }
 
   /// Update temperature setting
   ///
   /// PERF: O(1) - direct double update
   void _updateTemperature(double value) {
-    final updatedConfig = configuration.copyWith(temperature: value);
-    onConfigurationChanged(updatedConfig);
+    configuration.temperature = value;
+    onConfigurationChanged(configuration);
   }
 
   /// Update max tokens setting
   ///
   /// PERF: O(1) - direct integer update
   void _updateMaxTokens(int value) {
-    final updatedConfig = configuration.copyWith(maxTokens: value);
-    onConfigurationChanged(updatedConfig);
+    configuration.maxTokens = value;
+    onConfigurationChanged(configuration);
   }
 }

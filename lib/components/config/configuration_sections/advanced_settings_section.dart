@@ -199,24 +199,24 @@ class AdvancedSettingsSection extends StatelessWidget {
   ///
   /// PERF: O(1) - direct boolean update
   void _updateDebugLogging(bool value) {
-    final updatedConfig = configuration.copyWith(enableDebugLogging: value);
-    onConfigurationChanged(updatedConfig);
+    configuration.enableDebugLogging = value;
+    onConfigurationChanged(configuration);
   }
 
   /// Update max conversation history setting
   ///
   /// PERF: O(1) - direct integer update
   void _updateMaxConversationHistory(int value) {
-    final updatedConfig = configuration.copyWith(maxConversationHistory: value);
-    onConfigurationChanged(updatedConfig);
+    configuration.maxConversationHistory = value;
+    onConfigurationChanged(configuration);
   }
 
   /// Update MCP config path
   ///
   /// PERF: O(1) - direct string update
   void _updateMcpConfigPath(String value) {
-    final updatedConfig = configuration.copyWith(mcpConfigPath: value);
-    onConfigurationChanged(updatedConfig);
+    configuration.mcpConfigPath = value;
+    onConfigurationChanged(configuration);
   }
 
   /// Get validation error for specific field

@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:logging/logging.dart';
 import 'package:vibe_coder/ai_agent/services/mcp_function_bridge.dart';
-import 'package:vibe_coder/ai_agent/services/mcp_manager.dart';
+import 'package:vibe_coder/services/mcp_service.dart';
 import 'package:vibe_coder/ai_agent/models/mcp_models.dart';
 
 /// MCP Function Bridge Test Suite

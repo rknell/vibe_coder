@@ -20,10 +20,10 @@ import 'package:vibe_coder/ai_agent/models/tool_choice.dart';
 // BaseTool removed - now using MCP integration
 import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
 import 'package:vibe_coder/ai_agent/models/chat_completion_request.dart';
-import 'package:vibe_coder/services/services.dart';
+
 import 'mcp_function_bridge.dart';
 import 'package:vibe_coder/services/debug_logger.dart';
-import 'package:vibe_coder/services/global_mcp_service.dart';
+import 'package:vibe_coder/services/services.dart';
 
 /// Manages multi-round conversations with the DeepSeek Chat API.
 ///
@@ -36,7 +36,7 @@ import 'package:vibe_coder/services/global_mcp_service.dart';
 /// Each instance is completely independent.
 class ConversationManager {
   /// The API client used to make requests to the DeepSeek API
-  late final DeepSeekApiClient _apiClient;
+  final DeepSeekApiClient _apiClient;
 
   /// The conversation history, including both user and assistant messages
   final List<ChatMessage> _messages = [];
@@ -45,7 +45,7 @@ class ConversationManager {
   /// but exclude it from subsequent API calls
   final Map<int, String?> _reasoningContent = {};
 
-  /// MCP tools are now handled by the Agent's MCPManager
+  /// MCP tools are now handled by the Agent's MCPService
   /// Tools and tool choice removed - using MCP integration instead
 
   // Temporary stubs to maintain compatibility during migration
@@ -68,7 +68,7 @@ class ConversationManager {
 
   final String id;
 
-  Agent agent;
+  Agent? agent;
 
   /// Creates a new [ConversationManager] with the specified settings.
   ///
@@ -85,8 +85,9 @@ class ConversationManager {
       this.maxTokens,
       required this.agent})
       : id = name,
-        _logger = services.logging(name),
-        _apiClient = DeepSeekApiClient();
+        _logger = Logger(name),
+        _apiClient =
+            DeepSeekApiClient(); // WARRIOR PROTOCOL: Direct initialization eliminates late variable vulnerability
 
   /// Gets a copy of the current conversation history.
   List<ChatMessage> get messages => List.unmodifiable(_messages);
@@ -99,35 +100,27 @@ class ConversationManager {
     return List.unmodifiable(_messages);
   }
 
-  /// Gets a copy of the conversation messages prepared for API requests,
-  /// with reasoningContent fields removed to prevent API errors.
-  List<ChatMessage> get apiReadyMessages {
-    final apiMessages = <ChatMessage>[];
-
-    for (var i = 0; i < _messages.length; i++) {
-      final message = _messages[i];
-      // Create a new message without reasoningContent
-      apiMessages.add(ChatMessage(
-        role: message.role,
-        content: message.content,
-        name: message.name,
-        prefix: message.prefix,
-        toolCalls: message.toolCalls,
-        toolCallId: message.toolCallId,
-        // No reasoningContent
-      ));
-    }
-
-    return apiMessages;
+  /// Gets the reasoning content for a specific message index.
+  String? getReasoningContent(int messageIndex) {
+    return _reasoningContent[messageIndex];
   }
 
-  /// Gets the reasoning content for a specific message in the conversation.
-  /// Returns null if there is no reasoning content for the specified index.
-  String? getReasoningContent(int messageIndex) {
-    if (messageIndex < 0 || messageIndex >= _messages.length) {
-      throw RangeError('Message index out of range');
-    }
-    return _reasoningContent[messageIndex];
+  /// Gets messages formatted for API requests (without reasoning content).
+  List<ChatMessage> get apiReadyMessages {
+    return _messages.map((message) {
+      if (message.reasoningContent != null) {
+        // Return a copy without reasoning content for API calls
+        return ChatMessage(
+          role: message.role,
+          content: message.content,
+          name: message.name,
+          toolCalls: message.toolCalls,
+          toolCallId: message.toolCallId,
+          // Exclude reasoningContent from API calls
+        );
+      }
+      return message;
+    }).toList();
   }
 
   /// Gets the reasoning content for the last assistant message, if available.
@@ -283,9 +276,10 @@ $content
   bool get hasUnprocessedToolCalls {
     if (_messages.isEmpty) return false;
     final lastMessage = _messages.last;
+    final toolCalls = lastMessage.toolCalls;
     return lastMessage.role == MessageRole.assistant &&
-        lastMessage.toolCalls != null &&
-        lastMessage.toolCalls!.isNotEmpty;
+        toolCalls != null &&
+        toolCalls.isNotEmpty;
   }
 
   /// Processes any pending tool calls and continues the conversation.
@@ -383,8 +377,7 @@ $content
         } else {
           // Fallback: use existing logic to find server (should rarely happen)
           serverName =
-              GlobalMCPService.instance.findServerForTool(mcpToolUniqueId) ??
-                  '';
+              services.mcpService.findServerForTool(mcpToolUniqueId) ?? '';
           actualToolName = mcpToolUniqueId;
         }
 
@@ -417,26 +410,32 @@ $content
 
         // Call tool through Agent's MCP system
         try {
-          final result = await GlobalMCPService.instance.callTool(
-            serverName: serverName,
+          final result = await services.mcpService.callTool(
+            serverId: _getServerIdByName(serverName),
             toolName: actualToolName,
             arguments: argsMap,
           );
           stopwatch.stop();
 
           // 🛡️ DEBUG LOGGING: Log successful tool response
+          final contentList = result['content'] as List<dynamic>? ?? [];
+          final responseText = contentList.isNotEmpty &&
+                  contentList[0] is Map<String, dynamic>
+              ? (contentList[0] as Map<String, dynamic>)['text'] as String? ??
+                  ''
+              : '';
+
           DebugLogger().logToolResponse(
             toolName: actualToolName,
             serverName: serverName,
             isSuccess: true,
-            result: result.content.first.text,
+            result: responseText,
             callId: toolCallId,
             duration: stopwatch.elapsed,
           );
 
           // Add successful tool response with proper tool_call_id
-          _addToolResponse(
-              toolCallId, result.content.first.text, actualToolName);
+          _addToolResponse(toolCallId, responseText, actualToolName);
 
           // 🧹 CLEANUP: Complete tool call tracking
           MCPFunctionBridge.completeToolCall(toolCallId);
@@ -505,24 +504,40 @@ $content
     _messages.add(toolMessage);
   }
 
+  /// Get server ID by name - helper method for service integration
+  String _getServerIdByName(String serverName) {
+    final mcpService = services.mcpService;
+    final server = mcpService.getByName(serverName);
+    return server?.id ?? serverName;
+  }
+
   updateUserContext() {
     /// Updates or adds the relevant context from the agent before each send message call to ensure its relevant
-    if (agent.notepad.isNotEmpty) {
-      addContext("notepad", agent.notepad);
+    // WARRIOR PROTOCOL: Null safety check for agent access
+    final agentInstance = agent;
+    if (agentInstance == null) return;
+
+    if (agentInstance.notepad.isNotEmpty) {
+      addContext("notepad", agentInstance.notepad);
     } else {
       removeContext("notepad");
     }
 
-    if (agent.toDoList.isNotEmpty) {
-      addContext("to do list",
-          agent.toDoList.take(5).map((item) => item).join("\n").toString());
+    if (agentInstance.toDoList.isNotEmpty) {
+      addContext(
+          "to do list",
+          agentInstance.toDoList
+              .take(5)
+              .map((item) => item)
+              .join("\n")
+              .toString());
     } else {
       removeContext("to do list");
     }
 
-    if (agent.inbox.isNotEmpty) {
-      addContext(
-          'inbox', agent.inbox.take(5).map((item) => item.content).join('\n'));
+    if (agentInstance.inbox.isNotEmpty) {
+      addContext('inbox',
+          agentInstance.inbox.take(5).map((item) => item.content).join('\n'));
     } else {
       removeContext("inbox");
     }
@@ -569,7 +584,8 @@ When working on to-do tasks:
     }
 
     // 🔧 MCP FUNCTION CALLING: Convert MCP tools to OpenAI function format
-    final mcpTools = agent.getAvailableTools();
+    // WARRIOR PROTOCOL: Null safety check for agent access
+    final mcpTools = agent?.getAvailableTools() ?? [];
     final functions = MCPFunctionBridge.convertMCPToolsToFunctions(mcpTools);
 
     _logger.info(
@@ -633,8 +649,8 @@ When working on to-do tasks:
     }
 
     // Check if we received tool calls - return immediately to allow UI update
-    if (assistantMessage.toolCalls != null &&
-        assistantMessage.toolCalls!.isNotEmpty) {
+    final toolCalls = assistantMessage.toolCalls;
+    if (toolCalls != null && toolCalls.isNotEmpty) {
       _logger.info(
           '🔧 Tool calls received - returning to allow UI update before processing');
       // Return the content immediately so the UI can display the tool calls
@@ -790,9 +806,10 @@ When working on to-do tasks:
     final assistantIndices = <int>[];
     for (var i = 0; i < _messages.length; i++) {
       final message = _messages[i];
+      final toolCalls = message.toolCalls;
       if (message.role == MessageRole.assistant &&
-          message.toolCalls != null &&
-          message.toolCalls!.isNotEmpty) {
+          toolCalls != null &&
+          toolCalls.isNotEmpty) {
         assistantIndices.add(i);
       }
     }
@@ -804,7 +821,8 @@ When working on to-do tasks:
     // For each assistant message with tool calls, validate that all tools have responses
     for (final assistantIndex in assistantIndices) {
       final assistantMessage = _messages[assistantIndex];
-      if (assistantMessage.toolCalls == null) continue;
+      final assistantToolCalls = assistantMessage.toolCalls;
+      if (assistantToolCalls == null) continue;
 
       // Extract all tool call IDs and their order
       final toolCallIds = <String>[];
@@ -812,8 +830,8 @@ When working on to-do tasks:
           <String, String>{}; // id -> name mapping for better errors
       final toolCallOrder = <String, int>{}; // id -> order in the message
 
-      for (var i = 0; i < assistantMessage.toolCalls!.length; i++) {
-        final toolCall = assistantMessage.toolCalls![i];
+      for (var i = 0; i < assistantToolCalls.length; i++) {
+        final toolCall = assistantToolCalls[i];
         if (toolCall.containsKey('id')) {
           final id = toolCall['id'];
           if (id is String) {
@@ -849,10 +867,11 @@ When working on to-do tasks:
       var responseCount = 0;
       for (var i = assistantIndex + 1; i < _messages.length; i++) {
         final message = _messages[i];
+        final toolCallId = message.toolCallId;
         if (message.role == MessageRole.tool &&
-            message.toolCallId != null &&
-            toolCallIds.contains(message.toolCallId)) {
-          final id = message.toolCallId!;
+            toolCallId != null &&
+            toolCallIds.contains(toolCallId)) {
+          final id = toolCallId;
           // Ensure we don't add duplicate response IDs if the loop somehow continues incorrectly
           if (!responseIds.contains(id)) {
             responseIds.add(id);
@@ -886,9 +905,19 @@ When working on to-do tasks:
 
       // Validate response order matches tool call order
       final orderedToolCalls = toolCallIds.toList()
-        ..sort((a, b) => toolCallOrder[a]!.compareTo(toolCallOrder[b]!));
+        ..sort((a, b) {
+          final aOrder = toolCallOrder[a];
+          final bOrder = toolCallOrder[b];
+          if (aOrder == null || bOrder == null) return 0;
+          return aOrder.compareTo(bOrder);
+        });
       final orderedResponses = responseIds.toList()
-        ..sort((a, b) => responseOrder[a]!.compareTo(responseOrder[b]!));
+        ..sort((a, b) {
+          final aOrder = responseOrder[a];
+          final bOrder = responseOrder[b];
+          if (aOrder == null || bOrder == null) return 0;
+          return aOrder.compareTo(bOrder);
+        });
 
       // Compare lists manually since we can't use listEquals
       bool listsMatch = orderedToolCalls.length == orderedResponses.length;

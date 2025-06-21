@@ -120,7 +120,8 @@ class MessageContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Only render if message has content
-    if (message.content == null || message.content!.isEmpty) {
+    final content = message.content;
+    if (content == null || content.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -129,7 +130,7 @@ class MessageContent extends StatelessWidget {
     // MARKDOWN SUPREMACY: Supports headers, code blocks, links, emphasis, lists, tables
     // URL LAUNCHER SUPREMACY: Functional link clicking with system integration
     return MarkdownBody(
-      data: message.content!,
+      data: content,
       selectable: true,
       styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
         // Apply the provided text style as base for all text elements
@@ -154,15 +155,15 @@ class MessageContent extends StatelessWidget {
         ),
         // Style headers with appropriate sizing
         h1: textStyle?.copyWith(
-          fontSize: (textStyle!.fontSize ?? 16) * 1.5,
+          fontSize: (textStyle?.fontSize ?? 16) * 1.5,
           fontWeight: FontWeight.bold,
         ),
         h2: textStyle?.copyWith(
-          fontSize: (textStyle!.fontSize ?? 16) * 1.3,
+          fontSize: (textStyle?.fontSize ?? 16) * 1.3,
           fontWeight: FontWeight.bold,
         ),
         h3: textStyle?.copyWith(
-          fontSize: (textStyle!.fontSize ?? 16) * 1.1,
+          fontSize: (textStyle?.fontSize ?? 16) * 1.1,
           fontWeight: FontWeight.bold,
         ),
       ),

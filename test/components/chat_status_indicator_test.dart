@@ -1,114 +1,161 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vibe_coder/components/common/indicators/chat_status_indicator.dart';
-import 'package:vibe_coder/services/chat_service.dart';
 
 void main() {
   group('ChatStatusIndicator Tests', () {
-    testWidgets('renders correctly with uninitialized state', (tester) async {
+    testWidgets('displays correct icon and color for uninitialized status',
+        (WidgetTester tester) async {
+      // GIVEN: Uninitialized status indicator
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
             body: ChatStatusIndicator(
-              serviceState: ChatServiceState.uninitialized,
+              status: AgentStatus.uninitialized,
             ),
           ),
         ),
       );
 
-      expect(find.byType(ChatStatusIndicator), findsOneWidget);
-      expect(find.text('UNINITIALIZED'), findsOneWidget);
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      // WHEN: Widget is rendered
+      await tester.pumpAndSettle();
+
+      // THEN: Shows correct icon and tooltip
+      expect(find.byIcon(Icons.hourglass_empty), findsOneWidget);
+      expect(find.byTooltip('Uninitialized'), findsOneWidget);
     });
 
-    testWidgets('renders correctly with initializing state', (tester) async {
+    testWidgets('displays correct icon and color for initializing status',
+        (WidgetTester tester) async {
+      // GIVEN: Initializing status indicator
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
             body: ChatStatusIndicator(
-              serviceState: ChatServiceState.initializing,
+              status: AgentStatus.initializing,
             ),
           ),
         ),
       );
 
-      expect(find.byType(ChatStatusIndicator), findsOneWidget);
-      expect(find.text('INITIALIZING'), findsOneWidget);
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      // WHEN: Widget is rendered
+      await tester.pumpAndSettle();
+
+      // THEN: Shows correct icon and tooltip
+      expect(find.byIcon(Icons.hourglass_empty), findsOneWidget);
+      expect(find.byTooltip('Initializing'), findsOneWidget);
     });
 
-    testWidgets('renders correctly with ready state', (tester) async {
+    testWidgets('displays correct icon and color for ready status',
+        (WidgetTester tester) async {
+      // GIVEN: Ready status indicator
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
             body: ChatStatusIndicator(
-              serviceState: ChatServiceState.ready,
+              status: AgentStatus.ready,
             ),
           ),
         ),
       );
 
-      expect(find.byType(ChatStatusIndicator), findsOneWidget);
-      expect(find.text('READY'), findsOneWidget);
+      // WHEN: Widget is rendered
+      await tester.pumpAndSettle();
+
+      // THEN: Shows correct icon and tooltip
       expect(find.byIcon(Icons.check_circle), findsOneWidget);
+      expect(find.byTooltip('Ready'), findsOneWidget);
     });
 
-    testWidgets('renders correctly with processing state', (tester) async {
+    testWidgets('displays correct icon and color for processing status',
+        (WidgetTester tester) async {
+      // GIVEN: Processing status indicator
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
             body: ChatStatusIndicator(
-              serviceState: ChatServiceState.processing,
+              status: AgentStatus.processing,
             ),
           ),
         ),
       );
 
-      expect(find.byType(ChatStatusIndicator), findsOneWidget);
-      expect(find.text('PROCESSING'), findsOneWidget);
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      // WHEN: Widget is rendered
+      await tester.pumpAndSettle();
+
+      // THEN: Shows correct icon and tooltip
+      expect(find.byIcon(Icons.autorenew), findsOneWidget);
+      expect(find.byTooltip('Processing'), findsOneWidget);
     });
 
-    testWidgets('renders correctly with error state', (tester) async {
+    testWidgets('displays correct icon and color for error status',
+        (WidgetTester tester) async {
+      // GIVEN: Error status indicator
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
             body: ChatStatusIndicator(
-              serviceState: ChatServiceState.error,
+              status: AgentStatus.error,
             ),
           ),
         ),
       );
 
-      expect(find.byType(ChatStatusIndicator), findsOneWidget);
-      expect(find.text('ERROR'), findsOneWidget);
+      // WHEN: Widget is rendered
+      await tester.pumpAndSettle();
+
+      // THEN: Shows correct icon and tooltip
       expect(find.byIcon(Icons.error), findsOneWidget);
+      expect(find.byTooltip('Error'), findsOneWidget);
     });
 
-    testWidgets('uses proper styling and layout', (tester) async {
+    testWidgets('accepts custom size and tooltip', (WidgetTester tester) async {
+      // GIVEN: Custom size and tooltip
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
             body: ChatStatusIndicator(
-              serviceState: ChatServiceState.ready,
+              status: AgentStatus.ready,
+              size: 24.0,
+              tooltip: 'Custom tooltip',
             ),
           ),
         ),
       );
 
-      final container = tester.widget<Container>(
-        find.ancestor(
-          of: find.text('READY'),
-          matching: find.byType(Container),
-        ),
-      );
+      // WHEN: Widget is rendered
+      await tester.pumpAndSettle();
 
-      expect(container.padding,
-          const EdgeInsets.symmetric(horizontal: 8, vertical: 4));
-      expect(container.decoration, isA<BoxDecoration>());
+      // THEN: Shows custom tooltip
+      expect(find.byTooltip('Custom tooltip'), findsOneWidget);
 
-      final row = tester.widget<Row>(find.byType(Row));
-      expect(row.mainAxisSize, MainAxisSize.min);
+      // Find the Icon widget and verify its size
+      final iconWidget = tester.widget<Icon>(find.byIcon(Icons.check_circle));
+      expect(iconWidget.size, equals(24.0));
+    });
+  });
+
+  group('AgentStatus enum tests', () {
+    test('AgentStatus enum has all expected values', () {
+      // GIVEN: AgentStatus enum
+
+      // THEN: Contains all expected values
+      expect(AgentStatus.values, contains(AgentStatus.uninitialized));
+      expect(AgentStatus.values, contains(AgentStatus.initializing));
+      expect(AgentStatus.values, contains(AgentStatus.ready));
+      expect(AgentStatus.values, contains(AgentStatus.processing));
+      expect(AgentStatus.values, contains(AgentStatus.error));
+    });
+
+    test('AgentStatus display names are correct', () {
+      // GIVEN: AgentStatus values
+
+      // THEN: Display names are correct
+      expect(AgentStatus.uninitialized.displayName, equals('Uninitialized'));
+      expect(AgentStatus.initializing.displayName, equals('Initializing'));
+      expect(AgentStatus.ready.displayName, equals('Ready'));
+      expect(AgentStatus.processing.displayName, equals('Processing'));
+      expect(AgentStatus.error.displayName, equals('Error'));
     });
   });
 }

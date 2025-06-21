@@ -117,12 +117,14 @@ void main() {
       // GIVEN: Multiple different server configurations
       final processes = <SharedMCPProcess>[];
 
-      // WHEN: Create multiple processes
+      // WHEN: Create multiple processes (using sleep to keep them alive)
       for (int i = 0; i < 3; i++) {
         final process = await processManager.getOrCreateProcess(
           serverName: 'server-$i',
-          command: 'echo',
-          args: ['test-$i'],
+          command: 'sleep',
+          args: [
+            '${10 + i}'
+          ], // Different sleep durations to create unique processes
         );
         processes.add(process);
       }
@@ -130,21 +132,21 @@ void main() {
       // WHEN: Create duplicate process (should reuse)
       final duplicateProcess = await processManager.getOrCreateProcess(
         serverName: 'server-duplicate',
-        command: 'echo', // Same command as first
-        args: ['test-0'], // Same args as first - this should reuse process
+        command: 'sleep', // Same command as first
+        args: ['10'], // Same args as first process - this should reuse process
       );
       processes.add(duplicateProcess);
 
       // THEN: Verify statistics
       final stats = processManager.getProcessStats();
 
-      // Should have 3 unique processes (echo with different args)
-      // But duplicate process reuses first process, so only 2 unique processes
-      expect(stats['totalProcesses'], equals(2));
+      // Should have 3 unique processes (sleep with different args)
+      // But duplicate process reuses first process, so only 3 unique processes
+      expect(stats['totalProcesses'], equals(3));
 
       // Should have process details
       final processDetails = stats['processes'] as List<Map<String, dynamic>>;
-      expect(processDetails.length, equals(2));
+      expect(processDetails.length, equals(3));
 
       // Verify process detail structure
       for (final detail in processDetails) {

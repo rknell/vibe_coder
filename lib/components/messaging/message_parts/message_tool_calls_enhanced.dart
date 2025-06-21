@@ -67,7 +67,8 @@ class _MessageToolCallsEnhancedState extends State<MessageToolCallsEnhanced> {
   @override
   Widget build(BuildContext context) {
     // Show nothing if no tool calls
-    if (widget.message.toolCalls == null || widget.message.toolCalls!.isEmpty) {
+    final toolCalls = widget.message.toolCalls;
+    if (toolCalls == null || toolCalls.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -86,7 +87,7 @@ class _MessageToolCallsEnhancedState extends State<MessageToolCallsEnhanced> {
               ),
               const SizedBox(width: 6),
               Text(
-                'Tool Calls (${widget.message.toolCalls!.length})',
+                'Tool Calls (${toolCalls.length})',
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Theme.of(context).colorScheme.primary,
@@ -99,7 +100,7 @@ class _MessageToolCallsEnhancedState extends State<MessageToolCallsEnhanced> {
           // Tool calls list using extracted components
           // ARCHITECTURAL VICTORY: Zero functional builders - all proper components
           Column(
-            children: widget.message.toolCalls!
+            children: toolCalls
                 .asMap()
                 .entries
                 .map((entry) => ToolCallCard(

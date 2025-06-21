@@ -60,7 +60,8 @@ class AgentConfigurationScreen extends StatefulWidget {
 }
 
 class _AgentConfigurationScreenState extends State<AgentConfigurationScreen> {
-  late AgentConfiguration _workingConfiguration;
+  AgentConfiguration?
+      _workingConfiguration; // WARRIOR PROTOCOL: Nullable instead of late to eliminate vulnerability
   final Map<String, String> _validationErrors = {};
   bool _hasUnsavedChanges = false;
   bool _isLoading = false;
@@ -101,38 +102,42 @@ class _AgentConfigurationScreenState extends State<AgentConfigurationScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Agent Settings Section
-                        AgentSettingsSection(
-                          configuration: _workingConfiguration,
-                          validationErrors: _validationErrors,
-                          onConfigurationChanged: _handleConfigurationUpdate,
-                        ),
+                        if (_workingConfiguration != null)
+                          AgentSettingsSection(
+                            configuration: _workingConfiguration!,
+                            validationErrors: _validationErrors,
+                            onConfigurationChanged: _handleConfigurationUpdate,
+                          ),
 
                         const SizedBox(height: 24),
 
                         // AI Model Settings Section
-                        AiModelSettingsSection(
-                          configuration: _workingConfiguration,
-                          validationErrors: _validationErrors,
-                          onConfigurationChanged: _handleConfigurationUpdate,
-                        ),
+                        if (_workingConfiguration != null)
+                          AiModelSettingsSection(
+                            configuration: _workingConfiguration!,
+                            validationErrors: _validationErrors,
+                            onConfigurationChanged: _handleConfigurationUpdate,
+                          ),
 
                         const SizedBox(height: 24),
 
                         // UI Settings Section
-                        UiSettingsSection(
-                          configuration: _workingConfiguration,
-                          validationErrors: _validationErrors,
-                          onConfigurationChanged: _handleConfigurationUpdate,
-                        ),
+                        if (_workingConfiguration != null)
+                          UiSettingsSection(
+                            configuration: _workingConfiguration!,
+                            validationErrors: _validationErrors,
+                            onConfigurationChanged: _handleConfigurationUpdate,
+                          ),
 
                         const SizedBox(height: 24),
 
                         // Advanced Settings Section
-                        AdvancedSettingsSection(
-                          configuration: _workingConfiguration,
-                          validationErrors: _validationErrors,
-                          onConfigurationChanged: _handleConfigurationUpdate,
-                        ),
+                        if (_workingConfiguration != null)
+                          AdvancedSettingsSection(
+                            configuration: _workingConfiguration!,
+                            validationErrors: _validationErrors,
+                            onConfigurationChanged: _handleConfigurationUpdate,
+                          ),
 
                         const SizedBox(
                             height: 80), // Space for floating action bar
@@ -192,8 +197,13 @@ class _AgentConfigurationScreenState extends State<AgentConfigurationScreen> {
     });
 
     try {
+      if (_workingConfiguration == null) {
+        _showErrorSnackBar('No configuration to save');
+        return;
+      }
+
       final result = await widget.configurationService
-          .updateConfiguration(_workingConfiguration);
+          .updateConfiguration(_workingConfiguration!);
 
       if (result.isSuccess) {
         setState(() {

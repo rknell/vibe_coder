@@ -80,7 +80,12 @@ class MCPClient {
     }
 
     // Test connection
-    final response = await _httpClient.get(Uri.parse(serverUrl!));
+    final serverUrlValue = serverUrl;
+    if (serverUrlValue == null) {
+      throw MCPException('Server URL is required for HTTP transport');
+    }
+
+    final response = await _httpClient.get(Uri.parse(serverUrlValue));
     if (response.statusCode >= 400) {
       throw MCPException(
           'HTTP server returned ${response.statusCode}: ${response.body}');
@@ -93,67 +98,77 @@ class MCPClient {
   /// PERF: O(1) - reuses existing processes, O(n) for new process creation
   /// ARCHITECTURAL: Uses MCPProcessManager to prevent multiple server instances
   Future<void> _initializeStdio() async {
-    if (command == null) {
+    final commandValue = command;
+    if (commandValue == null) {
       throw MCPException('Command is required for STDIO transport');
     }
 
     try {
       _logger.info(
-          '🔍 STDIO INIT: Requesting shared process for: $command ${args?.join(' ')}');
+          '🔍 STDIO INIT: Requesting shared process for: $commandValue ${args?.join(' ')}');
       _logger.info('🔧 STDIO ENV: ${env?.keys.join(', ') ?? 'No custom env'}');
 
       // Use process manager to get or create shared process
       final processManager = MCPProcessManager.instance;
       final serverName =
-          '${command}_${args?.join('_') ?? ''}'; // Create unique server name
+          '${commandValue}_${args?.join('_') ?? ''}'; // Create unique server name
 
       _sharedProcess = await processManager.getOrCreateProcess(
         serverName: serverName,
-        command: command!,
+        command: commandValue,
         args: args,
         env: env,
       );
 
       // Get reference to the underlying process
-      _process = _sharedProcess!.process;
+      final sharedProcess = _sharedProcess;
+      if (sharedProcess == null) {
+        throw MCPException('Failed to create shared process');
+      }
+
+      _process = sharedProcess.process;
+      final process = _process;
+      if (process == null) {
+        throw MCPException('Failed to get process reference');
+      }
 
       _logger
-          .info('✅ STDIO SHARED: Using shared process (PID: ${_process!.pid})');
-      _logger.info('🔗 PROCESS KEY: ${_sharedProcess!.processKey}');
-      _logger.info('🏢 SERVER NAME: ${_sharedProcess!.serverName}');
+          .info('✅ STDIO SHARED: Using shared process (PID: ${process.pid})');
+      _logger.info('🔗 PROCESS KEY: ${sharedProcess.processKey}');
+      _logger.info('🏢 SERVER NAME: ${sharedProcess.serverName}');
 
       // Set up stdout listener for responses
-      _stdoutSubscription = _process!.stdout
+      _stdoutSubscription = process.stdout
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen(
         (line) {
           if (line.trim().isNotEmpty) {
             _logger
-                .info('📥 STDIO STDOUT [${_sharedProcess!.serverName}]: $line');
+                .info('📥 STDIO STDOUT [${sharedProcess.serverName}]: $line');
             _handleStdioResponse(line);
           }
         },
         onError: (error) {
           _logger.severe(
-              '💥 STDIO STDOUT ERROR [${_sharedProcess!.serverName}]: $error');
+              '💥 STDIO STDOUT ERROR [${sharedProcess.serverName}]: $error');
         },
       );
 
       // Set up stderr listener for debugging
-      _stderrSubscription = _process!.stderr
+      _stderrSubscription = process.stderr
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen(
         (line) {
           if (line.trim().isNotEmpty) {
             _logger.warning(
-                '⚠️ STDIO STDERR [${_sharedProcess!.serverName}]: $line');
+                '⚠️ STDIO STDERR [${sharedProcess.serverName}]: $line');
           }
         },
         onError: (error) {
           _logger.severe(
-              '💥 STDIO STDERR ERROR [${_sharedProcess!.serverName}]: $error');
+              '💥 STDIO STDERR ERROR [${sharedProcess.serverName}]: $error');
         },
       );
 
@@ -197,8 +212,9 @@ class MCPClient {
       final response = await _sendStdioRequest(initRequest);
       _logger.info('📥 INIT RESPONSE: ${jsonEncode(response.toJson())}');
 
-      if (response.error != null) {
-        throw MCPException('Initialization failed: ${response.error!.message}');
+      final responseError = response.error;
+      if (responseError != null) {
+        throw MCPException('Initialization failed: ${responseError.message}');
       }
 
       _logger.info('✅ HANDSHAKE: MCP initialization successful');
@@ -235,7 +251,8 @@ class MCPClient {
 
   /// Send request via STDIO
   Future<JSONRPCResponse> _sendStdioRequest(JSONRPCRequest request) async {
-    if (_process == null) {
+    final process = _process;
+    if (process == null) {
       throw MCPException('STDIO process not initialized');
     }
 
@@ -246,8 +263,8 @@ class MCPClient {
       final requestJson = jsonEncode(request.toJson());
       _logger.fine('STDIO Request: $requestJson');
 
-      _process!.stdin.writeln(requestJson);
-      await _process!.stdin.flush();
+      process.stdin.writeln(requestJson);
+      await process.stdin.flush();
 
       // Wait for response with timeout
       final response = await completer.future.timeout(
@@ -258,8 +275,9 @@ class MCPClient {
         },
       );
 
-      if (response.error != null) {
-        throw MCPException('STDIO request failed: ${response.error!.message}');
+      final responseError = response.error;
+      if (responseError != null) {
+        throw MCPException('STDIO request failed: ${responseError.message}');
       }
 
       return response;
@@ -480,8 +498,9 @@ class MCPClient {
       final response = await _sendStdioRequest(rpcRequest);
       stopwatch.stop();
 
-      if (response.result != null) {
-        final result = MCPToolCallResult.fromJson(response.result!);
+      final responseResult = response.result;
+      if (responseResult != null) {
+        final result = MCPToolCallResult.fromJson(responseResult);
 
         // 🛡️ DEBUG LOGGING: Log successful low-level MCP response
         DebugLogger().logSystemEvent(
@@ -565,8 +584,9 @@ class MCPClient {
 
     final response = await _sendStdioRequest(request);
 
-    if (response.result != null && response.result!['contents'] != null) {
-      final contents = response.result!['contents'] as List<dynamic>;
+    final responseResult = response.result;
+    if (responseResult != null && responseResult['contents'] != null) {
+      final contents = responseResult['contents'] as List<dynamic>;
       if (contents.isNotEmpty) {
         return MCPTextContent.fromJson(contents.first as Map<String, dynamic>);
       }
@@ -608,8 +628,9 @@ class MCPClient {
 
     final response = await _sendStdioRequest(request);
 
-    if (response.result != null && response.result!['messages'] != null) {
-      final messages = response.result!['messages'] as List<dynamic>;
+    final responseResult = response.result;
+    if (responseResult != null && responseResult['messages'] != null) {
+      final messages = responseResult['messages'] as List<dynamic>;
       return messages
           .map((msg) => MCPTextContent.fromJson(msg as Map<String, dynamic>))
           .toList();
@@ -629,9 +650,10 @@ class MCPClient {
     await _stderrSubscription?.cancel();
 
     // Release shared process reference instead of directly killing
-    if (_sharedProcess != null) {
+    final sharedProcess = _sharedProcess;
+    if (sharedProcess != null) {
       _logger.info('🔗 CLEANUP: Releasing shared process reference');
-      _sharedProcess!.dispose();
+      sharedProcess.dispose();
       _sharedProcess = null;
     }
 

@@ -135,18 +135,18 @@ class AgentSettingsSection extends StatelessWidget {
 
   /// Update agent name in configuration
   ///
-  /// PERF: O(1) - direct field update with immutable copy
+  /// PERF: O(1) - direct field update with property setter
   void _updateAgentName(String newName) {
-    final updatedConfig = configuration.copyWith(agentName: newName);
-    onConfigurationChanged(updatedConfig);
+    configuration.agentName = newName;
+    onConfigurationChanged(configuration);
   }
 
   /// Update system prompt in configuration
   ///
-  /// PERF: O(1) - direct field update with immutable copy
+  /// PERF: O(1) - direct field update with property setter
   void _updateSystemPrompt(String newPrompt) {
-    final updatedConfig = configuration.copyWith(systemPrompt: newPrompt);
-    onConfigurationChanged(updatedConfig);
+    configuration.systemPrompt = newPrompt;
+    onConfigurationChanged(configuration);
   }
 
   /// Get validation error for specific field

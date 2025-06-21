@@ -1,5 +1,5 @@
 import 'package:logging/logging.dart';
-import 'mcp_manager.dart';
+import 'package:vibe_coder/services/mcp_service.dart';
 
 /// MCP Function Bridge Service
 ///

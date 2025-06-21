@@ -38,8 +38,10 @@ abstract class BaseMCPServer {
   bool _isInitialized = false;
 
   /// Stream controllers for STDIO transport
-  late StreamController<String> _outputController;
-  late StreamSubscription<String> _inputSubscription;
+  StreamController<String>?
+      _outputController; // WARRIOR PROTOCOL: Nullable instead of late to eliminate vulnerability
+  StreamSubscription<String>?
+      _inputSubscription; // WARRIOR PROTOCOL: Nullable instead of late to eliminate vulnerability
 
   /// Logger for debugging and monitoring
   final void Function(String level, String message, [Object? data])? logger;
@@ -48,9 +50,7 @@ abstract class BaseMCPServer {
     required this.name,
     required this.version,
     this.logger,
-  }) {
-    _outputController = StreamController<String>();
-  }
+  }); // WARRIOR PROTOCOL: Direct initialization removed to eliminate late variable dependency
 
   /// 🚀 **SERVER LIFECYCLE**: Start the MCP server
   ///
@@ -83,6 +83,9 @@ abstract class BaseMCPServer {
   Future<void> _initializeTransport() async {
     _log('debug', 'Initializing STDIO transport');
 
+    // WARRIOR PROTOCOL: Initialize output controller to eliminate late variable vulnerability
+    _outputController = StreamController<String>();
+
     // Listen to STDIN for incoming requests
     _inputSubscription =
         stdin.transform(utf8.decoder).transform(const LineSplitter()).listen(
@@ -92,7 +95,7 @@ abstract class BaseMCPServer {
             );
 
     // Set up STDOUT for outgoing responses
-    _outputController.stream.listen(
+    _outputController!.stream.listen(
       (message) {
         stdout.writeln(message);
         _log('debug', 'Sent message: $message');
@@ -412,7 +415,8 @@ abstract class BaseMCPServer {
 
   void _sendMessage(MCPMessage message) {
     final json = jsonEncode(message.toJson());
-    _outputController.add(json);
+    // WARRIOR PROTOCOL: Null safety check for output controller
+    _outputController?.add(json);
   }
 
   void _log(String level, String message, [Object? data]) {
@@ -439,8 +443,9 @@ abstract class BaseMCPServer {
     _log('info', 'Shutting down MCP server');
 
     _isRunning = false;
-    await _inputSubscription.cancel();
-    await _outputController.close();
+    // WARRIOR PROTOCOL: Null safety checks for stream controllers
+    await _inputSubscription?.cancel();
+    await _outputController?.close();
 
     // Clean up sessions
     _sessions.clear();

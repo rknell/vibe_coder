@@ -35,6 +35,8 @@ library;
 /// - Persistence: O(n) where n = conversation history size
 /// - State updates: O(1) - direct property updates
 import 'package:vibe_coder/ai_agent/models/chat_message_model.dart';
+import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
+import 'package:vibe_coder/ai_agent/agent.dart';
 
 /// AgentModel - Complete agent representation with persistence
 ///
@@ -74,6 +76,9 @@ class AgentModel {
 
   // Agent metadata
   Map<String, dynamic> metadata;
+
+  // Agent conversation processing - lazy initialization
+  Agent? _agentInstance;
 
   AgentModel({
     required this.id,
@@ -307,6 +312,173 @@ class AgentModel {
 
   @override
   int get hashCode => id.hashCode;
+
+  /// Get or create agent instance for conversation processing
+  ///
+  /// PERF: O(1) - lazy initialization and reuse
+  /// ARCHITECTURAL: Agent instance connected to model data
+  Agent _getAgentInstance() {
+    if (_agentInstance == null) {
+      _agentInstance = Agent(
+        name: name,
+        systemPrompt: systemPrompt,
+        mcpConfigPath: mcpConfigPath,
+      );
+
+      // Sync existing conversation history to agent
+      _syncConversationToAgent();
+    }
+    final agentInstance = _agentInstance;
+    if (agentInstance == null) {
+      throw StateError('Agent instance failed to initialize');
+    }
+    return agentInstance;
+  }
+
+  /// Send message and get AI response - ARCHITECTURAL: Model orchestrates conversation
+  ///
+  /// PERF: O(API_LATENCY) - async AI processing
+  /// ARCHITECTURAL: Single source of truth - model manages all conversation data
+  Future<ChatMessage> sendMessage(String userMessage) async {
+    // Set processing state
+    isProcessing = true;
+    updateActivity();
+
+    final userChatMessage = ChatMessage(
+      role: MessageRole.user,
+      content: userMessage,
+    );
+
+    // Add user message to model history immediately
+    addMessage(userChatMessage);
+
+    try {
+      final agent = _getAgentInstance();
+
+      // Send message using agent's conversation manager
+      final response = await agent.conversation.sendUserMessageAndGetResponse(
+        userMessage,
+        useBeta: useBetaFeatures,
+        isReasoner: useReasonerModel,
+        processToolCallsImmediately: false, // Allow UI to show tool calls
+      );
+
+      // Create assistant message
+      final assistantMessage = ChatMessage(
+        role: MessageRole.assistant,
+        content: response,
+        toolCalls: agent.conversation.lastToolCalls,
+        reasoningContent: agent.conversation.lastReasoningContent,
+      );
+
+      // Add assistant response to model history
+      addMessage(assistantMessage);
+
+      // Process tool calls if present and continue conversation
+      if (agent.conversation.hasUnprocessedToolCalls) {
+        final followUpResponse = await agent.conversation.processAndContinue(
+          useBeta: useBetaFeatures,
+          isReasoner: useReasonerModel,
+        );
+
+        if (followUpResponse != null) {
+          final followUpMessage = ChatMessage(
+            role: MessageRole.assistant,
+            content: followUpResponse,
+          );
+          addMessage(followUpMessage);
+        }
+      }
+
+      // Sync agent conversation back to model (in case of tool responses)
+      _syncConversationFromAgent();
+
+      return assistantMessage;
+    } catch (e) {
+      // Add error message to conversation
+      final errorMessage = ChatMessage(
+        role: MessageRole.assistant,
+        content:
+            '❌ Sorry, I encountered an error: $e\n\nPlease try again or check your connection.',
+      );
+      addMessage(errorMessage);
+      rethrow;
+    } finally {
+      // Clear processing state
+      isProcessing = false;
+      updateActivity();
+    }
+  }
+
+  /// Sync conversation history to agent instance
+  ///
+  /// PERF: O(n) where n = conversation length
+  void _syncConversationToAgent() {
+    final agentInstance = _agentInstance;
+    if (agentInstance == null) return;
+
+    // Clear agent conversation and rebuild from model
+    agentInstance.conversation.clearConversation();
+
+    for (final message in conversationHistory) {
+      _addMessageToAgentConversation(message);
+    }
+  }
+
+  /// Sync conversation history from agent instance back to model
+  ///
+  /// PERF: O(n) where n = conversation length
+  void _syncConversationFromAgent() {
+    final agentInstance = _agentInstance;
+    if (agentInstance == null) return;
+
+    final agentHistory = agentInstance.conversation.getHistory();
+
+    // Only sync if agent has more messages (tool responses added)
+    if (agentHistory.length > conversationHistory.length) {
+      final newMessages = agentHistory.skip(conversationHistory.length);
+      for (final message in newMessages) {
+        conversationHistory.add(message);
+      }
+    }
+  }
+
+  /// Add message to agent's conversation manager
+  void _addMessageToAgentConversation(ChatMessage message) {
+    final agentInstance = _agentInstance;
+    if (agentInstance == null) return;
+
+    switch (message.role) {
+      case MessageRole.user:
+        agentInstance.conversation.addUserMessage(message.content ?? '');
+        break;
+      case MessageRole.assistant:
+        agentInstance.conversation.addAssistantMessage(
+          message.content ?? '',
+          toolCalls: message.toolCalls,
+          reasoningContent: message.reasoningContent,
+        );
+        break;
+      case MessageRole.system:
+        agentInstance.conversation.addSystemMessage(message.content ?? '');
+        break;
+      case MessageRole.tool:
+        // Tool messages are handled during tool call processing
+        // Skip restoration for now as they're complex to restore properly
+        break;
+    }
+  }
+
+  /// Dispose agent instance - ARCHITECTURAL: Resource cleanup
+  ///
+  /// PERF: O(1) - cleanup agent resources
+  Future<void> disposeAgent() async {
+    final agentInstance = _agentInstance;
+    if (agentInstance != null) {
+      await agentInstance.dispose();
+      _agentInstance = null;
+    }
+  }
 }
 
 /// Agent status enumeration for UI state management

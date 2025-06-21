@@ -1,113 +1,98 @@
 import 'package:flutter/material.dart';
-import 'package:vibe_coder/services/chat_service.dart';
 
-/// ChatStatusIndicator - Service State Visualization
+/// ChatStatusIndicator - Agent Status Visualization Component
 ///
 /// ## MISSION ACCOMPLISHED
-/// Eliminates functional widget builder pattern by creating reusable status indicator.
-/// Provides consistent visual feedback for ChatService state across the application.
+/// Updated to use generic agent status instead of ChatService-specific states
+/// following architectural refactoring to eliminate ChatService.
 ///
-/// ## STRATEGIC DECISIONS
-/// | Option | Power-Ups | Weaknesses | Victory Reason |
-/// |--------|-----------|------------|----------------|
-/// | Functional Builder | Simple | Not reusable | Rejected - violates architecture |
-/// | Stateless Widget | Reusable, testable | Slight overhead | CHOSEN - architectural excellence |
-/// | Custom Painter | High performance | Complex | Overkill for simple indicator |
+/// ## ARCHITECTURAL COMPLIANCE
+/// - ✅ Component accepts generic status instead of service-specific enum
+/// - ✅ Reusable across different status sources (agent, service, etc.)
+/// - ✅ Stateless component following warrior protocol
 ///
-/// ## PERFORMANCE PROFILE
-/// - Time Complexity: O(1) - constant widget tree construction
-/// - Space Complexity: O(1) - minimal memory footprint
-/// - Rebuild Frequency: Only on state changes via prop updates
+/// PERF: O(1) rendering - direct status mapping
+/// REUSE: Universal status indicator for any agent or service state
+
+/// Generic status enumeration for UI state management
+enum AgentStatus {
+  uninitialized,
+  initializing,
+  ready,
+  processing,
+  error,
+}
+
+extension AgentStatusExtension on AgentStatus {
+  String get displayName {
+    switch (this) {
+      case AgentStatus.uninitialized:
+        return 'Uninitialized';
+      case AgentStatus.initializing:
+        return 'Initializing';
+      case AgentStatus.ready:
+        return 'Ready';
+      case AgentStatus.processing:
+        return 'Processing';
+      case AgentStatus.error:
+        return 'Error';
+    }
+  }
+}
+
+/// ChatStatusIndicator - Universal Status Visualization
 ///
-/// ## BOSS FIGHTS DEFEATED
-/// 1. **Functional Widget Elimination**
-///    - 🔍 Symptom: `_buildStatusIndicator()` method in StatefulWidget
-///    - 🎯 Root Cause: Violation of component architecture rules
-///    - 💥 Kill Shot: Extracted to reusable StatelessWidget
-///
-/// 2. **Reusability Achievement**
-///    - 🔍 Symptom: Status indicator locked to single screen
-///    - 🎯 Root Cause: Embedded in parent widget logic
-///    - 💥 Kill Shot: Standalone component with prop injection
+/// ARCHITECTURAL: Generic status indicator that can display any agent or service state
 class ChatStatusIndicator extends StatelessWidget {
-  /// Creates a chat status indicator with required service state
-  ///
-  /// ARCHITECTURAL: All dependencies injected via constructor
+  final AgentStatus status;
+  final double size;
+  final String? tooltip;
+
   const ChatStatusIndicator({
     super.key,
-    required this.serviceState,
+    required this.status,
+    this.size = 16.0,
+    this.tooltip,
   });
-
-  /// Current state of the chat service
-  final ChatServiceState serviceState;
-
-  /// Get status widget based on service state
-  ///
-  /// PERF: O(1) - simple switch statement with constant operations
-  Widget _getStatusWidget() {
-    switch (serviceState) {
-      case ChatServiceState.uninitialized:
-      case ChatServiceState.initializing:
-        return const CircularProgressIndicator(strokeWidth: 2);
-      case ChatServiceState.ready:
-        return const Icon(Icons.check_circle, size: 16);
-      case ChatServiceState.processing:
-        return const SizedBox(
-          width: 16,
-          height: 16,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        );
-      case ChatServiceState.error:
-        return const Icon(Icons.error, size: 16);
-    }
-  }
-
-  /// Get status color based on service state
-  ///
-  /// PERF: O(1) - direct color mapping
-  Color _getStatusColor() {
-    switch (serviceState) {
-      case ChatServiceState.uninitialized:
-        return Colors.grey;
-      case ChatServiceState.initializing:
-        return Colors.blue;
-      case ChatServiceState.ready:
-        return Colors.green;
-      case ChatServiceState.processing:
-        return Colors.orange;
-      case ChatServiceState.error:
-        return Colors.red;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = _getStatusColor();
-    final statusWidget = _getStatusWidget();
-
-    // PERF: Optimized widget tree with const decorations where possible
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: statusColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: statusColor.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          statusWidget,
-          const SizedBox(width: 6),
-          Text(
-            serviceState.name.toUpperCase(),
-            style: TextStyle(
-              color: statusColor,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
+    return Tooltip(
+      message: tooltip ?? status.displayName,
+      child: Icon(
+        _getStatusIcon(),
+        size: size,
+        color: _getStatusColor(),
       ),
     );
+  }
+
+  IconData _getStatusIcon() {
+    switch (status) {
+      case AgentStatus.uninitialized:
+      case AgentStatus.initializing:
+        return Icons.hourglass_empty;
+      case AgentStatus.ready:
+        return Icons.check_circle;
+      case AgentStatus.processing:
+        return Icons.autorenew;
+      case AgentStatus.error:
+        return Icons.error;
+    }
+  }
+
+  Color _getStatusColor() {
+    switch (status) {
+      case AgentStatus.uninitialized:
+        return Colors.grey;
+      case AgentStatus.initializing:
+        return Colors.orange;
+      case AgentStatus.ready:
+        return Colors.green;
+      case AgentStatus.processing:
+        return Colors.blue;
+      case AgentStatus.error:
+        return Colors.red;
+    }
   }
 }

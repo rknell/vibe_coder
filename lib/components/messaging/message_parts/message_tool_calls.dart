@@ -49,7 +49,8 @@ class MessageToolCalls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Only render if message has tool calls
-    if (message.toolCalls == null || message.toolCalls!.isEmpty) {
+    final toolCalls = message.toolCalls;
+    if (toolCalls == null || toolCalls.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -83,7 +84,7 @@ class MessageToolCalls extends StatelessWidget {
           const SizedBox(height: 4),
           // PERF: O(n) list rendering - acceptable for tool calls display
           // DESKTOP OPTIMIZATION: Each tool call is selectable
-          ...message.toolCalls!.map((toolCall) => Padding(
+          ...toolCalls.map((toolCall) => Padding(
                 padding: const EdgeInsets.only(bottom: 2),
                 child: SelectableText(
                   '• ${toolCall['function']?['name'] ?? 'Unknown function'}',

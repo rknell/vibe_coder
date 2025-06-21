@@ -66,21 +66,23 @@ class ChatInputFieldComponent extends StatefulWidget {
 }
 
 class _ChatInputFieldComponentState extends State<ChatInputFieldComponent> {
-  late TextEditingController _textController;
+  final TextEditingController _textController =
+      TextEditingController(); // WARRIOR PROTOCOL: Direct initialization eliminates late variable vulnerability
   final FocusNode _focusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
-    _textController = TextEditingController(text: widget.inputText ?? '');
+    _textController.text = widget.inputText ?? '';
   }
 
   @override
   void didUpdateWidget(ChatInputFieldComponent oldWidget) {
     super.didUpdateWidget(oldWidget);
     // Update controller text if inputText prop changes
-    if (widget.inputText != oldWidget.inputText && widget.inputText != null) {
-      _textController.text = widget.inputText!;
+    final inputText = widget.inputText;
+    if (inputText != oldWidget.inputText && inputText != null) {
+      _textController.text = inputText;
     }
   }
 
@@ -98,8 +100,9 @@ class _ChatInputFieldComponentState extends State<ChatInputFieldComponent> {
   /// and restores focus for continuous typing workflow
   void _handleSendMessage() {
     final text = _textController.text.trim();
-    if (text.isNotEmpty && widget.onSendMessage != null) {
-      widget.onSendMessage!(text);
+    final onSendMessage = widget.onSendMessage;
+    if (text.isNotEmpty && onSendMessage != null) {
+      onSendMessage(text);
 
       // Clear text field completely and restore focus
       _textController.clear();

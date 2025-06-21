@@ -143,24 +143,24 @@ class UiSettingsSection extends StatelessWidget {
   ///
   /// PERF: O(1) - direct boolean update
   void _updateShowTimestamps(bool value) {
-    final updatedConfig = configuration.copyWith(showTimestamps: value);
-    onConfigurationChanged(updatedConfig);
+    configuration.showTimestamps = value;
+    onConfigurationChanged(configuration);
   }
 
   /// Update auto scroll setting
   ///
   /// PERF: O(1) - direct boolean update
   void _updateAutoScroll(bool value) {
-    final updatedConfig = configuration.copyWith(autoScroll: value);
-    onConfigurationChanged(updatedConfig);
+    configuration.autoScroll = value;
+    onConfigurationChanged(configuration);
   }
 
   /// Update welcome message
   ///
   /// PERF: O(1) - direct string update
   void _updateWelcomeMessage(String value) {
-    final updatedConfig = configuration.copyWith(welcomeMessage: value);
-    onConfigurationChanged(updatedConfig);
+    configuration.welcomeMessage = value;
+    onConfigurationChanged(configuration);
   }
 
   /// Get validation error for specific field

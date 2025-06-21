@@ -1,131 +1,113 @@
-import 'package:vibe_coder/ai_agent/services/mcp_manager.dart';
-import 'package:vibe_coder/ai_agent/models/mcp_models.dart';
+import 'package:vibe_coder/services/mcp_service.dart';
+import 'package:vibe_coder/models/mcp_server_model.dart';
+import 'package:vibe_coder/ai_agent/models/mcp_models.dart' as legacy;
 
-/// �� **MOCK MCP MANAGER WITH PROCESS TRACKING**
+/// 🧪 **MOCK MCP SERVICE FOR TESTING**
+///
+/// ✅ **UPDATED FOR MCPService ARCHITECTURE**
 ///
 /// Provides instant responses for unit testing without network calls
+/// Extends MCPService to override key methods with mock implementations
 /// Follows warrior protocol with O(1) performance and no side effects
-/// Enhanced with process management simulation for shared process testing
-class MockMCPManager implements MCPManager {
-  final Map<String, MCPServerConfig> _mockServerConfigs = {
-    'mock-filesystem': MCPServerConfig(
-      command: 'mock-command',
-      args: ['mock-args'],
-      type: 'stdio',
-    ),
-    'mock-memory': MCPServerConfig(
-      command: 'mock-command',
-      args: ['mock-args'],
-      type: 'stdio',
-    ),
-  };
+class MockMCPService extends MCPService {
+  final List<MCPServerModel> _mockServers = [];
+  final List<MCPToolWithServer> _mockTools = [];
+  bool _isInitialized = false;
 
-  final List<MCPToolWithServer> _mockTools = [
-    MCPToolWithServer(
-      serverName: 'mock-filesystem',
-      tool: MCPTool(
-        name: 'read_file',
-        description: 'Mock file reading tool',
-        inputSchema: {
-          'type': 'object',
-          'properties': {
-            'path': {'type': 'string', 'description': 'File path'}
-          },
-          'required': ['path']
-        },
+  MockMCPService() {
+    // Create mock servers
+    _mockServers.addAll([
+      MCPServerModel.stdio(
+        name: 'mock-filesystem',
+        command: 'mock-command',
+        args: ['mock-args'],
+        description: 'Mock filesystem server',
       ),
-    ),
-    MCPToolWithServer(
-      serverName: 'mock-memory',
-      tool: MCPTool(
-        name: 'store_memory',
-        description: 'Mock memory storage tool',
-        inputSchema: {
-          'type': 'object',
-          'properties': {
-            'key': {'type': 'string'},
-            'value': {'type': 'string'}
-          },
-          'required': ['key', 'value']
-        },
+      MCPServerModel.stdio(
+        name: 'mock-memory',
+        command: 'mock-command',
+        args: ['mock-args'],
+        description: 'Mock memory server',
       ),
-    ),
-  ];
+    ]);
 
-  // 🎯 PROCESS MANAGEMENT SIMULATION: Track process creation for testing
-  final Map<String, int> _processCreationCount = {};
-  final Map<String, Set<String>> _processReferences = {};
+    // Update server status to connected
+    for (final server in _mockServers) {
+      server.updateStatus(MCPServerStatus.connected);
+
+      // Add mock tools
+      if (server.name == 'mock-filesystem') {
+        server.updateTools([
+          MCPTool(
+            name: 'read_file',
+            description: 'Mock file reading tool',
+            inputSchema: {
+              'type': 'object',
+              'properties': {
+                'path': {'type': 'string', 'description': 'File path'}
+              },
+              'required': ['path']
+            },
+          ),
+        ]);
+      } else if (server.name == 'mock-memory') {
+        server.updateTools([
+          MCPTool(
+            name: 'store_memory',
+            description: 'Mock memory storage tool',
+            inputSchema: {
+              'type': 'object',
+              'properties': {
+                'key': {'type': 'string'},
+                'value': {'type': 'string'}
+              },
+              'required': ['key', 'value']
+            },
+          ),
+        ]);
+      }
+    }
+
+    // Create mock tools with server context
+    for (final server in _mockServers) {
+      for (final tool in server.availableTools) {
+        _mockTools.add(MCPToolWithServer(
+          tool: legacy.MCPTool(
+            name: tool.name,
+            description: tool.description,
+            inputSchema: tool.inputSchema,
+          ),
+          serverName: server.name,
+        ));
+      }
+    }
+
+    // Set mock data
+    data = _mockServers;
+  }
 
   @override
-  List<String> get configuredServers => _mockServerConfigs.keys.toList();
+  Future<void> initialize() async {
+    // 🚀 INSTANT INITIALIZATION - No I/O operations
+    await Future.delayed(Duration.zero);
+    _isInitialized = true;
+    notifyListeners();
+  }
 
   @override
-  List<String> get connectedServers => _mockServerConfigs.keys.toList();
+  Future<void> loadAll() async {
+    // 🚀 INSTANT LOAD - Use pre-created mock data
+    await Future.delayed(Duration.zero);
+    data = _mockServers;
+    notifyListeners();
+  }
 
   @override
   List<MCPToolWithServer> getAllTools() => _mockTools;
 
   @override
-  Map<String, List<MCPTool>> get availableTools => {
-        'mock-filesystem': [_mockTools[0].tool],
-        'mock-memory': [_mockTools[1].tool],
-      };
-
-  @override
-  Map<String, List<MCPResource>> get availableResources => {};
-
-  @override
-  Map<String, List<MCPPrompt>> get availablePrompts => {};
-
-  @override
-  Future<void> initialize(String configPath) async {
-    // 🚀 INSTANT INITIALIZATION - No I/O operations
-    await Future.delayed(Duration.zero);
-  }
-
-  @override
-  Future<void> refreshCapabilities() async {
-    // 🚀 INSTANT REFRESH - No network calls
-    await Future.delayed(Duration.zero);
-  }
-
-  @override
-  Future<MCPToolCallResult> callTool({
-    required String serverName,
-    required String toolName,
-    required Map<String, dynamic> arguments,
-  }) async {
-    // 🚀 INSTANT TOOL CALL - Mock response
-    return MCPToolCallResult(
-      content: [
-        MCPTextContent(
-          type: 'text',
-          text: 'Mock tool response for $toolName',
-        ),
-      ],
-      isError: false,
-    );
-  }
-
-  @override
-  Future<void> closeAll() async {
-    // 🚀 INSTANT CLEANUP - No resources to clean
-    await Future.delayed(Duration.zero);
-  }
-
-  @override
-  Future<void> loadConfiguration(String configPath) async {
-    // 🚀 INSTANT CONFIG LOAD - No file I/O
-    await Future.delayed(Duration.zero);
-  }
-
-  @override
-  bool isServerConnected(String serverName) =>
-      _mockServerConfigs.containsKey(serverName);
-
-  @override
-  MCPServerConfig? getServerConfig(String serverName) =>
-      _mockServerConfigs[serverName];
+  List<MCPServerModel> get connectedServers =>
+      _mockServers.where((s) => s.status == MCPServerStatus.connected).toList();
 
   @override
   String? findServerForTool(String toolName) {
@@ -138,115 +120,90 @@ class MockMCPManager implements MCPManager {
   }
 
   @override
-  Future<MCPTextContent> getResource({
-    required String serverName,
-    required String uri,
+  Future<Map<String, dynamic>> callTool({
+    required String serverId,
+    required String toolName,
+    required Map<String, dynamic> arguments,
   }) async {
-    return MCPTextContent(
-      type: 'text',
-      text: 'Mock resource content for $uri',
-    );
-  }
-
-  @override
-  Future<List<MCPTextContent>> getPrompt({
-    required String serverName,
-    required String promptName,
-    Map<String, dynamic>? arguments,
-  }) async {
-    return [
-      MCPTextContent(
-        type: 'text',
-        text: 'Mock prompt content for $promptName',
-      ),
-    ];
-  }
-
-  @override
-  Map<String, dynamic> getServerStatus(String serverName) {
-    final config = _mockServerConfigs[serverName];
-    final tools = _mockTools.where((t) => t.serverName == serverName);
+    // 🚀 INSTANT TOOL CALL - Mock response
+    await Future.delayed(Duration.zero);
 
     return {
-      'name': serverName,
-      'status': 'connected',
-      'type': config?.type ?? 'stdio',
-      'toolCount': tools.length,
-      'resourceCount': 0,
-      'promptCount': 0,
-      'tools': tools
-          .map((t) => {
-                'name': t.tool.name,
-                'description': t.tool.description ?? 'Mock tool',
-                'uniqueId': t.uniqueId,
-              })
-          .toList(),
-      'supported': true,
-      'reason': null,
+      'content': [
+        {
+          'type': 'text',
+          'text': 'Mock tool response for $toolName',
+        }
+      ],
+      'isError': false,
     };
   }
 
-  // 🎯 PROCESS MANAGEMENT TESTING: Additional methods for testing shared process behavior
-
-  /// Simulate process creation for testing
-  void simulateProcessCreation(String serverName, String clientId) {
-    _processCreationCount[serverName] =
-        (_processCreationCount[serverName] ?? 0) + 1;
-    _processReferences[serverName] ??= <String>{};
-    _processReferences[serverName]!.add(clientId);
+  @override
+  Future<void> refreshAll() async {
+    // 🚀 INSTANT REFRESH - No network calls
+    await Future.delayed(Duration.zero);
   }
 
-  /// Simulate process release for testing
-  void simulateProcessRelease(String serverName, String clientId) {
-    _processReferences[serverName]?.remove(clientId);
-    if (_processReferences[serverName]?.isEmpty ?? true) {
-      _processReferences.remove(serverName);
+  @override
+  Future<void> refreshServer(String serverId) async {
+    // 🚀 INSTANT REFRESH - No network calls
+    await Future.delayed(Duration.zero);
+  }
+
+  @override
+  Future<void> connectServer(String serverId) async {
+    // 🚀 INSTANT CONNECT - Update mock status
+    await Future.delayed(Duration.zero);
+    final server = getById(serverId);
+    if (server != null) {
+      server.updateStatus(MCPServerStatus.connected);
     }
   }
 
-  /// Get process creation count for testing
-  int getProcessCreationCount(String serverName) {
-    return _processCreationCount[serverName] ?? 0;
+  @override
+  Future<void> disconnectServer(String serverId) async {
+    // 🚀 INSTANT DISCONNECT - Update mock status
+    await Future.delayed(Duration.zero);
+    final server = getById(serverId);
+    if (server != null) {
+      server.updateStatus(MCPServerStatus.disconnected);
+    }
   }
 
-  /// Get active reference count for testing
-  int getActiveReferenceCount(String serverName) {
-    return _processReferences[serverName]?.length ?? 0;
-  }
-
-  /// Get all process statistics for testing
-  Map<String, dynamic> getProcessStats() {
+  @override
+  Map<String, dynamic> getMCPServerInfo() {
     return {
-      'totalProcessesCreated': _processCreationCount.values
-          .fold<int>(0, (sum, count) => sum + count),
-      'activeProcesses': _processReferences.length,
-      'processDetails': _processReferences.entries
-          .map((entry) => {
-                'serverName': entry.key,
-                'activeReferences': entry.value.length,
-                'creationCount': _processCreationCount[entry.key] ?? 0,
-                'referencingClients': entry.value.toList(),
+      'servers': _mockServers
+          .map((server) => {
+                'name': server.name,
+                'status': server.status.name,
+                'type': server.type.name,
+                'toolCount': server.availableTools.length,
+                'resourceCount': server.availableResources.length,
+                'promptCount': server.availablePrompts.length,
+                'tools': server.availableTools
+                    .map((tool) => {
+                          'name': tool.name,
+                          'description': tool.description ?? 'Mock tool',
+                        })
+                    .toList(),
+                'supported': true,
+                'reason': null,
               })
           .toList(),
+      'totalTools': _mockTools.length,
+      'connectedServers': connectedServers.length,
+      'configuredServers': _mockServers.length,
     };
   }
 
-  /// Reset process tracking for testing
-  void resetProcessTracking() {
-    _processCreationCount.clear();
-    _processReferences.clear();
-  }
+  @override
+  bool get isInitialized => _isInitialized;
 
-  // Additional mock methods for testing specific scenarios
-  void addMockTool(MCPToolWithServer tool) {
-    _mockTools.add(tool);
-  }
-
-  void clearMockTools() {
-    _mockTools.clear();
-  }
-
-  void addMockServer(String name, MCPServerConfig config) {
-    _mockServerConfigs[name] = config;
+  @override
+  void dispose() {
+    // 🚀 INSTANT CLEANUP - No resources to clean
+    super.dispose();
   }
 }

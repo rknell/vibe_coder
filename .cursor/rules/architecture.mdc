@@ -1,5 +1,396 @@
 ---
 description:
 globs:
-alwaysApply: false
+alwaysApply: true
 ---
+# ⚔️ VIBE CODER ARCHITECTURE PROTOCOL ⚔️
+
+## 🎯 ARCHITECTURAL MISSION
+**🏆 ESTABLISH CLEAN LAYERED ARCHITECTURE WITH UNIVERSAL STATE MANAGEMENT**
+
+This document defines the mandatory layered architecture for VibeCoder following **Clean Architecture** principles with Flutter-specific optimizations using **Repository Pattern + Observer Pattern** hybrid architecture.
+
+## 🏗️ ARCHITECTURAL LAYERS
+
+### 1. 📊 DATA MODEL LAYER
+**Individual Entity Management & State Broadcasting**
+
+#### 🎯 CORE RESPONSIBILITIES:
+- **Entity Representation**: Individual records (Agent, MCPServer, ChatRecord, etc.)
+- **Self-Management**: Save, delete, manipulate individual records via methods on record
+- **State Broadcasting**: Extend `ChangeNotifier`, call `notifyListeners()` on data changes
+- **Relationship Management**: Populate related records via functions/getters
+- **Data Validation**: Handle validation at individual record level
+- **JSON Persistence**: Manage own persistence in `/data` directory
+
+#### 💻 IMPLEMENTATION PATTERN:
+```dart
+class AgentModel extends ChangeNotifier {
+  String id;
+  String name;
+  // ... other fields
+
+  // Self-management methods
+  Future<void> save() async {
+    // Save to /data/agents/${id}.json
+    notifyListeners(); // MANDATORY after any change
+  }
+
+  Future<void> delete() async {
+    // Delete from /data directory
+    notifyListeners();
+  }
+
+  // Validation
+  bool validate() {
+    // Handle validation logic here
+    return isValid;
+  }
+
+  // Related data access
+  List<MCPServerModel> get availableMCPServers {
+    // Return related MCP servers
+  }
+}
+```
+
+#### 🚫 BANNED PATTERNS:
+- External persistence handling (Service layer should NOT handle persistence)
+- Silent state changes (MUST call `notifyListeners()`)
+- Cross-entity validation (handle in individual models)
+
+### 2. 🔧 SERVICE / DATA MODEL SERVICE LAYER
+**Multi-Record Management & Business Logic**
+
+#### 🎯 CORE RESPONSIBILITIES:
+- **Collection Management**: Handle lists of data models
+- **Loading Operations**: Populate full lists (loadAllAgents, loadAllMCPServers)
+- **Filtering Functions**: Convenient access (getByName, getById)
+- **State Management**: Maintain `List<DataModel> data` field
+- **Business Logic**: Multi-record operations and complex workflows
+- **Global State**: App-wide state management via `ChangeNotifier`
+
+#### 💻 IMPLEMENTATION PATTERN:
+```dart
+class AgentService extends ChangeNotifier {
+  List<AgentModel> data = [];
+
+  // Collection management
+  Future<void> loadAll() async {
+    // Load all agents from /data directory
+    data = await _loadAgentsFromDisk();
+    notifyListeners(); // MANDATORY after data changes
+  }
+
+  // Filtering functions
+  AgentModel? getById(String id) => data.firstWhere((a) => a.id == id);
+  AgentModel? getByName(String name) => data.firstWhere((a) => a.name == name);
+
+  // Business operations
+  Future<void> createAgent(AgentModel agent) async {
+    await agent.save(); // Model handles its own persistence
+    data.add(agent);
+    notifyListeners();
+  }
+}
+```
+
+#### 🚫 BANNED PATTERNS:
+- Direct persistence handling (models handle their own persistence)
+- UI logic in services (pure business logic only)
+- Silent collection changes (MUST call `notifyListeners()`)
+
+### 3. 🎨 UI COMPONENTS LAYER
+**Stateless Display Components with Callbacks**
+
+#### 🎯 CORE RESPONSIBILITIES:
+- **Pure Display**: Stateless widgets for individual UI elements
+- **Minimal Logic**: Simple display logic only
+- **Callback Pattern**: Use callbacks to parent for data manipulation
+- **Reusability**: General-purpose components for multiple contexts
+
+#### 💻 IMPLEMENTATION PATTERN:
+```dart
+class AgentListViewItem extends StatelessWidget {
+  final AgentModel agent;
+  final VoidCallback? onTap;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+
+  const AgentListViewItem({
+    Key? key,
+    required this.agent,
+    this.onTap,
+    this.onEdit,
+    this.onDelete,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      title: Text(agent.name),
+      subtitle: Text('${agent.messages.length} messages'),
+      onTap: onTap,
+      trailing: PopupMenuButton(
+        itemBuilder: (context) => [
+          PopupMenuItem(child: Text('Edit'), onTap: onEdit),
+          PopupMenuItem(child: Text('Delete'), onTap: onDelete),
+        ],
+      ),
+    );
+  }
+}
+```
+
+#### 🚫 BANNED PATTERNS:
+- Direct service manipulation (use callbacks only)
+- Stateful widgets (prefer stateless with callbacks)
+- Business logic in components (delegate to parent)
+
+### 4. 📱 SCREEN WIDGETS LAYER
+**Stateful Orchestration & State Management**
+
+#### 🎯 CORE RESPONSIBILITIES:
+- **State Orchestration**: Stateful widgets managing screen state
+- **Service Integration**: Direct interaction with Services and DataModels
+- **Navigation Logic**: Only logic allowed is `Navigator.of(context).push()`
+- **Reactive UI**: Use `ListenableBuilder` positioned strategically
+- **Error Handling**: Display errors from lower layers with stack traces
+
+#### 💻 IMPLEMENTATION PATTERN:
+```dart
+class AgentListScreen extends StatefulWidget {
+  @override
+  _AgentListScreenState createState() => _AgentListScreenState();
+}
+
+class _AgentListScreenState extends State<AgentListScreen> {
+  @override
+  void initState() {
+    super.initState();
+    services.agentService.loadAll(); // Direct service interaction
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: ListenableBuilder( // Positioned close to changing content
+        listenable: services.agentService,
+        builder: (context, child) {
+          return ListView.builder(
+            itemCount: services.agentService.data.length,
+            itemBuilder: (context, index) {
+              final agent = services.agentService.data[index];
+              return AgentListViewItem(
+                agent: agent,
+                onTap: () => _navigateToDetail(agent),
+                onEdit: () => _editAgent(agent),
+                onDelete: () => _deleteAgent(agent),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  void _navigateToDetail(AgentModel agent) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => AgentDetailScreen(agent: agent), // Pass whole model
+      ),
+    );
+  }
+
+  void _editAgent(AgentModel agent) {
+    // Call model methods directly
+    // UI will update via ListenableBuilder automatically
+  }
+}
+```
+
+#### 🚫 BANNED PATTERNS:
+- Root-level `ListenableBuilder` (position close to changing content)
+- Business logic in screens (delegate to services)
+- Named routes (use direct navigation with model passing)
+
+### 5. 🌐 API/DATABASE LAYER
+**Data Transport & Authentication**
+
+#### 🎯 CORE RESPONSIBILITIES:
+- **API Communication**: Raw HTTP/WebSocket clients for external services
+- **Type Flexibility**: Relaxed typing (`Map<String, dynamic>`)
+- **Authentication Management**: Handle credentials and tokens
+- **Transport Logic**: Focus on data transport, not business logic
+- **Client Pattern**: Separate client for each service type
+
+#### 💻 IMPLEMENTATION PATTERN:
+```dart
+class DeepSeekApiClient {
+  final String _apiKey;
+  final http.Client _httpClient = http.Client();
+
+  DeepSeekApiClient({required String apiKey}) : _apiKey = apiKey;
+
+  Future<Map<String, dynamic>> sendMessage(Map<String, dynamic> body) async {
+    final response = await _httpClient.post(
+      Uri.parse('https://api.deepseek.com/chat/completions'),
+      headers: {
+        'Authorization': 'Bearer $_apiKey',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode != 200) {
+      throw ApiException('Request failed: ${response.statusCode}');
+    }
+
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+}
+```
+
+#### 🚫 BANNED PATTERNS:
+- Business logic in API clients (pure transport only)
+- Strict typing (allow flexible Map<String, dynamic>)
+- Per-request authentication (manage at client level)
+
+## 🔗 DEPENDENCY INJECTION WITH GETIT
+
+### 🎯 SERVICES PATTERN
+**Universal App State Management**
+
+#### 💻 IMPLEMENTATION PATTERN:
+```dart
+// services.dart
+class Services {
+  final AgentService agentService;
+  final MCPService mcpService;
+  final ChatService chatService;
+
+  Services() :
+    agentService = AgentService(),
+    mcpService = MCPService(),
+    chatService = ChatService();
+}
+
+// Global accessor with GetIt
+Services get services {
+  if (!GetIt.instance.isRegistered<Services>()) {
+    GetIt.instance.registerSingleton<Services>(Services());
+  }
+  return GetIt.instance.get<Services>();
+}
+```
+
+#### 🧪 TESTING PATTERN:
+```dart
+// Test setup
+void setupTestServices() {
+  GetIt.instance.reset();
+  GetIt.instance.registerSingleton<Services>(MockServices());
+}
+
+class MockServices implements Services {
+  @override
+  final AgentService agentService = MockAgentService();
+  // ... other mock services
+}
+```
+
+## ⚠️ ERROR HANDLING PROTOCOL
+
+### 🎯 ZERO ERROR SWALLOWING RULE
+**Bubble Stack Traces to Surface**
+
+#### 💻 ERROR PROPAGATION:
+- **Data Model Layer**: Throw exceptions with validation details
+- **Service Layer**: Provide detailed messages with stack traces
+- **Screen Layer**: Display errors with console logging
+- **API Layer**: Throw transport exceptions with full context
+
+#### 🚫 BANNED PATTERNS:
+- Silent error swallowing (`try-catch` without rethrowing)
+- Generic error messages (provide specific context)
+- Filtered stack traces (preserve full debugging information)
+
+## 🔄 INTER-SCREEN COMMUNICATION
+
+### 🎯 DATA FLOW PATTERNS
+
+#### 💻 NAVIGATION WITH MODEL PASSING:
+```dart
+// Pass whole model to detail screen
+Navigator.of(context).push(
+  MaterialPageRoute(
+    builder: (context) => AgentDetailScreen(agent: agent),
+  ),
+);
+
+// Detail screen calls model methods directly
+class AgentDetailScreen extends StatelessWidget {
+  final AgentModel agent;
+
+  void _saveChanges() {
+    agent.save(); // Model handles persistence
+    // UI updates automatically via ChangeNotifier
+  }
+}
+```
+
+#### 💻 GLOBAL NOTIFICATIONS:
+```dart
+class NotificationService extends ChangeNotifier {
+  String? _currentMessage;
+  
+  void showGlobalMessage(String message) {
+    _currentMessage = message;
+    notifyListeners();
+  }
+}
+```
+
+## 📁 FILE STRUCTURE
+
+```
+lib/
+├── models/           # Data Model Layer
+│   ├── agent_model.dart
+│   ├── mcp_server_model.dart
+│   └── chat_record_model.dart
+├── services/         # Service Layer
+│   ├── agent_service.dart
+│   ├── mcp_service.dart
+│   └── services.dart (GetIt registration)
+├── components/       # UI Components Layer
+│   ├── agents/
+│   ├── mcp/
+│   └── common/
+├── screens/          # Screen Widgets Layer
+│   ├── agent_list_screen.dart
+│   └── agent_detail_screen.dart
+├── api/             # API/Database Layer
+│   ├── deepseek_client.dart
+│   └── filesystem_client.dart
+data/                # JSON Persistence
+├── agents/
+├── mcp_servers/
+└── chat_records/
+```
+
+## 🏆 VICTORY CONDITIONS
+
+### ✅ COMPLIANCE CHECKLIST:
+- [ ] All data models extend `ChangeNotifier`
+- [ ] All state changes call `notifyListeners()`
+- [ ] Services manage collections with `List<DataModel> data`
+- [ ] UI components are stateless with callbacks
+- [ ] Screens use strategically positioned `ListenableBuilder`
+- [ ] GetIt manages all service dependencies
+- [ ] Models handle their own JSON persistence
+- [ ] Stack traces bubble to console output
+- [ ] Navigation passes whole models as props
+- [ ] API clients focus on transport only
+
+**⚰️ TOTAL ARCHITECTURAL COMPLIANCE OR DEFEAT! ⚰️**

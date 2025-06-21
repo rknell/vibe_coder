@@ -18,7 +18,7 @@ import 'package:vibe_coder/ai_agent/models/server_overloaded_exception.dart';
 import 'package:vibe_coder/ai_agent/models/streaming_fim_completion_response.dart';
 import 'package:vibe_coder/ai_agent/models/token_usage.dart';
 import 'package:vibe_coder/ai_agent/models/user_balance_response.dart';
-import 'package:vibe_coder/services/services.dart';
+
 import 'package:vibe_coder/services/debug_logger.dart';
 
 /// A client for interacting with the DeepSeek API.
@@ -61,7 +61,7 @@ class DeepSeekApiClient {
   })  : _apiKey = apiKey ?? _loadApiKey(),
         _client = client ?? http.Client(),
         _timeout = timeout ?? const Duration(seconds: 30),
-        _logger = logger ?? services.logging(loggerName) {
+        _logger = logger ?? Logger(loggerName) {
     // Validate API key is provided
     if (_apiKey.isEmpty) {
       _logger.severe(

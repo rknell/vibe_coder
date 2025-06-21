@@ -1,6 +1,6 @@
 ---
-description:
-globs:
+description: Component registry to ensure we don't double up logic and are maximising code reuse
+globs: 
 alwaysApply: false
 ---
 # ⚔️ VIBE CODER COMPONENT ARSENAL ⚔️
