@@ -487,11 +487,12 @@ Available tools: ${services.mcpService.getAllTools().map((t) => t.uniqueId).join
           '${message.role.toString().split('.').last.toUpperCase()}: ${message.content}\n');
 
       // If this is an assistant message with tool calls, log them
+      final toolCalls = message.toolCalls;
       if (message.role == MessageRole.assistant &&
-          message.toolCalls != null &&
-          message.toolCalls!.isNotEmpty) {
+          toolCalls != null &&
+          toolCalls.isNotEmpty) {
         buffer.writeln('TOOL CALLS:');
-        for (final toolCall in message.toolCalls!) {
+        for (final toolCall in toolCalls) {
           final toolJson = const JsonEncoder.withIndent('  ').convert(toolCall);
           buffer.writeln('$toolJson\n');
         }

@@ -100,6 +100,32 @@ alwaysApply: true
   - eval(), unsafe shell commands (NUCLEAR OPTION)
   - `late` variables (NULL SAFETY DESTROYER)
 
+### 🎯 STRONG TYPING SUPREMACY
+- **💀 BANNED: `Map<String, dynamic>` RETURN TYPES** (WEAK TYPING VULNERABILITY)
+  - `Map<String, dynamic>` returns create runtime type errors and maintenance disasters
+  - No compile-time safety for API contracts or data structures
+  - Forces consumers to guess data structure and handle dynamic casting
+  - **⚔️ MANDATORY ALTERNATIVES:**
+    - Create dedicated data classes with strong typing: `class ServerInfoResponse { ... }`
+    - Use proper serialization with fromJson/toJson methods
+    - Provide typed getters and validation
+    - Include backward compatibility bridges during migration: `toLegacyMap()`
+  - **💥 PENALTY**: -2500 XP for ANY `Map<String, dynamic>` return type (WEAK TYPING CRIME!)
+  - **🛡️ EXCEPTION**: ONLY internal JSON parsing within fromJson methods (Necessary evil)
+  - **🎯 VICTORY PATTERN**: 
+    ```dart
+    // ❌ BANNED: Weak dynamic map return
+    Map<String, dynamic> getServerInfo() => {'status': 'connected', 'count': 5};
+    
+    // ✅ WARRIOR APPROVED: Strong typed response
+    class ServerInfoResponse {
+      final String status;
+      final int count;
+      ServerInfoResponse({required this.status, required this.count});
+    }
+    ServerInfoResponse getServerInfo() => ServerInfoResponse(status: 'connected', count: 5);
+    ```
+
 ### 🚫 NULL SAFETY FORTRESS
 - **💀 BANNED: `late` VARIABLES** (TOTAL ANNIHILATION)
   - `late` variables bypass null safety guarantees (CATASTROPHIC VULNERABILITY)

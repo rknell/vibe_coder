@@ -383,16 +383,27 @@ class _DebugOverlayState extends State<DebugOverlay>
           ],
 
           // Details section
-          if (entry.details != null && entry.details!.isNotEmpty) ...[
-            Text(
-              'Details:',
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 4),
-            _buildJsonDisplay(context, entry.details!),
-            const SizedBox(height: 12),
+          if (entry.details != null) ...[
+            (() {
+              final details = entry.details;
+              if (details != null && details.isNotEmpty) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Details:',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    _buildJsonDisplay(context, details),
+                    const SizedBox(height: 12),
+                  ],
+                );
+              }
+              return const SizedBox.shrink();
+            })(),
           ],
 
           // Actions

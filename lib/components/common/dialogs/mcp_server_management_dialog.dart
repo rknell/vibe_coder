@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:vibe_coder/models/mcp_server_info.dart';
 
 /// MCPServerManagementDialog - Comprehensive MCP Server Management Interface
 ///
@@ -48,13 +49,13 @@ class MCPServerManagementDialog extends StatefulWidget {
   });
 
   /// MCP server and tools information
-  final Map<String, dynamic> mcpInfo;
+  final MCPServerInfoResponse mcpInfo;
 
   /// Callback for refreshing all servers
-  final Future<Map<String, dynamic>> Function() onRefreshAll;
+  final Future<MCPServerInfoResponse> Function() onRefreshAll;
 
   /// Callback for refreshing individual server
-  final Future<Map<String, dynamic>> Function(String serverName)
+  final Future<MCPServerInfoResponse> Function(String serverName)
       onRefreshServer;
 
   /// Show the MCP server management dialog
@@ -62,9 +63,9 @@ class MCPServerManagementDialog extends StatefulWidget {
   /// PERF: O(1) - dialog display with managed state updates
   static Future<void> show(
     BuildContext context,
-    Map<String, dynamic> mcpInfo, {
-    required Future<Map<String, dynamic>> Function() onRefreshAll,
-    required Future<Map<String, dynamic>> Function(String serverName)
+    MCPServerInfoResponse mcpInfo, {
+    required Future<MCPServerInfoResponse> Function() onRefreshAll,
+    required Future<MCPServerInfoResponse> Function(String serverName)
         onRefreshServer,
   }) {
     return showDialog<void>(
@@ -84,7 +85,12 @@ class MCPServerManagementDialog extends StatefulWidget {
 }
 
 class _MCPServerManagementDialogState extends State<MCPServerManagementDialog> {
-  Map<String, dynamic> _mcpInfo = {};
+  MCPServerInfoResponse _mcpInfo = const MCPServerInfoResponse(
+    servers: {},
+    toolCount: 0,
+    connectedCount: 0,
+    totalCount: 0,
+  );
   bool _isRefreshing = false;
   final Set<String> _refreshingServers = {};
   String? _lastRefreshError;
@@ -92,7 +98,7 @@ class _MCPServerManagementDialogState extends State<MCPServerManagementDialog> {
   @override
   void initState() {
     super.initState();
-    _mcpInfo = Map.from(widget.mcpInfo);
+    _mcpInfo = widget.mcpInfo;
   }
 
   /// Refresh all MCP servers
@@ -185,10 +191,11 @@ class _MCPServerManagementDialogState extends State<MCPServerManagementDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final servers = (_mcpInfo['servers'] as List<dynamic>?) ?? [];
-    final totalTools = _mcpInfo['totalTools'] as int? ?? 0;
-    final connectedServers = _mcpInfo['connectedServers'] as int? ?? 0;
-    final configuredServers = _mcpInfo['configuredServers'] as int? ?? 0;
+    final serversMap = _mcpInfo.servers;
+    final servers = serversMap.values.toList();
+    final totalTools = _mcpInfo.toolCount;
+    final connectedServers = _mcpInfo.connectedCount;
+    final configuredServers = _mcpInfo.totalCount;
 
     return AlertDialog(
       title: Row(
@@ -354,7 +361,7 @@ class _MCPServerManagementDialogState extends State<MCPServerManagementDialog> {
                   : ListView.builder(
                       itemCount: servers.length,
                       itemBuilder: (context, index) {
-                        final server = servers[index] as Map<String, dynamic>;
+                        final server = servers[index];
                         return _buildServerManagementCard(context, server);
                       },
                     ),
@@ -416,19 +423,19 @@ class _MCPServerManagementDialogState extends State<MCPServerManagementDialog> {
   /// Build enhanced server management card with refresh capabilities
   /// PERF: O(m) where m = tools per server - optimized for typical tool counts
   Widget _buildServerManagementCard(
-      BuildContext context, Map<String, dynamic> server) {
-    final serverName = server['name'] as String? ?? 'Unknown';
-    final status = server['status'] as String? ?? 'unknown';
-    final type = server['type'] as String? ?? 'unknown';
-    final toolCount = server['toolCount'] as int? ?? 0;
-    final resourceCount = server['resourceCount'] as int? ?? 0;
-    final promptCount = server['promptCount'] as int? ?? 0;
-    final tools = (server['tools'] as List<dynamic>?) ?? [];
-    final supported = server['supported'] as bool? ?? false;
-    final reason = server['reason'] as String?;
-    final url = server['url'] as String?;
-    final command = server['command'] as String?;
-    final args = (server['args'] as List<dynamic>?)?.cast<String>();
+      BuildContext context, MCPServerInfo server) {
+    final serverName = server.name;
+    final status = server.status;
+    final type = server.type;
+    final toolCount = server.toolCount;
+    final resourceCount = server.resourceCount;
+    final promptCount = server.promptCount;
+    final tools = server.tools;
+    final supported = server.supported;
+    final reason = server.reason;
+    final url = server.url;
+    final command = server.command;
+    final args = server.args;
 
     final isConnected = status == 'connected';
     final isRefreshing = _refreshingServers.contains(serverName);
@@ -583,7 +590,7 @@ class _MCPServerManagementDialogState extends State<MCPServerManagementDialog> {
                     child: Column(
                       children: tools.asMap().entries.map((entry) {
                         final index = entry.key;
-                        final tool = entry.value as Map<String, dynamic>;
+                        final tool = entry.value;
                         return _buildToolCard(tool,
                             isLast: index == tools.length - 1);
                       }).toList(),
@@ -665,11 +672,12 @@ class _MCPServerManagementDialogState extends State<MCPServerManagementDialog> {
 
   /// Build individual tool card with enhanced information
   /// PERF: O(1) - single tool display with lazy rendering
-  Widget _buildToolCard(Map<String, dynamic> tool, {bool isLast = false}) {
-    final name = tool['name'] as String? ?? 'Unknown';
-    final description =
-        tool['description'] as String? ?? 'No description available';
-    final uniqueId = tool['uniqueId'] as String? ?? name;
+  Widget _buildToolCard(MCPToolInfo tool, {bool isLast = false}) {
+    final name = tool.name;
+    final description = tool.description.isNotEmpty
+        ? tool.description
+        : 'No description available';
+    final uniqueId = tool.uniqueId;
 
     return Container(
       decoration: BoxDecoration(

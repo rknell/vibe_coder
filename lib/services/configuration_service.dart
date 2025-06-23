@@ -22,6 +22,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
 import 'package:vibe_coder/models/agent_configuration.dart';
+import 'package:vibe_coder/models/service_statistics.dart';
 
 /// ConfigurationResult - Result wrapper for configuration operations
 class ConfigurationResult {
@@ -291,26 +292,35 @@ class ConfigurationService extends ChangeNotifier {
   /// Get configuration statistics - ARCHITECTURAL: Business logic
   ///
   /// PERF: O(1) - simple property access
-  Map<String, dynamic> getConfigurationStatistics() {
+  /// ARCHITECTURAL: Returns strongly-typed configuration statistics
+  ConfigurationStatistics getConfigurationStatistics() {
     final config = currentConfig;
 
-    return {
-      'agentNameLength': config.agentName.length,
-      'systemPromptLength': config.systemPrompt.length,
-      'welcomeMessageLength': config.welcomeMessage.length,
-      'customVariablesCount': config.customPromptVariables.length,
-      'contextFilesCount': config.contextFiles.length,
-      'temperatureValue': config.temperature,
-      'maxTokensValue': config.maxTokens,
-      'maxHistoryValue': config.maxConversationHistory,
-      'featuresEnabled': {
-        'betaFeatures': config.useBetaFeatures,
-        'reasonerModel': config.useReasonerModel,
-        'timestamps': config.showTimestamps,
-        'autoScroll': config.autoScroll,
-        'debugLogging': config.enableDebugLogging,
-      },
-    };
+    return ConfigurationStatistics(
+      agentNameLength: config.agentName.length,
+      systemPromptLength: config.systemPrompt.length,
+      welcomeMessageLength: config.welcomeMessage.length,
+      customVariablesCount: config.customPromptVariables.length,
+      contextFilesCount: config.contextFiles.length,
+      temperatureValue: config.temperature,
+      maxTokensValue: config.maxTokens,
+      maxHistoryValue: config.maxConversationHistory,
+      featuresEnabled: ConfigurationFeatures(
+        betaFeatures: config.useBetaFeatures,
+        reasonerModel: config.useReasonerModel,
+        timestamps: config.showTimestamps,
+        autoScroll: config.autoScroll,
+        debugLogging: config.enableDebugLogging,
+      ),
+    );
+  }
+
+  /// Get configuration statistics (legacy format)
+  ///
+  /// DEPRECATED: Use getConfigurationStatistics() which returns strongly-typed data
+  /// ARCHITECTURAL: Temporary bridge during migration period
+  Map<String, dynamic> getConfigurationStatisticsLegacy() {
+    return getConfigurationStatistics().toJson();
   }
 
   /// Ensure service is initialized

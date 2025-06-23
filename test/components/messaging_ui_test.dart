@@ -535,7 +535,8 @@ void main() {
 
       // Verify text is cleared
       final textField = tester.widget<TextField>(find.byType(TextField));
-      expect(textField.controller!.text, isEmpty);
+      final controller = textField.controller;
+      expect(controller?.text ?? '', isEmpty);
     });
 
     testWidgets('auto-scrolls to bottom when new message added',
@@ -607,14 +608,19 @@ void main() {
 
       // Find the ListView inside MessagingUI and get its scroll controller
       final listView = tester.widget<ListView>(find.byType(ListView));
-      final scrollController = listView.controller!;
+      final scrollController = listView.controller;
+      expect(scrollController, isNotNull,
+          reason: 'ListView should have a controller');
+
+      // Use shadow variable for safe access
+      final controller = scrollController!;
 
       // Scroll to top
-      scrollController.jumpTo(0);
+      controller.jumpTo(0);
       await tester.pumpAndSettle();
 
       // Verify we're at the top
-      expect(scrollController.offset, equals(0));
+      expect(controller.offset, equals(0));
 
       // Add new message - this should trigger auto-scroll to bottom
       await tester.enterText(
@@ -624,10 +630,8 @@ void main() {
 
       // Verify scroll position is at bottom (maxScrollExtent)
       // PERF: O(1) validation - single scroll position check
-      expect(
-          scrollController.offset,
-          greaterThanOrEqualTo(
-              scrollController.position.maxScrollExtent - 100));
+      expect(controller.offset,
+          greaterThanOrEqualTo(controller.position.maxScrollExtent - 100));
 
       // Verify new message is visible at bottom
       expect(find.text('Latest message at bottom'), findsOneWidget);
@@ -654,10 +658,15 @@ void main() {
 
       // Find the ListView and get its scroll controller
       final listView = tester.widget<ListView>(find.byType(ListView));
-      final scrollController = listView.controller!;
-      final middlePosition = scrollController.position.maxScrollExtent / 2;
+      final scrollController = listView.controller;
+      expect(scrollController, isNotNull,
+          reason: 'ListView should have a controller');
 
-      scrollController.jumpTo(middlePosition);
+      // Use shadow variable for safe access
+      final controller = scrollController!;
+      final middlePosition = controller.position.maxScrollExtent / 2;
+
+      controller.jumpTo(middlePosition);
       await tester.pumpAndSettle();
 
       // Trigger rebuild without changing message count
@@ -676,7 +685,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify scroll position unchanged
-      expect(scrollController.offset, closeTo(middlePosition, 10));
+      expect(controller.offset, closeTo(middlePosition, 10));
     });
 
     testWidgets('handles empty message input correctly',
@@ -831,7 +840,8 @@ void main() {
 
         // Verify text field is still focused
         final textField = tester.widget<TextField>(find.byType(TextField));
-        expect(textField.focusNode!.hasFocus, isTrue);
+        final focusNode = textField.focusNode;
+        expect(focusNode?.hasFocus, isTrue);
       });
     });
 

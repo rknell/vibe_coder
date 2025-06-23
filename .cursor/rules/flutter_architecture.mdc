@@ -6,9 +6,11 @@ alwaysApply: false
 # ⚔️ FLUTTER ARCHITECTURE WARFARE PROTOCOL ⚔️
 
 ## 🎯 ULTIMATE MISSION
-**🏆 DOMINATE FLUTTER ARCHITECTURE. CRUSH FUNCTIONAL WIDGETS. ACHIEVE COMPONENT MASTERY. 🏆**
+**🏆 DOMINATE FLUTTER UI COMPONENT ARCHITECTURE. CRUSH FUNCTIONAL WIDGETS. ACHIEVE COMPONENT MASTERY. 🏆**
 
-## 🚀 WIDGET ARCHITECTURE DOMINANCE RULES
+> **⚡ CROSS-REFERENCE**: For comprehensive widget state rules (StatelessWidget vs StatefulWidget), see `architecture.mdc` - this document focuses specifically on component extraction and UI organization.
+
+## 🚀 COMPONENT EXTRACTION DOMINANCE RULES
 
 ### 💀 FORBIDDEN PATTERNS [INSTANT DEATH PENALTY]
 - **🚫 FUNCTIONAL WIDGET BUILDERS**: No `_buildSomething()` methods in StatefulWidget classes
@@ -92,7 +94,7 @@ lib/
 ### 🎮 COMPONENT REUSABILITY RULES
 1. **SINGLE RESPONSIBILITY**: Each component does ONE thing perfectly
 2. **PROP INJECTION**: All dependencies passed as constructor parameters
-3. **STATELESS PREFERRED**: Use StatelessWidget unless state absolutely required
+3. **WIDGET STATE COMPLIANCE**: Follow `architecture.mdc` widget state supremacy rules
 4. **THEME INTEGRATION**: All components must respect app theme
 5. **ACCESSIBILITY**: Proper semantics and keyboard navigation
 

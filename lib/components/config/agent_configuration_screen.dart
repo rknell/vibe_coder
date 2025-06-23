@@ -102,42 +102,65 @@ class _AgentConfigurationScreenState extends State<AgentConfigurationScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Agent Settings Section
-                        if (_workingConfiguration != null)
-                          AgentSettingsSection(
-                            configuration: _workingConfiguration!,
-                            validationErrors: _validationErrors,
-                            onConfigurationChanged: _handleConfigurationUpdate,
-                          ),
+                        if (_workingConfiguration != null) ...[
+                          (() {
+                            final workingConfiguration = _workingConfiguration;
+                            if (workingConfiguration != null) {
+                              return AgentSettingsSection(
+                                configuration: workingConfiguration,
+                                validationErrors: _validationErrors,
+                                onConfigurationChanged:
+                                    _handleConfigurationUpdate,
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          })(),
+                          const SizedBox(height: 24),
 
-                        const SizedBox(height: 24),
+                          // AI Model Settings Section
+                          (() {
+                            final workingConfiguration = _workingConfiguration;
+                            if (workingConfiguration != null) {
+                              return AiModelSettingsSection(
+                                configuration: workingConfiguration,
+                                validationErrors: _validationErrors,
+                                onConfigurationChanged:
+                                    _handleConfigurationUpdate,
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          })(),
+                          const SizedBox(height: 24),
 
-                        // AI Model Settings Section
-                        if (_workingConfiguration != null)
-                          AiModelSettingsSection(
-                            configuration: _workingConfiguration!,
-                            validationErrors: _validationErrors,
-                            onConfigurationChanged: _handleConfigurationUpdate,
-                          ),
+                          // UI Settings Section
+                          (() {
+                            final workingConfiguration = _workingConfiguration;
+                            if (workingConfiguration != null) {
+                              return UiSettingsSection(
+                                configuration: workingConfiguration,
+                                validationErrors: _validationErrors,
+                                onConfigurationChanged:
+                                    _handleConfigurationUpdate,
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          })(),
+                          const SizedBox(height: 24),
 
-                        const SizedBox(height: 24),
-
-                        // UI Settings Section
-                        if (_workingConfiguration != null)
-                          UiSettingsSection(
-                            configuration: _workingConfiguration!,
-                            validationErrors: _validationErrors,
-                            onConfigurationChanged: _handleConfigurationUpdate,
-                          ),
-
-                        const SizedBox(height: 24),
-
-                        // Advanced Settings Section
-                        if (_workingConfiguration != null)
-                          AdvancedSettingsSection(
-                            configuration: _workingConfiguration!,
-                            validationErrors: _validationErrors,
-                            onConfigurationChanged: _handleConfigurationUpdate,
-                          ),
+                          // Advanced Settings Section
+                          (() {
+                            final workingConfiguration = _workingConfiguration;
+                            if (workingConfiguration != null) {
+                              return AdvancedSettingsSection(
+                                configuration: workingConfiguration,
+                                validationErrors: _validationErrors,
+                                onConfigurationChanged:
+                                    _handleConfigurationUpdate,
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          })(),
+                        ],
 
                         const SizedBox(
                             height: 80), // Space for floating action bar
@@ -197,13 +220,14 @@ class _AgentConfigurationScreenState extends State<AgentConfigurationScreen> {
     });
 
     try {
-      if (_workingConfiguration == null) {
+      final workingConfiguration = _workingConfiguration;
+      if (workingConfiguration == null) {
         _showErrorSnackBar('No configuration to save');
         return;
       }
 
       final result = await widget.configurationService
-          .updateConfiguration(_workingConfiguration!);
+          .updateConfiguration(workingConfiguration);
 
       if (result.isSuccess) {
         setState(() {

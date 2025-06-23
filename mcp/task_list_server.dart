@@ -380,7 +380,13 @@ class TaskListServer extends BaseMCPServer {
             'ID: ${task.id}\n'
             'Title: ${task.title}\n'
             'Priority: ${task.priority.name}\n'
-            '${task.dueDate != null ? 'Due: ${task.dueDate!.toIso8601String().split('T')[0]}\n' : ''}'
+            '${(() {
+          final dueDate = task.dueDate;
+          if (dueDate != null) {
+            return 'Due: ${dueDate.toIso8601String().split('T')[0]}\n';
+          }
+          return '';
+        })()}'
             '${task.tags.isNotEmpty ? 'Tags: ${task.tags.join(', ')}\n' : ''}'
             'Total tasks: ${todoList.length}')
       ],
@@ -425,24 +431,24 @@ class TaskListServer extends BaseMCPServer {
     final dueToday = args['due_today'] as bool? ?? false;
     if (dueToday) {
       final today = DateTime.now();
-      filteredTasks = filteredTasks
-          .where((t) =>
-              t.dueDate != null &&
-              t.dueDate!.year == today.year &&
-              t.dueDate!.month == today.month &&
-              t.dueDate!.day == today.day)
-          .toList();
+      filteredTasks = filteredTasks.where((t) {
+        final dueDate = t.dueDate;
+        return dueDate != null &&
+            dueDate.year == today.year &&
+            dueDate.month == today.month &&
+            dueDate.day == today.day;
+      }).toList();
     }
 
     final overdue = args['overdue'] as bool? ?? false;
     if (overdue) {
       final now = DateTime.now();
-      filteredTasks = filteredTasks
-          .where((t) =>
-              t.dueDate != null &&
-              t.dueDate!.isBefore(now) &&
-              t.status != TaskStatus.completed)
-          .toList();
+      filteredTasks = filteredTasks.where((t) {
+        final dueDate = t.dueDate;
+        return dueDate != null &&
+            dueDate.isBefore(now) &&
+            t.status != TaskStatus.completed;
+      }).toList();
     }
 
     if (filteredTasks.isEmpty) {
@@ -473,8 +479,10 @@ class TaskListServer extends BaseMCPServer {
       }
 
       // Finally by due date
-      if (a.dueDate != null && b.dueDate != null) {
-        return a.dueDate!.compareTo(b.dueDate!);
+      final aDueDate = a.dueDate;
+      final bDueDate = b.dueDate;
+      if (aDueDate != null && bDueDate != null) {
+        return aDueDate.compareTo(bDueDate);
       }
       if (a.dueDate != null) return -1;
       if (b.dueDate != null) return 1;
@@ -492,9 +500,10 @@ class TaskListServer extends BaseMCPServer {
 
       buffer.writeln('$statusIcon $priorityIcon [${task.id}] ${task.title}');
 
-      if (task.dueDate != null) {
-        final dueStr = task.dueDate!.toIso8601String().split('T')[0];
-        final isOverdue = task.dueDate!.isBefore(DateTime.now()) &&
+      final taskDueDate = task.dueDate;
+      if (taskDueDate != null) {
+        final dueStr = taskDueDate.toIso8601String().split('T')[0];
+        final isOverdue = taskDueDate.isBefore(DateTime.now()) &&
             task.status != TaskStatus.completed;
         buffer.writeln('    📅 Due: $dueStr${isOverdue ? ' (OVERDUE)' : ''}');
       }
@@ -503,8 +512,9 @@ class TaskListServer extends BaseMCPServer {
         buffer.writeln('    🏷️  Tags: ${task.tags.join(', ')}');
       }
 
-      if (task.notes != null && task.notes!.isNotEmpty) {
-        buffer.writeln('    📝 Notes: ${task.notes}');
+      final taskNotes = task.notes;
+      if (taskNotes != null && taskNotes.isNotEmpty) {
+        buffer.writeln('    📝 Notes: $taskNotes');
       }
 
       buffer.writeln();
@@ -611,7 +621,13 @@ class TaskListServer extends BaseMCPServer {
             'ID: ${updatedTask.id}\n'
             'Title: ${updatedTask.title}\n'
             'Priority: ${updatedTask.priority.name}\n'
-            '${updatedTask.dueDate != null ? 'Due: ${updatedTask.dueDate!.toIso8601String().split('T')[0]}\n' : ''}'
+            '${(() {
+          final dueDate = updatedTask.dueDate;
+          if (dueDate != null) {
+            return 'Due: ${dueDate.toIso8601String().split('T')[0]}\n';
+          }
+          return '';
+        })()}'
             '${updatedTask.tags.isNotEmpty ? 'Tags: ${updatedTask.tags.join(', ')}\n' : ''}'
             'Last updated: ${updatedTask.updatedAt?.toIso8601String() ?? 'N/A'}')
       ],
@@ -683,8 +699,9 @@ class TaskListServer extends BaseMCPServer {
       final priorityIcon = _getPriorityIcon(task.priority);
 
       buffer.writeln('$statusIcon $priorityIcon [${task.id}] ${task.title}');
-      if (task.notes != null && task.notes!.isNotEmpty) {
-        buffer.writeln('    📝 ${task.notes}');
+      final taskNotes = task.notes;
+      if (taskNotes != null && taskNotes.isNotEmpty) {
+        buffer.writeln('    📝 $taskNotes');
       }
       buffer.writeln();
     }
@@ -747,20 +764,20 @@ class TaskListServer extends BaseMCPServer {
         todoList.where((t) => t.priority == TaskPriority.low).length;
 
     final now = DateTime.now();
-    final overdueCount = todoList
-        .where((t) =>
-            t.dueDate != null &&
-            t.dueDate!.isBefore(now) &&
-            t.status != TaskStatus.completed)
-        .length;
+    final overdueCount = todoList.where((t) {
+      final dueDate = t.dueDate;
+      return dueDate != null &&
+          dueDate.isBefore(now) &&
+          t.status != TaskStatus.completed;
+    }).length;
 
-    final dueTodayCount = todoList
-        .where((t) =>
-            t.dueDate != null &&
-            t.dueDate!.year == now.year &&
-            t.dueDate!.month == now.month &&
-            t.dueDate!.day == now.day)
-        .length;
+    final dueTodayCount = todoList.where((t) {
+      final dueDate = t.dueDate;
+      return dueDate != null &&
+          dueDate.year == now.year &&
+          dueDate.month == now.month &&
+          dueDate.day == now.day;
+    }).length;
 
     final completionRate = todoList.isNotEmpty
         ? (completedCount / todoList.length * 100).toStringAsFixed(1)
@@ -996,7 +1013,13 @@ class TaskListServer extends BaseMCPServer {
                       'Task: ${task.title}\n'
                       '${task.notes != null ? 'Notes: ${task.notes}\n' : ''}'
                       'Priority: ${task.priority.name}\n'
-                      '${task.dueDate != null ? 'Due: ${task.dueDate!.toIso8601String().split('T')[0]}\n' : ''}'
+                      '${(() {
+                final dueDate = task.dueDate;
+                if (dueDate != null) {
+                  return 'Due: ${dueDate.toIso8601String().split('T')[0]}\n';
+                }
+                return '';
+              })()}'
             },
           ),
         ];

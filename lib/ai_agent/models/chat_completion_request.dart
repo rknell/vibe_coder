@@ -125,14 +125,26 @@ class ChatCompletionRequest {
         if (frequencyPenalty != null) 'frequency_penalty': frequencyPenalty,
         if (maxTokens != null) 'max_tokens': maxTokens,
         if (presencePenalty != null) 'presence_penalty': presencePenalty,
-        if (responseFormat != null) 'response_format': responseFormat!.toJson(),
+        ...(() {
+          final responseFormatValue = responseFormat;
+          if (responseFormatValue != null) {
+            return {'response_format': responseFormatValue.toJson()};
+          }
+          return <String, dynamic>{};
+        })(),
         if (stop != null) 'stop': stop,
         'stream': stream,
         if (streamOptions != null) 'stream_options': streamOptions,
         if (temperature != null) 'temperature': temperature,
         if (topP != null) 'top_p': topP,
         if (tools != null) 'tools': tools,
-        if (toolChoice != null) 'tool_choice': toolChoice!.toJson(),
+        ...(() {
+          final toolChoiceValue = toolChoice;
+          if (toolChoiceValue != null) {
+            return {'tool_choice': toolChoiceValue.toJson()};
+          }
+          return <String, dynamic>{};
+        })(),
         if (logprobs != null) 'logprobs': logprobs,
         if (topLogprobs != null) 'top_logprobs': topLogprobs,
       };

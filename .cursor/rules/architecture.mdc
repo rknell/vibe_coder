@@ -101,7 +101,9 @@ class AgentService extends ChangeNotifier {
 - Silent collection changes (MUST call `notifyListeners()`)
 
 ### 3. 🎨 UI COMPONENTS LAYER
-**Stateless Display Components with Callbacks**
+**Stateless Display Components with Callbacks (Default)**
+
+> **⚡ CROSS-REFERENCE**: For detailed component extraction protocols and functional widget builder elimination, see `flutter_architecture.mdc`.
 
 #### 🎯 CORE RESPONSIBILITIES:
 - **Pure Display**: Stateless widgets for individual UI elements
@@ -109,7 +111,16 @@ class AgentService extends ChangeNotifier {
 - **Callback Pattern**: Use callbacks to parent for data manipulation
 - **Reusability**: General-purpose components for multiple contexts
 
-#### 💻 IMPLEMENTATION PATTERN:
+#### ⚔️ WIDGET STATE SUPREMACY:
+- **🛡️ DEFAULT: StatelessWidget** - All components MUST be StatelessWidget by default
+- **⚡ EXCEPTION: StatefulWidget** - ONLY when strictly necessary for:
+  - Text field controllers and focus management
+  - Animation controllers (with proper disposal)
+  - Expansion state for complex UI elements
+  - Form validation state that cannot be lifted up
+- **🚨 JUSTIFICATION REQUIRED**: Any StatefulWidget component MUST include comment explaining necessity
+
+#### 💻 IMPLEMENTATION PATTERN (STATELESS DEFAULT):
 ```dart
 class AgentListViewItem extends StatelessWidget {
   final AgentModel agent;
@@ -142,13 +153,50 @@ class AgentListViewItem extends StatelessWidget {
 }
 ```
 
+#### 💻 STATEFUL EXCEPTION PATTERN (RARE USAGE):
+```dart
+// WARRIOR PROTOCOL EXCEPTION: TextEditingController requires StatefulWidget for proper disposal
+class SearchFilterComponent extends StatefulWidget {
+  final ValueChanged<String> onSearchChanged;
+  
+  const SearchFilterComponent({Key? key, required this.onSearchChanged}) : super(key: key);
+  
+  @override
+  State<SearchFilterComponent> createState() => _SearchFilterComponentState();
+}
+
+class _SearchFilterComponentState extends State<SearchFilterComponent> {
+  final TextEditingController _controller = TextEditingController();
+  
+  @override
+  void dispose() {
+    _controller.dispose(); // MANDATORY resource cleanup
+    super.dispose();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _controller,
+      onChanged: widget.onSearchChanged,
+    );
+  }
+}
+```
+
 #### 🚫 BANNED PATTERNS:
 - Direct service manipulation (use callbacks only)
-- Stateful widgets (prefer stateless with callbacks)
+- StatefulWidget without clear justification (default to StatelessWidget)
 - Business logic in components (delegate to parent)
+- Unnecessary state management (lift state up to parent screens)
 
 ### 4. 📱 SCREEN WIDGETS LAYER
-**Stateful Orchestration & State Management**
+**Stateful Orchestration & State Management (Always StatefulWidget)**
+
+#### ⚔️ WIDGET STATE MANDATES:
+- **💀 MANDATORY: StatefulWidget** - ALL screen widgets MUST be StatefulWidget
+- **🚫 BANNED: StatelessWidget** - No screen may be StatelessWidget (even if appears stateless)
+- **🎯 JUSTIFICATION**: Screens manage lifecycle, navigation, service integration, and future state needs
 
 #### 🎯 CORE RESPONSIBILITIES:
 - **State Orchestration**: Stateful widgets managing screen state
@@ -156,6 +204,7 @@ class AgentListViewItem extends StatelessWidget {
 - **Navigation Logic**: Only logic allowed is `Navigator.of(context).push()`
 - **Reactive UI**: Use `ListenableBuilder` positioned strategically
 - **Error Handling**: Display errors from lower layers with stack traces
+- **Lifecycle Management**: initState(), dispose(), and other lifecycle methods
 
 #### 💻 IMPLEMENTATION PATTERN:
 ```dart
@@ -210,6 +259,7 @@ class _AgentListScreenState extends State<AgentListScreen> {
 ```
 
 #### 🚫 BANNED PATTERNS:
+- StatelessWidget screens (ALL screens must be StatefulWidget)
 - Root-level `ListenableBuilder` (position close to changing content)
 - Business logic in screens (delegate to services)
 - Named routes (use direct navigation with model passing)
@@ -385,7 +435,8 @@ data/                # JSON Persistence
 - [ ] All data models extend `ChangeNotifier`
 - [ ] All state changes call `notifyListeners()`
 - [ ] Services manage collections with `List<DataModel> data`
-- [ ] UI components are stateless with callbacks
+- [ ] UI components are StatelessWidget by default (StatefulWidget only with justification)
+- [ ] ALL screen widgets are StatefulWidget (no StatelessWidget screens allowed)
 - [ ] Screens use strategically positioned `ListenableBuilder`
 - [ ] GetIt manages all service dependencies
 - [ ] Models handle their own JSON persistence

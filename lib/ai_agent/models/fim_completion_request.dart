@@ -99,7 +99,8 @@ class FimCompletionRequest {
     }
 
     // Validate stop
-    if (stop != null && stop!.length > 16) {
+    final stopValue = stop;
+    if (stopValue != null && stopValue.length > 16) {
       throw ArgumentError('stop must contain at most 16 sequences');
     }
 
@@ -129,7 +130,13 @@ class FimCompletionRequest {
         if (presencePenalty != null) 'presence_penalty': presencePenalty,
         if (stop != null) 'stop': stop,
         'stream': stream,
-        if (streamOptions != null) 'stream_options': streamOptions!.toJson(),
+        ...(() {
+          final streamOptionsValue = streamOptions;
+          if (streamOptionsValue != null) {
+            return {'stream_options': streamOptionsValue.toJson()};
+          }
+          return <String, dynamic>{};
+        })(),
         if (suffix != null) 'suffix': suffix,
         if (temperature != null) 'temperature': temperature,
         if (topP != null) 'top_p': topP,

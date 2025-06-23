@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:vibe_coder/models/mcp_server_info.dart';
 
 /// ToolsInfoDialog - Available MCP Servers and Tools Display
 ///
@@ -38,12 +39,13 @@ class ToolsInfoDialog extends StatelessWidget {
   });
 
   /// MCP server and tools information
-  final Map<String, dynamic> mcpInfo;
+  final MCPServerInfoResponse mcpInfo;
 
   /// Show the MCP tools info dialog
   ///
   /// PERF: O(1) - dialog display with O(n*m) content rendering
-  static Future<void> show(BuildContext context, Map<String, dynamic> mcpInfo) {
+  static Future<void> show(
+      BuildContext context, MCPServerInfoResponse mcpInfo) {
     return showDialog<void>(
       context: context,
       builder: (context) => ToolsInfoDialog(mcpInfo: mcpInfo),
@@ -52,10 +54,10 @@ class ToolsInfoDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final servers = (mcpInfo['servers'] as List<dynamic>?) ?? [];
-    final totalTools = mcpInfo['totalTools'] as int? ?? 0;
-    final connectedServers = mcpInfo['connectedServers'] as int? ?? 0;
-    final configuredServers = mcpInfo['configuredServers'] as int? ?? 0;
+    final servers = mcpInfo.servers.values.toList();
+    final totalTools = mcpInfo.toolCount;
+    final connectedServers = mcpInfo.connectedCount;
+    final configuredServers = mcpInfo.totalCount;
 
     return AlertDialog(
       title: const Text('MCP Servers & Tools'),
@@ -99,7 +101,7 @@ class ToolsInfoDialog extends StatelessWidget {
                   : ListView.builder(
                       itemCount: servers.length,
                       itemBuilder: (context, index) {
-                        final server = servers[index] as Map<String, dynamic>;
+                        final server = servers[index];
                         return _buildServerCard(context, server);
                       },
                     ),
@@ -133,15 +135,15 @@ class ToolsInfoDialog extends StatelessWidget {
   }
 
   /// Build a server information card
-  Widget _buildServerCard(BuildContext context, Map<String, dynamic> server) {
-    final serverName = server['name'] as String? ?? 'Unknown';
-    final status = server['status'] as String? ?? 'unknown';
-    final type = server['type'] as String? ?? 'unknown';
-    final toolCount = server['toolCount'] as int? ?? 0;
-    final tools = (server['tools'] as List<dynamic>?) ?? [];
-    final supported = server['supported'] as bool? ?? false;
-    final reason = server['reason'] as String?;
-    final url = server['url'] as String?;
+  Widget _buildServerCard(BuildContext context, MCPServerInfo server) {
+    final serverName = server.name;
+    final status = server.status;
+    final type = server.type;
+    final toolCount = server.toolCount;
+    final tools = server.tools;
+    final supported = server.supported;
+    final reason = server.reason;
+    final url = server.url;
 
     final isConnected = status == 'connected';
     final statusColor = isConnected ? Colors.green : Colors.red;
@@ -215,10 +217,10 @@ class ToolsInfoDialog extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   ...tools.map((tool) {
-                    final toolData = tool as Map<String, dynamic>;
-                    final name = toolData['name'] as String? ?? 'Unknown';
-                    final description =
-                        toolData['description'] as String? ?? 'No description';
+                    final name = tool.name;
+                    final description = tool.description.isNotEmpty
+                        ? tool.description
+                        : 'No description';
 
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 2),

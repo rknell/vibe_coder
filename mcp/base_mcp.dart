@@ -95,13 +95,16 @@ abstract class BaseMCPServer {
             );
 
     // Set up STDOUT for outgoing responses
-    _outputController!.stream.listen(
-      (message) {
-        stdout.writeln(message);
-        _log('debug', 'Sent message: $message');
-      },
-      onError: (error) => _log('error', 'STDOUT error', error),
-    );
+    final outputController = _outputController;
+    if (outputController != null) {
+      outputController.stream.listen(
+        (message) {
+          stdout.writeln(message);
+          _log('debug', 'Sent message: $message');
+        },
+        onError: (error) => _log('error', 'STDOUT error', error),
+      );
+    }
 
     _log('debug', 'STDIO transport initialized');
   }
@@ -700,8 +703,15 @@ class MCPPrompt {
   Map<String, dynamic> toJson() => {
         'name': name,
         if (description != null) 'description': description,
-        if (arguments != null)
-          'arguments': arguments!.map((a) => a.toJson()).toList(),
+        ...(() {
+          final argumentsValue = arguments;
+          if (argumentsValue != null) {
+            return {
+              'arguments': argumentsValue.map((a) => a.toJson()).toList()
+            };
+          }
+          return <String, dynamic>{};
+        })(),
       };
 }
 

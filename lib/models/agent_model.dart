@@ -34,15 +34,29 @@ library;
 /// - Agent creation: O(1) - direct instantiation
 /// - Persistence: O(n) where n = conversation history size
 /// - State updates: O(1) - direct property updates
+import 'package:flutter/foundation.dart';
 import 'package:vibe_coder/ai_agent/models/chat_message_model.dart';
 import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
 import 'package:vibe_coder/ai_agent/agent.dart';
 
-/// AgentModel - Complete agent representation with persistence
+/// AgentModel - Complete agent representation with reactive state management
+///
+/// ## ARCHITECTURAL COMPLIANCE ACHIEVED
+/// - ✅ Extends ChangeNotifier for state broadcasting
+/// - ✅ Self-managed state with mandatory notifyListeners()
+/// - ✅ Individual entity management with validation
+/// - ✅ Direct property access with reactive updates
+/// - ✅ Conversation state management with notifications
+///
+/// ## PERFORMANCE CHARACTERISTICS
+/// - Property updates: O(1) - direct assignment with notification
+/// - Conversation operations: O(1) - list operations with notification
+/// - State broadcasting: O(1) - ChangeNotifier pattern
+/// - JSON serialization: O(n) where n = conversation history size
 ///
 /// ARCHITECTURAL: This model represents a complete agent instance including
 /// configuration, state, and conversation history for multi-agent system support
-class AgentModel {
+class AgentModel extends ChangeNotifier {
   // Unique identifier for agent
   final String id;
 
@@ -222,18 +236,22 @@ class AgentModel {
 
   /// Add message to conversation history
   ///
-  /// PERF: O(1) - direct list append
+  /// PERF: O(1) - direct list append with notification
+  /// ARCHITECTURAL: Mandatory notifyListeners() after state change
   void addMessage(ChatMessage message) {
     conversationHistory.add(message);
     lastActiveAt = DateTime.now();
+    notifyListeners(); // MANDATORY after any change
   }
 
   /// Clear conversation history
   ///
-  /// PERF: O(1) - list clear operation
+  /// PERF: O(1) - list clear operation with notification
+  /// ARCHITECTURAL: Mandatory notifyListeners() after state change
   void clearConversation() {
     conversationHistory.clear();
     lastActiveAt = DateTime.now();
+    notifyListeners(); // MANDATORY after any change
   }
 
   /// Get conversation history count
@@ -254,11 +272,37 @@ class AgentModel {
     return lastActiveAt; // Use lastActiveAt as proxy for last message time
   }
 
+  /// Update processing state
+  ///
+  /// PERF: O(1) - direct property update with notification
+  /// ARCHITECTURAL: Mandatory notifyListeners() after state change
+  void setProcessing(bool processing) {
+    if (isProcessing != processing) {
+      isProcessing = processing;
+      lastActiveAt = DateTime.now();
+      notifyListeners(); // MANDATORY after any change
+    }
+  }
+
+  /// Update active state
+  ///
+  /// PERF: O(1) - direct property update with notification
+  /// ARCHITECTURAL: Mandatory notifyListeners() after state change
+  void setActive(bool active) {
+    if (isActive != active) {
+      isActive = active;
+      lastActiveAt = DateTime.now();
+      notifyListeners(); // MANDATORY after any change
+    }
+  }
+
   /// Update last active time
   ///
-  /// PERF: O(1) - direct property update
+  /// PERF: O(1) - direct property update with notification
+  /// ARCHITECTURAL: Mandatory notifyListeners() after state change
   void updateActivity() {
     lastActiveAt = DateTime.now();
+    notifyListeners(); // MANDATORY after any change
   }
 
   /// Validate agent data

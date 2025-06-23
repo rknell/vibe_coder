@@ -43,7 +43,8 @@ class ConfigurationTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasError = errorText != null && errorText!.isNotEmpty;
+    final errorTextValue = errorText;
+    final hasError = errorTextValue != null && errorTextValue.isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -120,24 +121,36 @@ class ConfigurationTextField extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (helpText != null) ...[
-                Expanded(
-                  child: Text(
-                    helpText!,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey[600],
-                        ),
-                  ),
-                ),
+                (() {
+                  final helpTextValue = helpText;
+                  if (helpTextValue != null) {
+                    return Expanded(
+                      child: Text(
+                        helpTextValue,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.grey[600],
+                            ),
+                      ),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                })(),
               ],
               if (maxLength != null) ...[
-                Text(
-                  '${value.length}/${maxLength!}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: value.length > maxLength! * 0.9
-                            ? Colors.orange[700]
-                            : Colors.grey[600],
-                      ),
-                ),
+                (() {
+                  final maxLengthValue = maxLength;
+                  if (maxLengthValue != null) {
+                    return Text(
+                      '${value.length}/$maxLengthValue',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: value.length > maxLengthValue * 0.9
+                                ? Colors.orange[700]
+                                : Colors.grey[600],
+                          ),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                })(),
               ],
             ],
           ),

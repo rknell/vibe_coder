@@ -1,48 +1,64 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vibe_coder/components/common/dialogs/tools_info_dialog.dart';
+import 'package:vibe_coder/models/mcp_server_info.dart';
 
 void main() {
   group('ToolsInfoDialog Tests', () {
-    // TACTICAL: Test data structures for MCP server information
-    final mockEmptyMcpInfo = {
-      'servers': <Map<String, dynamic>>[],
-      'totalTools': 0,
-      'connectedServers': 0,
-      'configuredServers': 0,
-    };
+    // Test data setup using strongly-typed models
+    final mockEmptyMcpInfo = MCPServerInfoResponse(
+      servers: {},
+      toolCount: 0,
+      connectedCount: 0,
+      totalCount: 0,
+    );
 
-    final mockMcpInfoWithServers = {
-      'servers': [
-        {
-          'name': 'filesystem',
-          'status': 'connected',
-          'type': 'stdio',
-          'toolCount': 11,
-          'tools': [
-            {'name': 'read_file', 'description': 'Read file contents'},
-            {'name': 'write_file', 'description': 'Write file contents'},
-            {'name': 'list_files', 'description': 'List directory contents'},
+    final mockMcpInfoWithServers = MCPServerInfoResponse(
+      servers: {
+        'filesystem': MCPServerInfo(
+          name: 'filesystem',
+          displayName: 'filesystem',
+          status: 'connected',
+          type: 'stdio',
+          toolCount: 11,
+          resourceCount: 0,
+          promptCount: 0,
+          tools: [
+            MCPToolInfo(
+              name: 'read_file',
+              description: 'Read file contents',
+              uniqueId: 'filesystem:read_file',
+            ),
+            MCPToolInfo(
+              name: 'write_file',
+              description: 'Write file contents',
+              uniqueId: 'filesystem:write_file',
+            ),
+            MCPToolInfo(
+              name: 'list_files',
+              description: 'List directory contents',
+              uniqueId: 'filesystem:list_files',
+            ),
           ],
-          'supported': true,
-          'url': null,
-          'reason': null,
-        },
-        {
-          'name': 'memory',
-          'status': 'disconnected',
-          'type': 'stdio',
-          'toolCount': 0,
-          'tools': <Map<String, dynamic>>[],
-          'supported': true,
-          'url': null,
-          'reason': 'Connection failed: Server not found',
-        },
-      ],
-      'totalTools': 11,
-      'connectedServers': 1,
-      'configuredServers': 2,
-    };
+          supported: true,
+        ),
+        'memory': MCPServerInfo(
+          name: 'memory',
+          displayName: 'memory',
+          status: 'disconnected',
+          type: 'stdio',
+          toolCount: 0,
+          resourceCount: 0,
+          promptCount: 0,
+          tools: [],
+          supported: true,
+          reason: 'Connection failed: Server not found',
+        ),
+      },
+      toolCount: 11,
+      connectedCount: 1,
+      totalCount: 2,
+    );
 
     testWidgets('renders correctly with empty MCP info', (tester) async {
       await tester.pumpWidget(

@@ -19,8 +19,9 @@ class RateLimitException extends DeepSeekApiException {
   @override
   String toString() {
     final base = super.toString();
-    if (retryAfter != null) {
-      return '$base\nRetry after: ${retryAfter!.inSeconds} seconds';
+    final retryAfterValue = retryAfter;
+    if (retryAfterValue != null) {
+      return '$base\nRetry after: ${retryAfterValue.inSeconds} seconds';
     }
     return base;
   }

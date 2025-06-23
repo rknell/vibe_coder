@@ -39,6 +39,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:logging/logging.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:vibe_coder/ai_agent/models/mcp_models.dart';
@@ -349,19 +350,37 @@ class MCPCacheService {
       throw UnsupportedError('File-based cache not supported on web');
     }
 
-    // 🛡️ WARRIOR PROTOCOL: Skip file operations in test environment
+    // 🛡️ WARRIOR PROTOCOL: Skip file operations in fast test mode
     if (const bool.fromEnvironment('IS_TEST_MODE', defaultValue: false)) {
       throw UnsupportedError('File operations disabled in test mode');
     }
 
-    final documentsDir = await getApplicationDocumentsDirectory();
-    final cacheDir = Directory('${documentsDir.path}/vibe_coder/cache');
+    try {
+      final documentsDir = await getApplicationDocumentsDirectory();
+      final cacheDir = Directory('${documentsDir.path}/vibe_coder/cache');
 
-    if (!await cacheDir.exists()) {
-      await cacheDir.create(recursive: true);
+      if (!await cacheDir.exists()) {
+        await cacheDir.create(recursive: true);
+      }
+
+      return File('${cacheDir.path}/$_cacheFileName');
+    } catch (e) {
+      // 🧪 WARRIOR PROTOCOL: Fallback to temp directory for test environments
+      if (e is MissingPluginException) {
+        _logger.info('📁 CACHE: Using temp directory for test environment');
+
+        final tempDir = Directory.systemTemp;
+        final cacheDir = Directory('${tempDir.path}/vibe_coder_test/cache');
+
+        if (!await cacheDir.exists()) {
+          await cacheDir.create(recursive: true);
+        }
+
+        return File('${cacheDir.path}/$_cacheFileName');
+      }
+
+      rethrow;
     }
-
-    return File('${cacheDir.path}/$_cacheFileName');
   }
 
   /// Emit cache event for UI updates

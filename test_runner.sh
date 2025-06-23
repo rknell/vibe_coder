@@ -15,10 +15,12 @@ while [[ $# -gt 0 ]]; do
   case $1 in
     --integration)
       INTEGRATION_TESTS=true
+      TEST_MODE=false  # 🔧 Enable file operations for integration tests
       shift
       ;;
     --fast)
       INTEGRATION_TESTS=false
+      TEST_MODE=true   # 🛡️ Disable file operations for fast tests
       shift
       ;;
     --verbose)
@@ -41,10 +43,12 @@ echo "========================"
 
 if [ "$INTEGRATION_TESTS" = true ]; then
   echo "🐌 Mode: THOROUGH (includes integration tests)"
+  echo "📁 File Operations: ENABLED (for MCP server loading)"
   echo "⚠️  Warning: This will take 2+ minutes and may fail if MCP servers aren't running"
   flutter test --dart-define=MCP_INTEGRATION_TESTS=true --dart-define=IS_TEST_MODE=$TEST_MODE
 else
   echo "⚡ Mode: FAST (unit tests only)"
+  echo "📁 File Operations: DISABLED (for speed)"
   echo "✅ Integration tests skipped for speed"
   flutter test --dart-define=MCP_INTEGRATION_TESTS=false --dart-define=IS_TEST_MODE=$TEST_MODE
 fi

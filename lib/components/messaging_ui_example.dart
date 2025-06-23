@@ -150,20 +150,43 @@ class _MessagingUIExampleScreenState extends State<MessagingUIExampleScreen> {
             if (message.content != null) ...[
               const Text('Content:',
                   style: TextStyle(fontWeight: FontWeight.bold)),
-              Text(message.content!),
+              (() {
+                final content = message.content;
+                if (content != null) {
+                  return Text(content);
+                }
+                return const SizedBox.shrink();
+              })(),
               const SizedBox(height: 8),
             ],
             if (message.toolCalls != null) ...[
               const Text('Tool Calls:',
                   style: TextStyle(fontWeight: FontWeight.bold)),
-              ...message.toolCalls!.map((call) =>
-                  Text('• ${call['function']?['name'] ?? 'Unknown'}')),
+              (() {
+                final toolCalls = message.toolCalls;
+                if (toolCalls != null) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: toolCalls
+                        .map((call) =>
+                            Text('• ${call['function']?['name'] ?? 'Unknown'}'))
+                        .toList(),
+                  );
+                }
+                return const SizedBox.shrink();
+              })(),
               const SizedBox(height: 8),
             ],
             if (message.reasoningContent != null) ...[
               const Text('Reasoning:',
                   style: TextStyle(fontWeight: FontWeight.bold)),
-              Text(message.reasoningContent!),
+              (() {
+                final reasoningContent = message.reasoningContent;
+                if (reasoningContent != null) {
+                  return Text(reasoningContent);
+                }
+                return const SizedBox.shrink();
+              })(),
             ],
           ],
         ),

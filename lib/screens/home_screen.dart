@@ -5,7 +5,11 @@ import 'package:vibe_coder/ai_agent/models/chat_message_model.dart';
 import 'package:vibe_coder/components/messaging_ui.dart';
 import 'package:vibe_coder/components/agents/agent_list_component.dart';
 import 'package:vibe_coder/components/agents/agent_settings_dialog.dart';
+import 'package:vibe_coder/components/common/dialogs/mcp_server_management_dialog.dart';
+import 'package:vibe_coder/components/common/dialogs/tools_info_dialog.dart';
 import 'package:vibe_coder/models/agent_model.dart';
+import 'package:vibe_coder/models/mcp_server_info.dart';
+import 'package:vibe_coder/models/mcp_server_model.dart';
 import 'package:vibe_coder/services/services.dart';
 
 /// HomeScreen - Clean Architecture Agent-Centric Multi-Tab Design
@@ -51,10 +55,10 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-/// Agent Tab Data - CLEAN ARCHITECTURE: Direct AgentModel reference
+/// Agent Tab Data - CLEAN ARCHITECTURE: Direct AgentModel reference with reactive state
 ///
-/// ARCHITECTURAL: Each tab maintains direct reference to AgentModel
-/// PERF: O(1) access to conversation state via model
+/// ARCHITECTURAL: Each tab maintains direct reference to AgentModel (extends ChangeNotifier)
+/// PERF: O(1) access to conversation state via model with reactive updates
 class AgentTab {
   final AgentModel agent;
   final StreamSubscription<ChatMessage>? messageSubscription;
@@ -79,14 +83,6 @@ class AgentTab {
       error: error ?? this.error,
     );
   }
-
-  /// Get conversation messages directly from agent model
-  /// PERF: O(1) - direct model access
-  List<ChatMessage> get messages => agent.conversationHistory;
-
-  /// Get processing state directly from agent model
-  /// PERF: O(1) - direct model access
-  bool get isProcessing => agent.isProcessing;
 }
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
@@ -96,13 +92,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   int _selectedTabIndex = 0;
 
   // Available agents registry - loaded from AgentService
-  List<AgentModel> _availableAgents = [];
+  // ❌ ARCHITECTURAL VIOLATION: Manual state duplication
+  // List<AgentModel> _availableAgents = [];
 
   // Service State Tracking
   bool _isLoading = false;
   String? _errorMessage;
   String? _loadingStatus;
   bool _isServiceInitialized = false;
+
+  // ✅ ARCHITECTURAL COMPLIANCE: Direct service access via reactive patterns
+  List<AgentModel> get _availableAgents => services.agentService.data;
 
   @override
   void initState() {
@@ -154,7 +154,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       setState(() => _loadingStatus = 'Loading agents...');
       await services.agentService.loadAll();
 
-      _availableAgents = services.agentService.data;
       _isServiceInitialized = true;
 
       // Create default agent if none exist
@@ -205,7 +204,7 @@ What would you like to work on today?''',
       );
 
       setState(() {
-        _availableAgents = services.agentService.data;
+        // _availableAgents = services.agentService.data;
       });
 
       // Create welcome message for default agent
@@ -270,9 +269,7 @@ What would you like to work on today?''',
       await agentTab.agent.sendMessage(messageText);
 
       // Agent state is automatically updated - AgentModel handles its own state
-
-      // Update UI - the agent model handles its own state
-      setState(() {}); // Trigger rebuild to show updated conversation
+      // No setState needed - AgentModel now extends ChangeNotifier and MessagingUI will update reactively
     } catch (e) {
       _handleAgentError(agentId, 'Failed to send message: $e');
     }
@@ -359,7 +356,7 @@ What would you like to work on today?''',
 
       final result = await AgentSettingsDialog.showCreateDialog(
         context,
-        mcpServerInfo: mcpServerInfo,
+        mcpServerInfo: mcpServerInfo?.toJson(),
       );
 
       if (!mounted) return;
@@ -386,8 +383,7 @@ What would you like to work on today?''',
 
         // Reload agents from service to get the properly created agent
         await services.agentService.loadAll();
-        _availableAgents = services.agentService.data;
-        setState(() {});
+        // setState() no longer needed - ListenableBuilder handles updates
         if (mounted) {
           _showSnackBar('Agent "${result.name}" created successfully');
         }
@@ -441,16 +437,7 @@ What would you like to work on today?''',
 
       try {
         await services.agentService.deleteAgent(agentId);
-        _availableAgents.removeWhere((a) => a.id == agentId);
-
-        // Also close any open tabs for this agent
-        final tabIndexToRemove =
-            _agentTabs.indexWhere((tab) => tab.agent.id == agentId);
-        if (tabIndexToRemove != -1) {
-          _closeAgentTab(tabIndexToRemove);
-        }
-
-        setState(() {});
+        // setState() no longer needed - ListenableBuilder handles updates
         if (mounted) {
           _showSnackBar('Agent "${agent.name}" deleted successfully');
         }
@@ -480,7 +467,7 @@ What would you like to work on today?''',
       await AgentSettingsDialog.showViewDialog(
         context,
         agent,
-        mcpServerInfo: mcpServerInfo,
+        mcpServerInfo: mcpServerInfo?.toJson(),
       );
 
       if (!mounted) return;
@@ -516,7 +503,7 @@ What would you like to work on today?''',
       final result = await AgentSettingsDialog.showEditDialog(
         context,
         agent,
-        mcpServerInfo: mcpServerInfo,
+        mcpServerInfo: mcpServerInfo?.toJson(),
       );
 
       if (!mounted) return;
@@ -536,21 +523,7 @@ What would you like to work on today?''',
 
         // Reload agents from service to get the updated agent
         await services.agentService.loadAll();
-        _availableAgents = services.agentService.data;
-
-        // Update any open tabs for this agent with the updated agent data
-        final updatedAgent =
-            _availableAgents.where((a) => a.id == agentId).firstOrNull;
-        if (updatedAgent != null) {
-          final tabIndex =
-              _agentTabs.indexWhere((tab) => tab.agent.id == agentId);
-          if (tabIndex != -1) {
-            _agentTabs[tabIndex] =
-                _agentTabs[tabIndex].copyWith(agent: updatedAgent);
-          }
-        }
-
-        setState(() {});
+        // setState() no longer needed - ListenableBuilder handles updates
         if (mounted) {
           _showSnackBar('Agent "${result.name}" updated successfully');
         }
@@ -562,11 +535,126 @@ What would you like to work on today?''',
     }
   }
 
+  /// Show MCP Server Management Dialog
+  ///
+  /// ARCHITECTURAL: Comprehensive MCP server management with refresh capabilities
+  /// PERF: O(1) - dialog display with service integration for real-time updates
+  Future<void> _showMCPServerManager() async {
+    if (!_isServiceInitialized) {
+      _showSnackBar('Please wait for services to initialize');
+      return;
+    }
+
+    try {
+      final mcpInfo = await _getMCPServerInfoForDialog();
+      if (mcpInfo == null) {
+        _showSnackBar('MCP server information is not available yet');
+        return;
+      }
+      if (!mounted) return;
+
+      await MCPServerManagementDialog.show(
+        context,
+        mcpInfo,
+        onRefreshAll: _refreshAllMCPServers,
+        onRefreshServer: _refreshMCPServer,
+      );
+    } catch (e) {
+      if (mounted) {
+        _showSnackBar('Failed to show MCP manager: $e');
+      }
+    }
+  }
+
+  /// Show Tools Information Dialog
+  ///
+  /// ARCHITECTURAL: Read-only MCP tools and server information display
+  /// PERF: O(1) - dialog display with server and tool enumeration
+  Future<void> _showToolsInfo() async {
+    if (!_isServiceInitialized) {
+      _showSnackBar('Please wait for services to initialize');
+      return;
+    }
+
+    try {
+      final mcpInfo = await _getMCPServerInfoForDialog();
+      if (mcpInfo == null) {
+        _showSnackBar('MCP server information is not available yet');
+        return;
+      }
+      if (!mounted) return;
+
+      await ToolsInfoDialog.show(context, mcpInfo);
+    } catch (e) {
+      if (mounted) {
+        _showSnackBar('Failed to show tools info: $e');
+      }
+    }
+  }
+
+  /// Refresh all MCP servers
+  ///
+  /// ARCHITECTURAL: Service-mediated bulk server refresh
+  /// PERF: O(n) - parallel server refresh operations
+  Future<MCPServerInfoResponse> _refreshAllMCPServers() async {
+    try {
+      // Get all configured servers (not just connected ones)
+      final allServers = services.mcpService.data;
+
+      // Connect/refresh each server
+      for (final server in allServers) {
+        try {
+          if (server.status != MCPServerStatus.connected) {
+            await services.mcpService.connectServer(server.id);
+          } else {
+            await services.mcpService.refreshServer(server.id);
+          }
+        } catch (e) {
+          // Continue with other servers even if one fails
+          continue;
+        }
+      }
+
+      // Return updated server information (strongly-typed response)
+      return services.mcpService.getMCPServerInfo();
+    } catch (e) {
+      // Re-throw to let dialog handle error display
+      rethrow;
+    }
+  }
+
+  /// Refresh individual MCP server
+  ///
+  /// ARCHITECTURAL: Service-mediated individual server refresh
+  /// PERF: O(1) - single server refresh with targeted reconnection
+  Future<MCPServerInfoResponse> _refreshMCPServer(String serverName) async {
+    try {
+      // Find server by name to get its ID
+      final server = services.mcpService.getByName(serverName);
+      if (server == null) {
+        throw Exception('Server not found: $serverName');
+      }
+
+      // If server is not connected, connect it. Otherwise, refresh capabilities
+      if (server.status != MCPServerStatus.connected) {
+        await services.mcpService.connectServer(server.id);
+      } else {
+        await services.mcpService.refreshServer(server.id);
+      }
+
+      // Return updated server information (strongly-typed response)
+      return services.mcpService.getMCPServerInfo();
+    } catch (e) {
+      // Re-throw to let dialog handle error display
+      rethrow;
+    }
+  }
+
   /// Get MCP server information for dialog display
   ///
   /// ARCHITECTURAL: Service-mediated MCP server information gathering
   /// PERF: O(1) - service method call or fallback to configuration
-  Future<Map<String, dynamic>?> _getMCPServerInfoForDialog() async {
+  Future<MCPServerInfoResponse?> _getMCPServerInfoForDialog() async {
     try {
       // Try to get MCP server info from services if available
       if (_isServiceInitialized) {
@@ -603,39 +691,64 @@ What would you like to work on today?''',
     return Scaffold(
       appBar: AppBar(
         title: const Text('VibeCoder - Multi-Agent System'),
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          tabs: [
-            // Agents list tab
-            Tab(
-              icon: const Icon(Icons.group),
-              text: 'Agents (${_availableAgents.length})',
-            ),
-            // Agent conversation tabs
-            ..._agentTabs.asMap().entries.map((entry) {
-              final index = entry.key;
-              final tab = entry.value;
-              return Tab(
-                icon: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(tab.isProcessing ? Icons.hourglass_empty : Icons.chat),
-                    if (tab.error != null)
-                      const Icon(Icons.error, color: Colors.red, size: 16),
-                    const SizedBox(width: 4),
-                    GestureDetector(
-                      onTap: () => _closeAgentTab(index),
-                      child: const Icon(Icons.close, size: 16),
-                    ),
-                  ],
-                ),
-                text: tab.agent.name,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(kToolbarHeight),
+          child: ListenableBuilder(
+            listenable: services.agentService,
+            builder: (context, child) {
+              return TabBar(
+                controller: _tabController,
+                isScrollable: true,
+                tabs: [
+                  // Agents list tab - ARCHITECTURAL: Reactive agent count
+                  Tab(
+                    icon: const Icon(Icons.group),
+                    text: 'Agents (${services.agentService.data.length})',
+                  ),
+                  // Agent conversation tabs
+                  ..._agentTabs.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final tab = entry.value;
+                    return Tab(
+                      icon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(tab.agent.isProcessing
+                              ? Icons.hourglass_empty
+                              : Icons.chat),
+                          if (tab.error != null)
+                            const Icon(Icons.error,
+                                color: Colors.red, size: 16),
+                          const SizedBox(width: 4),
+                          GestureDetector(
+                            onTap: () => _closeAgentTab(index),
+                            child: const Icon(Icons.close, size: 16),
+                          ),
+                        ],
+                      ),
+                      text: tab.agent.name,
+                    );
+                  }),
+                ],
               );
-            }),
-          ],
+            },
+          ),
         ),
         actions: [
+          // MCP Tools Info Button
+          IconButton(
+            onPressed: _isServiceInitialized ? _showToolsInfo : null,
+            icon: const Icon(Icons.info_outline),
+            tooltip: 'MCP Tools & Servers Info',
+          ),
+
+          // MCP Server Manager Button
+          IconButton(
+            onPressed: _isServiceInitialized ? _showMCPServerManager : null,
+            icon: const Icon(Icons.settings),
+            tooltip: 'MCP Server Management',
+          ),
+
           if (_isLoading)
             const Padding(
               padding: EdgeInsets.only(right: 16),
@@ -713,33 +826,44 @@ What would you like to work on today?''',
             child: TabBarView(
               controller: _tabController,
               children: [
-                // Agents List Tab
-                AgentListComponent(
-                  agents: _availableAgents,
-                  currentAgentId: null, // No current agent concept
-                  isLoading: _isLoading,
-                  errorMessage: _errorMessage,
-                  onAgentSelected:
-                      _openAgentInTab, // Open in tab instead of switching
-                  onCreateAgent: _showCreateAgentDialog,
-                  onDeleteAgent: _deleteAgent,
-                  onViewAgent: _viewAgentDetails,
-                  onEditAgent: _editAgentSettings,
+                // Agents List Tab - ARCHITECTURAL: ListenableBuilder positioned close to changing content
+                ListenableBuilder(
+                  listenable: services.agentService,
+                  builder: (context, child) {
+                    return AgentListComponent(
+                      agents:
+                          services.agentService.data, // Direct service access
+                      currentAgentId: null, // No current agent concept
+                      isLoading: _isLoading,
+                      errorMessage: _errorMessage,
+                      onAgentSelected:
+                          _openAgentInTab, // Open in tab instead of switching
+                      onCreateAgent: _showCreateAgentDialog,
+                      onDeleteAgent: _deleteAgent,
+                      onViewAgent: _viewAgentDetails,
+                      onEditAgent: _editAgentSettings,
+                    );
+                  },
                 ),
 
-                // Agent Chat Tabs
+                // Agent Chat Tabs - ARCHITECTURAL: ListenableBuilder for reactive agent updates
                 ..._agentTabs.map((tab) {
-                  return MessagingUI(
-                    messages: tab.messages,
-                    onSendMessage: (message) =>
-                        _handleSendMessage(tab.agent.id, message),
-                    showTimestamps: true,
-                    inputPlaceholder: tab.isProcessing
-                        ? '${tab.agent.name} is thinking...'
-                        : 'Ask ${tab.agent.name} anything...',
-                    showInput: _isServiceInitialized &&
-                        !_isLoading &&
-                        !tab.isProcessing,
+                  return ListenableBuilder(
+                    listenable: tab.agent, // Listen to AgentModel changes
+                    builder: (context, child) {
+                      return MessagingUI(
+                        messages: tab.agent.conversationHistory,
+                        onSendMessage: (message) =>
+                            _handleSendMessage(tab.agent.id, message),
+                        showTimestamps: true,
+                        inputPlaceholder: tab.agent.isProcessing
+                            ? '${tab.agent.name} is thinking...'
+                            : 'Ask ${tab.agent.name} anything...',
+                        showInput: _isServiceInitialized &&
+                            !_isLoading &&
+                            !tab.agent.isProcessing,
+                      );
+                    },
                   );
                 }),
               ],

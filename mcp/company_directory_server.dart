@@ -1034,7 +1034,13 @@ class DirectoryMessage {
         'message_type': messageType,
         'sent_at': sentAt.toIso8601String(),
         'is_read': isRead,
-        if (readAt != null) 'read_at': readAt!.toIso8601String(),
+        ...(() {
+          final readAtValue = readAt;
+          if (readAtValue != null) {
+            return {'read_at': readAtValue.toIso8601String()};
+          }
+          return <String, dynamic>{};
+        })(),
       };
 
   factory DirectoryMessage.fromJson(Map<String, dynamic> json) {

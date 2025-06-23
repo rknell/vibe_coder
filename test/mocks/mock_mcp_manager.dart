@@ -1,5 +1,6 @@
 import 'package:vibe_coder/services/mcp_service.dart';
 import 'package:vibe_coder/models/mcp_server_model.dart';
+import 'package:vibe_coder/models/mcp_server_info.dart';
 import 'package:vibe_coder/ai_agent/models/mcp_models.dart' as legacy;
 
 /// 🧪 **MOCK MCP SERVICE FOR TESTING**
@@ -172,30 +173,43 @@ class MockMCPService extends MCPService {
   }
 
   @override
-  Map<String, dynamic> getMCPServerInfo() {
-    return {
-      'servers': _mockServers
-          .map((server) => {
-                'name': server.name,
-                'status': server.status.name,
-                'type': server.type.name,
-                'toolCount': server.availableTools.length,
-                'resourceCount': server.availableResources.length,
-                'promptCount': server.availablePrompts.length,
-                'tools': server.availableTools
-                    .map((tool) => {
-                          'name': tool.name,
-                          'description': tool.description ?? 'Mock tool',
-                        })
-                    .toList(),
-                'supported': true,
-                'reason': null,
-              })
-          .toList(),
-      'totalTools': _mockTools.length,
-      'connectedServers': connectedServers.length,
-      'configuredServers': _mockServers.length,
-    };
+  MCPServerInfoResponse getMCPServerInfo() {
+    final serverInfo = <String, MCPServerInfo>{};
+
+    for (final server in _mockServers) {
+      final tools = server.availableTools
+          .map((tool) => MCPToolInfo(
+                name: tool.name,
+                description: tool.description ?? 'Mock tool',
+                uniqueId: '${server.name}:${tool.name}',
+              ))
+          .toList();
+
+      serverInfo[server.name] = MCPServerInfo(
+        name: server.name,
+        displayName: server.displayName,
+        description: server.description,
+        status: server.status.name,
+        type: server.type.name,
+        url: server.url,
+        command: server.command,
+        args: server.args,
+        toolCount: server.availableTools.length,
+        resourceCount: server.availableResources.length,
+        promptCount: server.availablePrompts.length,
+        tools: tools,
+        supported: true,
+        reason: null,
+        lastConnectedAt: server.lastConnectedAt?.toIso8601String(),
+      );
+    }
+
+    return MCPServerInfoResponse(
+      servers: serverInfo,
+      connectedCount: connectedServers.length,
+      totalCount: _mockServers.length,
+      toolCount: _mockTools.length,
+    );
   }
 
   @override

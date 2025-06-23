@@ -92,7 +92,7 @@ void main() {
       );
 
       final statsWithProcess = processManager.getProcessStats();
-      expect(statsWithProcess['totalProcesses'], equals(1));
+      expect(statsWithProcess.totalProcesses, equals(1));
 
       // Verify process is accessible before disposal
       expect(process.pid, isA<int>());
@@ -106,7 +106,7 @@ void main() {
 
       // THEN: Process should be removed from registry
       final statsAfterDispose = processManager.getProcessStats();
-      expect(statsAfterDispose['totalProcesses'], equals(0));
+      expect(statsAfterDispose.totalProcesses, equals(0));
 
       // THEN: Process should be terminated (this might be flaky in tests)
       // We can't reliably test process termination in unit tests
@@ -142,19 +142,19 @@ void main() {
 
       // Should have 3 unique processes (sleep with different args)
       // But duplicate process reuses first process, so only 3 unique processes
-      expect(stats['totalProcesses'], equals(3));
+      expect(stats.totalProcesses, equals(3));
 
       // Should have process details
-      final processDetails = stats['processes'] as List<Map<String, dynamic>>;
+      final processDetails = stats.processes;
       expect(processDetails.length, equals(3));
 
       // Verify process detail structure
       for (final detail in processDetails) {
-        expect(detail.containsKey('processKey'), isTrue);
-        expect(detail.containsKey('pid'), isTrue);
-        expect(detail.containsKey('command'), isTrue);
-        expect(detail.containsKey('referenceCount'), isTrue);
-        expect(detail.containsKey('referencingServers'), isTrue);
+        expect(detail.processKey, isA<String>());
+        expect(detail.pid, isA<int>());
+        expect(detail.command, isA<String>());
+        expect(detail.referenceCount, isA<int>());
+        expect(detail.referencingServers, isA<List<String>>());
       }
 
       // Cleanup all processes
@@ -228,7 +228,7 @@ void main() {
 
       // THEN: Process registry should be empty
       final stats = processManager.getProcessStats();
-      expect(stats['totalProcesses'], equals(0));
+      expect(stats.totalProcesses, equals(0));
 
       // Note: Individual processes are not disposed, but underlying processes are terminated
       // This simulates application shutdown where we force-terminate all processes

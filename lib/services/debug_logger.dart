@@ -259,11 +259,15 @@ class DebugLogger {
       category: DebugCategory.chatMessage,
       level: LogLevel.info,
       title: '$emoji CHAT: ${message.role.name.toUpperCase()}',
-      message: message.content != null
-          ? (message.content!.length > 100
-              ? '${message.content!.substring(0, 100)}...'
-              : message.content!)
-          : '[No content]',
+      message: (() {
+        final content = message.content;
+        if (content != null) {
+          return content.length > 100
+              ? '${content.substring(0, 100)}...'
+              : content;
+        }
+        return '[No content]';
+      })(),
       details: {
         'role': message.role.name,
         'content': message.content,

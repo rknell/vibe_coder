@@ -150,9 +150,9 @@ class _AgentSettingsDialogState extends State<AgentSettingsDialog>
     _useReasonerModel = agent?.useReasonerModel ?? false;
 
     // Load MCP server states from agent metadata
-    if (agent?.metadata['mcpServerStates'] != null) {
-      final savedStates =
-          Map<String, dynamic>.from(agent!.metadata['mcpServerStates'] as Map);
+    final agentMetadata = agent?.metadata['mcpServerStates'];
+    if (agentMetadata != null) {
+      final savedStates = Map<String, dynamic>.from(agentMetadata as Map);
       for (final entry in savedStates.entries) {
         if (entry.value is bool) {
           _mcpServerStates[entry.key] = entry.value as bool;
@@ -227,14 +227,17 @@ You are direct, professional, and solution-focused.''';
     bool mcpStatesChanged = false;
     if (!widget.isCreationMode && widget.agent != null) {
       // Compare current states with saved states
-      final savedStates =
-          widget.agent!.metadata['mcpServerStates'] as Map<String, dynamic>?;
+      final agent = widget.agent;
+      final savedStates = agent != null
+          ? agent.metadata['mcpServerStates'] as Map<String, dynamic>?
+          : null;
       final currentExplicitStates = <String, bool>{};
 
       // Extract current explicit states (non-null)
       for (final entry in _mcpServerStates.entries) {
-        if (entry.value != null) {
-          currentExplicitStates[entry.key] = entry.value!;
+        final entryValue = entry.value;
+        if (entryValue != null) {
+          currentExplicitStates[entry.key] = entryValue;
         }
       }
 
@@ -269,15 +272,22 @@ You are direct, professional, and solution-focused.''';
   /// PERF: O(1) - direct object creation
   AgentModel _createAgentFromForm() {
     // Prepare metadata with MCP server states
+    final agent = widget.agent;
     final metadata = widget.isCreationMode
         ? <String, dynamic>{}
-        : Map<String, dynamic>.from(widget.agent!.metadata);
+        : (() {
+            if (agent != null) {
+              return Map<String, dynamic>.from(agent.metadata);
+            }
+            return <String, dynamic>{};
+          })();
 
     // Save MCP server states to metadata (only save non-null explicit states)
     final explicitStates = <String, bool>{};
     for (final entry in _mcpServerStates.entries) {
-      if (entry.value != null) {
-        explicitStates[entry.key] = entry.value!;
+      final entryValue = entry.value;
+      if (entryValue != null) {
+        explicitStates[entry.key] = entryValue;
       }
     }
 
@@ -304,18 +314,23 @@ You are direct, professional, and solution-focused.''';
       );
     } else {
       // Update existing agent
-      return widget.agent!.copyWith(
-        name: _nameController.text.trim(),
-        systemPrompt: _systemPromptController.text.trim(),
-        temperature: _temperature,
-        maxTokens: _maxTokens,
-        useBetaFeatures: _useBetaFeatures,
-        useReasonerModel: _useReasonerModel,
-        mcpConfigPath: _mcpConfigPathController.text.trim().isEmpty
-            ? null
-            : _mcpConfigPathController.text.trim(),
-        metadata: metadata,
-      );
+      final agentValue = agent;
+      if (agentValue != null) {
+        return agentValue.copyWith(
+          name: _nameController.text.trim(),
+          systemPrompt: _systemPromptController.text.trim(),
+          temperature: _temperature,
+          maxTokens: _maxTokens,
+          useBetaFeatures: _useBetaFeatures,
+          useReasonerModel: _useReasonerModel,
+          mcpConfigPath: _mcpConfigPathController.text.trim().isEmpty
+              ? null
+              : _mcpConfigPathController.text.trim(),
+          metadata: metadata,
+        );
+      } else {
+        throw StateError('Cannot update agent: agent is null in edit mode');
+      }
     }
   }
 
@@ -550,8 +565,9 @@ You are direct, professional, and solution-focused.''';
   /// ARCHITECTURAL: Uses passed MCP data instead of accessing services directly
   Map<String, dynamic> _getAgentMCPInfo() {
     // Use passed MCP server info if available
-    if (widget.mcpServerInfo != null) {
-      return widget.mcpServerInfo!;
+    final mcpServerInfo = widget.mcpServerInfo;
+    if (mcpServerInfo != null) {
+      return mcpServerInfo;
     }
 
     // Fallback for cases where no MCP info is provided
@@ -1118,17 +1134,37 @@ You are direct, professional, and solution-focused.''';
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildInfoCard('Agent ID', agent!.id),
-          _buildInfoCard('Created', agent.createdAt.toString()),
-          _buildInfoCard('Last Active', agent.lastActiveAt.toString()),
-          _buildInfoCard('Message Count', agent.messageCount.toString()),
-          _buildInfoCard('Status', agent.isActive ? 'Active' : 'Inactive'),
-          if (agent.supervisorId != null)
-            _buildInfoCard('Supervisor ID', agent.supervisorId!),
-          if (agent.contextFiles.isNotEmpty)
-            _buildInfoCard('Context Files', agent.contextFiles.join(', ')),
-          if (agent.toDoList.isNotEmpty)
-            _buildInfoCard('To-Do Items', agent.toDoList.length.toString()),
+          ...(() {
+            final agentValue = agent;
+            if (agentValue != null) {
+              return [
+                _buildInfoCard('Agent ID', agentValue.id),
+                _buildInfoCard('Created', agentValue.createdAt.toString()),
+                _buildInfoCard(
+                    'Last Active', agentValue.lastActiveAt.toString()),
+                _buildInfoCard(
+                    'Message Count', agentValue.messageCount.toString()),
+                _buildInfoCard(
+                    'Status', agentValue.isActive ? 'Active' : 'Inactive'),
+                if (agentValue.supervisorId != null) ...[
+                  (() {
+                    final supervisorId = agentValue.supervisorId;
+                    if (supervisorId != null) {
+                      return _buildInfoCard('Supervisor ID', supervisorId);
+                    }
+                    return const SizedBox.shrink();
+                  })(),
+                ],
+                if (agentValue.contextFiles.isNotEmpty)
+                  _buildInfoCard(
+                      'Context Files', agentValue.contextFiles.join(', ')),
+                if (agentValue.toDoList.isNotEmpty)
+                  _buildInfoCard(
+                      'To-Do Items', agentValue.toDoList.length.toString()),
+              ];
+            }
+            return [const SizedBox.shrink()];
+          })(),
         ],
       ),
     );

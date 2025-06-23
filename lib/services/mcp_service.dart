@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
 import 'package:vibe_coder/models/mcp_server_model.dart';
+import 'package:vibe_coder/models/mcp_server_info.dart';
+import 'package:vibe_coder/models/service_statistics.dart';
 import 'package:vibe_coder/ai_agent/services/mcp_client.dart';
 import 'package:vibe_coder/ai_agent/models/mcp_models.dart' as legacy;
 import 'package:vibe_coder/services/mcp_cache_service.dart';
@@ -114,10 +116,21 @@ class MCPService extends ChangeNotifier {
         try {
           final content = await (file as File).readAsString();
           final json = jsonDecode(content) as Map<String, dynamic>;
-          final server = MCPServerModel.fromJson(json);
-          loadedServers.add(server);
 
-          _logger.fine('✅ LOADED: MCP server ${server.name}');
+          // 🎯 ADAPTIVE LOADING: Handle both full MCPServerModel format and simple config format
+          MCPServerModel server;
+
+          if (_isFullServerModel(json)) {
+            // Full MCPServerModel JSON structure
+            server = MCPServerModel.fromJson(json);
+            _logger.fine('✅ LOADED: Full model ${server.name}');
+          } else {
+            // Simple configuration file format
+            server = _createServerFromConfigFile(file.path, json);
+            _logger.fine('✅ LOADED: Config file ${server.name}');
+          }
+
+          loadedServers.add(server);
         } catch (e, stackTrace) {
           _logger.warning('⚠️ LOAD FAILED: ${file.path} - $e', e, stackTrace);
           // Continue loading other servers, don't fail entire operation
@@ -133,10 +146,54 @@ class MCPService extends ChangeNotifier {
     }
   }
 
+  /// 🔍 DETECTION: Check if JSON is full MCPServerModel format
+  ///
+  /// PERF: O(1) - simple field presence check
+  /// ARCHITECTURAL: Distinguishes between config files and full model files
+  bool _isFullServerModel(Map<String, dynamic> json) {
+    // Full models have 'id', 'name', 'status' fields
+    // Simple configs only have 'command'/'url', 'type', etc.
+    return json.containsKey('id') &&
+        json.containsKey('name') &&
+        json.containsKey('status');
+  }
+
+  /// 🏭 CONFIG FILE FACTORY: Create server model from simple config file
+  ///
+  /// PERF: O(1) - single object creation
+  /// ARCHITECTURAL: Converts simple config files to full MCPServerModel objects
+  MCPServerModel _createServerFromConfigFile(
+      String filePath, Map<String, dynamic> config) {
+    // Extract server name from filename (remove .json extension)
+    final fileName = filePath.split('/').last;
+    final serverName =
+        fileName.substring(0, fileName.length - 5); // Remove '.json'
+
+    final type = config['type'] as String?;
+
+    if (type == 'sse') {
+      return MCPServerModel.sse(
+        name: serverName,
+        url: config['url'] as String,
+        description: 'Loaded from $filePath configuration',
+      );
+    } else {
+      // Default to STDIO if no type specified or type is 'stdio'
+      return MCPServerModel.stdio(
+        name: serverName,
+        command: config['command'] as String,
+        args: (config['args'] as List<dynamic>?)?.cast<String>(),
+        env: (config['env'] as Map<String, dynamic>?)?.cast<String, String>(),
+        description: 'Loaded from $filePath configuration',
+      );
+    }
+  }
+
   /// 🔧 LEGACY INTEGRATION: Load servers from mcp.json configuration
   ///
   /// PERF: O(n) where n = number of configured servers
   /// ARCHITECTURAL: Bridge to existing mcp.json format during transition
+  /// 🚫 NO WRITING: Removed server.save() calls to prevent unauthorized writes
   Future<void> _loadFromMCPConfig() async {
     try {
       final configFile = File('mcp.json');
@@ -166,10 +223,10 @@ class MCPService extends ChangeNotifier {
         try {
           final server = _createServerFromConfig(serverName, config);
           data.add(server);
-          await server.save(); // Model handles its own persistence
+          // 🚫 REMOVED: await server.save(); - NO WRITING during load phase
           importCount++;
 
-          _logger.info('📥 IMPORTED: $serverName from mcp.json');
+          _logger.info('📥 IMPORTED: $serverName from mcp.json (NO WRITE)');
         } catch (e, stackTrace) {
           _logger.warning('⚠️ IMPORT FAILED: $serverName - $e', e, stackTrace);
           // Continue importing other servers
@@ -178,7 +235,7 @@ class MCPService extends ChangeNotifier {
 
       if (importCount > 0) {
         _logger.info(
-            '📥 LEGACY IMPORT: $importCount servers imported from mcp.json');
+            '📥 LEGACY IMPORT: $importCount servers imported from mcp.json (NO PERSISTENCE)');
         notifyListeners();
       }
     } catch (e, stackTrace) {
@@ -264,15 +321,19 @@ class MCPService extends ChangeNotifier {
             name: tool.name,
             description: tool.description,
             inputSchema: tool.inputSchema,
-            annotations: tool.annotations != null
-                ? legacy.MCPToolAnnotations(
-                    title: tool.annotations!.title,
-                    readOnlyHint: tool.annotations!.readOnlyHint,
-                    destructiveHint: tool.annotations!.destructiveHint,
-                    idempotentHint: tool.annotations!.idempotentHint,
-                    openWorldHint: tool.annotations!.openWorldHint,
-                  )
-                : null,
+            annotations: (() {
+              final annotations = tool.annotations;
+              if (annotations != null) {
+                return legacy.MCPToolAnnotations(
+                  title: annotations.title,
+                  readOnlyHint: annotations.readOnlyHint,
+                  destructiveHint: annotations.destructiveHint,
+                  idempotentHint: annotations.idempotentHint,
+                  openWorldHint: annotations.openWorldHint,
+                );
+              }
+              return null;
+            })(),
           ),
           serverName: server.name,
         ));
@@ -299,53 +360,65 @@ class MCPService extends ChangeNotifier {
   /// 📊 ENHANCED: Get comprehensive MCP server information for UI
   ///
   /// PERF: O(n) where n = number of servers
-  /// ARCHITECTURAL: UI integration for server status displays
-  Map<String, dynamic> getMCPServerInfo() {
-    final serverInfo = <String, dynamic>{};
+  /// ARCHITECTURAL: UI integration with strongly-typed server status displays
+  MCPServerInfoResponse getMCPServerInfo() {
+    final serverInfo = <String, MCPServerInfo>{};
 
     for (final server in data) {
-      serverInfo[server.name] = {
-        'name': server.name,
-        'displayName': server.displayName,
-        'description': server.description,
-        'status': server.status.name,
-        'type': server.type.name,
-        'url': server.url,
-        'command': server.command,
-        'args': server.args,
-        'toolCount': server.availableTools.length,
-        'resourceCount': server.availableResources.length,
-        'promptCount': server.availablePrompts.length,
-        'tools': server.availableTools
-            .map((tool) => {
-                  'name': tool.name,
-                  'description': tool.description ?? 'No description',
-                  'uniqueId': '${server.name}:${tool.name}',
-                })
-            .toList(),
-        'supported': _isServerSupported(server),
-        'reason': _getDisconnectionReason(server),
-        'lastConnectedAt': server.lastConnectedAt?.toIso8601String(),
-      };
+      final tools = server.availableTools
+          .map((tool) => MCPToolInfo(
+                name: tool.name,
+                description: tool.description ?? 'No description',
+                uniqueId: '${server.name}:${tool.name}',
+              ))
+          .toList();
+
+      serverInfo[server.name] = MCPServerInfo(
+        name: server.name,
+        displayName: server.displayName,
+        description: server.description,
+        status: server.status.name,
+        type: server.type.name,
+        url: server.url,
+        command: server.command,
+        args: server.args,
+        toolCount: server.availableTools.length,
+        resourceCount: server.availableResources.length,
+        promptCount: server.availablePrompts.length,
+        tools: tools,
+        supported: _isServerSupported(server),
+        reason: _getDisconnectionReason(server),
+        lastConnectedAt: server.lastConnectedAt?.toIso8601String(),
+      );
     }
 
     final connectedServers = getByStatus(MCPServerStatus.connected);
 
-    return {
-      'servers': serverInfo,
-      'connectedCount': connectedServers.length,
-      'totalCount': data.length,
-      'toolCount': getAllTools().length,
-    };
+    return MCPServerInfoResponse(
+      servers: serverInfo,
+      connectedCount: connectedServers.length,
+      totalCount: data.length,
+      toolCount: getAllTools().length,
+    );
+  }
+
+  /// 📊 DEPRECATED: Get MCP server info as Map (legacy compatibility)
+  ///
+  /// DEPRECATED: Use getMCPServerInfo() which returns strongly-typed data
+  /// ARCHITECTURAL: Temporary bridge during migration period
+  Map<String, dynamic> getMCPServerInfoLegacy() {
+    return getMCPServerInfo().toJson();
   }
 
   /// 🔍 PRIVATE: Check if server configuration is supported
   bool _isServerSupported(MCPServerModel server) {
     switch (server.type) {
       case MCPServerType.sse:
-        return server.url != null && server.url!.isNotEmpty;
+        final url = server.url;
+        return url != null && url.isNotEmpty;
       case MCPServerType.stdio:
-        return server.command != null && server.command!.isNotEmpty;
+        final command = server.command;
+        return command != null && command.isNotEmpty;
     }
   }
 
@@ -492,7 +565,7 @@ class MCPService extends ChangeNotifier {
   Future<void> _loadServerCapabilitiesWithCache(
       MCPServerModel server, MCPClient client) async {
     try {
-      // 🚀 CACHE CHECK FIRST: Try to load from cache for instant startup
+      // 🎯 CACHE CHECK FIRST: Try to load from cache for instant startup
       if (_isCacheInitialized) {
         final cachedCapabilities =
             _cacheService?.getCachedCapabilities(server.name);
@@ -779,11 +852,26 @@ class MCPService extends ChangeNotifier {
       inputSchema: legacyTool.inputSchema,
       annotations: legacyTool.annotations != null
           ? MCPToolAnnotations(
-              title: legacyTool.annotations!.title,
-              readOnlyHint: legacyTool.annotations!.readOnlyHint,
-              destructiveHint: legacyTool.annotations!.destructiveHint,
-              idempotentHint: legacyTool.annotations!.idempotentHint,
-              openWorldHint: legacyTool.annotations!.openWorldHint,
+              title: (() {
+                final annotations = legacyTool.annotations;
+                return annotations?.title;
+              })(),
+              readOnlyHint: (() {
+                final annotations = legacyTool.annotations;
+                return annotations?.readOnlyHint;
+              })(),
+              destructiveHint: (() {
+                final annotations = legacyTool.annotations;
+                return annotations?.destructiveHint;
+              })(),
+              idempotentHint: (() {
+                final annotations = legacyTool.annotations;
+                return annotations?.idempotentHint;
+              })(),
+              openWorldHint: (() {
+                final annotations = legacyTool.annotations;
+                return annotations?.openWorldHint;
+              })(),
             )
           : null,
     );
@@ -815,20 +903,28 @@ class MCPService extends ChangeNotifier {
   }
 
   /// 📈 METRICS: Get service statistics
-  Map<String, dynamic> get statistics => {
-        'totalServers': data.length,
-        'connectedServers': getByStatus(MCPServerStatus.connected).length,
-        'disconnectedServers': getByStatus(MCPServerStatus.disconnected).length,
-        'errorServers': getByStatus(MCPServerStatus.error).length,
-        'stdioServers': getByType(MCPServerType.stdio).length,
-        'sseServers': getByType(MCPServerType.sse).length,
-        'totalTools': data.fold<int>(
+  ///
+  /// ARCHITECTURAL: Returns strongly-typed MCP service statistics
+  MCPServiceStatistics get statistics => MCPServiceStatistics(
+        totalServers: data.length,
+        connectedServers: getByStatus(MCPServerStatus.connected).length,
+        disconnectedServers: getByStatus(MCPServerStatus.disconnected).length,
+        errorServers: getByStatus(MCPServerStatus.error).length,
+        stdioServers: getByType(MCPServerType.stdio).length,
+        sseServers: getByType(MCPServerType.sse).length,
+        totalTools: data.fold<int>(
             0, (sum, server) => sum + server.availableTools.length),
-        'totalResources': data.fold<int>(
+        totalResources: data.fold<int>(
             0, (sum, server) => sum + server.availableResources.length),
-        'totalPrompts': data.fold<int>(
+        totalPrompts: data.fold<int>(
             0, (sum, server) => sum + server.availablePrompts.length),
-      };
+      );
+
+  /// 📊 DEPRECATED: Get statistics as Map (legacy compatibility)
+  ///
+  /// DEPRECATED: Use statistics property which returns strongly-typed data
+  /// ARCHITECTURAL: Temporary bridge during migration period
+  Map<String, dynamic> get statisticsLegacy => statistics.toJson();
 
   /// 🧹 ENHANCED: Dispose service and close connections with cache cleanup
   ///

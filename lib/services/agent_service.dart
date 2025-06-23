@@ -23,6 +23,7 @@ import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
 import 'package:uuid/uuid.dart';
 import 'package:vibe_coder/models/agent_model.dart';
+import 'package:vibe_coder/models/service_statistics.dart';
 import 'package:vibe_coder/ai_agent/models/chat_message_model.dart';
 
 /// AgentService - Universal Agent Collection Management
@@ -324,7 +325,8 @@ class AgentService extends ChangeNotifier {
   /// Get conversation statistics - ARCHITECTURAL: Business logic
   ///
   /// PERF: O(n) where n = number of agents
-  Map<String, dynamic> getConversationStatistics() {
+  /// ARCHITECTURAL: Returns strongly-typed conversation statistics
+  ConversationStatistics getConversationStatistics() {
     final totalAgents = data.length;
     final activeAgents = data.where((agent) => agent.isActive).length;
     final totalMessages =
@@ -332,14 +334,22 @@ class AgentService extends ChangeNotifier {
     final agentsWithConversations =
         data.where((agent) => agent.hasConversation).length;
 
-    return {
-      'totalAgents': totalAgents,
-      'activeAgents': activeAgents,
-      'totalMessages': totalMessages,
-      'agentsWithConversations': agentsWithConversations,
-      'averageMessagesPerAgent':
+    return ConversationStatistics(
+      totalAgents: totalAgents,
+      activeAgents: activeAgents,
+      totalMessages: totalMessages,
+      agentsWithConversations: agentsWithConversations,
+      averageMessagesPerAgent:
           totalAgents > 0 ? (totalMessages / totalAgents).round() : 0,
-    };
+    );
+  }
+
+  /// Get conversation statistics (legacy format)
+  ///
+  /// DEPRECATED: Use getConversationStatistics() which returns strongly-typed data
+  /// ARCHITECTURAL: Temporary bridge during migration period
+  Map<String, dynamic> getConversationStatisticsLegacy() {
+    return getConversationStatistics().toJson();
   }
 
   /// Rebuild agent index for O(1) lookups

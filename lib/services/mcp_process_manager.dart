@@ -39,6 +39,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:logging/logging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:vibe_coder/models/process_stats.dart';
 
 /// Shared MCP Process Manager - Universal Server Instance Control
 ///
@@ -161,27 +162,36 @@ class MCPProcessManager {
   /// Get process statistics
   ///
   /// PERF: O(n) where n = number of processes
-  Map<String, dynamic> getProcessStats() {
-    final stats = <String, dynamic>{
-      'totalProcesses': _processes.length,
-      'processes': <Map<String, dynamic>>[],
-    };
+  /// ARCHITECTURAL: Returns strongly-typed process statistics
+  ProcessStatsResponse getProcessStats() {
+    final processes = <ProcessInfo>[];
 
     for (final entry in _processes.entries) {
       final processKey = entry.key;
       final managedProcess = entry.value;
 
-      stats['processes'].add({
-        'processKey': processKey,
-        'pid': managedProcess.process.pid,
-        'command': managedProcess.command,
-        'args': managedProcess.args,
-        'referenceCount': managedProcess._referenceCount,
-        'referencingServers': managedProcess._referencingServers.toList(),
-      });
+      processes.add(ProcessInfo(
+        processKey: processKey,
+        pid: managedProcess.process.pid,
+        command: managedProcess.command,
+        args: managedProcess.args,
+        referenceCount: managedProcess._referenceCount,
+        referencingServers: managedProcess._referencingServers.toList(),
+      ));
     }
 
-    return stats;
+    return ProcessStatsResponse(
+      totalProcesses: _processes.length,
+      processes: processes,
+    );
+  }
+
+  /// Get process statistics (legacy format)
+  ///
+  /// DEPRECATED: Use getProcessStats() which returns strongly-typed data
+  /// ARCHITECTURAL: Temporary bridge during migration period
+  Map<String, dynamic> getProcessStatsLegacy() {
+    return getProcessStats().toJson();
   }
 
   /// Create unique process key

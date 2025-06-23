@@ -3,7 +3,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:logging/logging.dart';
 import 'package:vibe_coder/ai_agent/services/mcp_client.dart';
-import 'package:vibe_coder/services/services.dart';
+import 'package:vibe_coder/services/mcp_service.dart';
 
 /// 🧪 **UPDATED MCP TESTING SUITE**
 ///
@@ -130,29 +130,54 @@ void main() {
         return;
       }
 
-      // Initialize services for testing
-      resetServices();
-      final mcpService = services.mcpService;
+      // Create fresh service instance for this test only
+      final mcpService = MCPService();
 
       try {
+        // Step 1: Initialize service (loads configurations)
         await mcpService.initialize();
 
         final configuredServers = mcpService.data;
         expect(configuredServers.isNotEmpty, isTrue,
             reason: 'Should have configured servers');
 
-        final allTools = mcpService.getAllTools();
-        expect(allTools.isNotEmpty, isTrue,
-            reason: 'Should have tools available');
+        print('📋 Found ${configuredServers.length} configured servers');
 
+        // Step 2: Connect to all configured servers
+        for (final server in configuredServers) {
+          try {
+            print('🔌 Connecting to ${server.name}...');
+            await mcpService.connectServer(server.id);
+            print('✅ Connected to ${server.name}');
+          } catch (e) {
+            print('⚠️ Failed to connect to ${server.name}: $e');
+            // Continue with other servers
+          }
+        }
+
+        // Step 3: Check that we have tools available
+        final allTools = mcpService.getAllTools();
+        final connectedServers = mcpService.connectedServers;
+
+        print('🔌 Connected servers: ${connectedServers.length}');
+        print('🛠️ Available tools: ${allTools.length}');
+
+        // We should have at least some connected servers and tools
+        expect(connectedServers.isNotEmpty, isTrue,
+            reason: 'Should have at least one connected server');
+        expect(allTools.isNotEmpty, isTrue,
+            reason: 'Should have tools available from connected servers');
+
+        // Clean up
         mcpService.dispose();
       } catch (e, stackTrace) {
         print('💥 CONFIGURATION TEST FAILED: $e');
         print('STACK: $stackTrace');
-        mcpService.dispose();
         rethrow;
       }
-    }, timeout: const Timeout(Duration(seconds: 60)));
+    },
+        timeout: const Timeout(
+            Duration(seconds: 120))); // Increased timeout for connections
 
     test('🔄 Connection Stability Test', () async {
       if (!shouldRunIntegrationTests) {
@@ -161,15 +186,32 @@ void main() {
         return;
       }
 
-      // Initialize services for testing
-      resetServices();
-      final mcpService = services.mcpService;
+      // Create fresh service instance for this test only
+      final mcpService = MCPService();
 
       try {
+        // Step 1: Initialize and connect servers
         await mcpService.initialize();
 
-        // Test stability over multiple iterations
+        final configuredServers = mcpService.data;
+        print(
+            '📋 Found ${configuredServers.length} configured servers for stability test');
+
+        // Connect to all configured servers
+        for (final server in configuredServers) {
+          try {
+            await mcpService.connectServer(server.id);
+            print('✅ Connected to ${server.name} for stability test');
+          } catch (e) {
+            print('⚠️ Failed to connect to ${server.name}: $e');
+            // Continue with other servers
+          }
+        }
+
+        // Step 2: Test stability over multiple iterations
         for (int i = 0; i < 5; i++) {
+          print('🔄 Stability check iteration ${i + 1}/5');
+
           final connectedServers = mcpService.connectedServers;
           final allTools = mcpService.getAllTools();
 
@@ -194,14 +236,18 @@ void main() {
           }
         }
 
+        print('✅ Stability test completed successfully');
+
+        // Clean up
         mcpService.dispose();
       } catch (e, stackTrace) {
         print('💥 STABILITY TEST FAILED: $e');
         print('STACK: $stackTrace');
-        mcpService.dispose();
         rethrow;
       }
-    }, timeout: const Timeout(Duration(seconds: 120)));
+    },
+        timeout: const Timeout(Duration(
+            seconds: 180))); // Increased timeout for multiple iterations
   });
 
   group('🛠️ Tool Functionality Tests', () {
@@ -212,18 +258,35 @@ void main() {
         return;
       }
 
-      // Initialize services for testing
-      resetServices();
-      final mcpService = services.mcpService;
+      // Create fresh service instance for this test only
+      final mcpService = MCPService();
 
       try {
+        // Step 1: Initialize and connect servers
         await mcpService.initialize();
 
-        // Find filesystem server tools
+        final configuredServers = mcpService.data;
+        print(
+            '📋 Found ${configuredServers.length} configured servers for tool test');
+
+        // Connect to all configured servers
+        for (final server in configuredServers) {
+          try {
+            await mcpService.connectServer(server.id);
+            print('✅ Connected to ${server.name} for tool test');
+          } catch (e) {
+            print('⚠️ Failed to connect to ${server.name}: $e');
+            // Continue with other servers
+          }
+        }
+
+        // Step 2: Find filesystem server tools
         final filesystemTools = mcpService
             .getAllTools()
             .where((tool) => tool.serverName == 'filesystem')
             .toList();
+
+        print('🛠️ Found ${filesystemTools.length} filesystem tools');
 
         expect(filesystemTools.isNotEmpty, isTrue,
             reason: 'Should have filesystem tools available');
@@ -235,13 +298,19 @@ void main() {
           final server = mcpService.getByName(tool.serverName);
           expect(server, isNotNull, reason: 'Server should exist for tool');
 
+          print('🔧 Testing tool: ${tool.tool.name}');
+
           // Try to call the tool (this might fail depending on the tool's requirements)
           try {
-            await mcpService.callTool(
-              serverId: server!.id,
-              toolName: tool.tool.name,
-              arguments: {}, // Empty arguments for basic test
-            );
+            final serverValue = server;
+            if (serverValue != null) {
+              await mcpService.callTool(
+                serverId: serverValue.id,
+                toolName: tool.tool.name,
+                arguments: {}, // Empty arguments for basic test
+              );
+              print('✅ Tool call succeeded');
+            }
             // Tool call succeeded - this is expected to fail for most tools without proper args
           } catch (toolError, stackTrace) {
             // Expected for tools without proper arguments - this is normal
@@ -250,13 +319,17 @@ void main() {
           }
         }
 
+        print('✅ Tool functionality test completed');
+
+        // Clean up
         mcpService.dispose();
       } catch (e, stackTrace) {
         print('💥 TOOL TEST FAILED: $e');
         print('STACK: $stackTrace');
-        mcpService.dispose();
         rethrow;
       }
-    }, timeout: const Timeout(Duration(seconds: 45)));
+    },
+        timeout: const Timeout(
+            Duration(seconds: 90))); // Increased timeout for connections
   });
 }

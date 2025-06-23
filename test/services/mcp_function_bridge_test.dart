@@ -242,11 +242,14 @@ void main() {
 
         // Assert
         expect(context, isNotNull);
-        expect(context!.toolCallId, equals(toolCallId));
-        expect(context.toolName, equals('test_server:test_tool'));
-        expect(context.serverName, equals('test_server'));
-        expect(context.arguments, equals(arguments));
-        expect(context.timestamp, isA<DateTime>());
+        final contextValue = context;
+        if (contextValue != null) {
+          expect(contextValue.toolCallId, equals(toolCallId));
+          expect(contextValue.toolName, equals('test_server:test_tool'));
+          expect(contextValue.serverName, equals('test_server'));
+          expect(contextValue.arguments, equals(arguments));
+          expect(contextValue.timestamp, isA<DateTime>());
+        }
       });
 
       test('completes and removes tool call from tracking', () {
@@ -354,8 +357,11 @@ void main() {
         // Verify tracking uses proper MCP format internally
         final context = MCPFunctionBridge.getToolCallContext(toolCallId);
         expect(context, isNotNull);
-        expect(context!.serverName, equals('memory'));
-        // The tool name in context should be in MCP format for server calls
+        final contextValue = context;
+        if (contextValue != null) {
+          expect(contextValue.serverName, equals('memory'));
+          // The tool name in context should be in MCP format for server calls
+        }
 
         MCPFunctionBridge.completeToolCall(toolCallId);
       });
@@ -473,8 +479,9 @@ void main() {
         // Verify tracking
         final context = MCPFunctionBridge.getToolCallContext(toolCallId);
         expect(context, isNotNull);
-        expect(context!.toolName, equals('filesystem:search_files'));
-        expect(context.serverName, equals('filesystem'));
+        final contextValue = context;
+        expect(contextValue?.toolName, equals('filesystem:search_files'));
+        expect(contextValue?.serverName, equals('filesystem'));
 
         // Simulate completion
         MCPFunctionBridge.completeToolCall(toolCallId);
