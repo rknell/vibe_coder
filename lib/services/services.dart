@@ -1,5 +1,6 @@
 import 'package:get_it/get_it.dart';
 import 'package:vibe_coder/services/mcp_service.dart';
+import 'package:vibe_coder/services/mcp_content_service.dart';
 import 'package:vibe_coder/services/agent_service.dart';
 import 'package:vibe_coder/services/configuration_service.dart';
 import 'package:vibe_coder/services/debug_logger.dart';
@@ -23,6 +24,9 @@ class Services {
   // 🔧 MCP MANAGEMENT LAYER - Enhanced with cache and process management
   final MCPService mcpService;
 
+  // 📊 MCP CONTENT LAYER - Discord-style real-time content management
+  final MCPContentService mcpContentService;
+
   // 👥 AGENT MANAGEMENT LAYER - Architecture-compliant service
   final AgentService agentService;
 
@@ -35,6 +39,7 @@ class Services {
   /// Constructor - Initialize all services
   Services()
       : mcpService = MCPService(),
+        mcpContentService = MCPContentService(),
         agentService = AgentService(),
         configurationService = ConfigurationService(),
         debugLogger = DebugLogger() {
@@ -69,6 +74,7 @@ class Services {
   ///
   /// PERF: O(1) for each service - sequential cleanup for safety
   void dispose() {
+    mcpContentService.dispose();
     agentService.dispose();
     mcpService.dispose();
     configurationService.dispose();
