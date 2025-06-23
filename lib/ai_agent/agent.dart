@@ -1,6 +1,5 @@
 import 'package:logging/logging.dart';
 import 'package:vibe_coder/ai_agent/services/conversation_manager.dart';
-import 'package:vibe_coder/ai_agent/models/inbox_message.dart';
 import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
 import 'package:vibe_coder/ai_agent/models/mcp_models.dart' as legacy;
 import 'package:vibe_coder/services/services.dart';
@@ -14,8 +13,6 @@ class Agent {
   final AgentModel agentModel;
 
   final ConversationManager conversation;
-  final List<InboxMessage> inbox;
-  final List<String> toDoList;
   final List<String> taskDetails;
   final Agent? supervisor;
 
@@ -23,13 +20,9 @@ class Agent {
 
   Agent({
     required this.agentModel,
-    List<InboxMessage>? inbox,
-    List<String>? toDoList,
     List<String>? taskDetails,
     this.supervisor,
-  })  : inbox = inbox ?? [],
-        toDoList = toDoList ?? [],
-        taskDetails = taskDetails ?? [],
+  })  : taskDetails = taskDetails ?? [],
         logger = Logger(
             "AGENT-${agentModel.name}"), // WARRIOR PROTOCOL: Direct initialization eliminates late variable vulnerability
         conversation = ConversationManager(name: agentModel.name, agent: null) {
@@ -43,7 +36,7 @@ class Agent {
 
     // MCP is now handled by Services.mcpService - no per-agent initialization needed
 
-    // Add system prompt and the inbox processing prompt
+    // Add system prompt
     final systemPromptAnnotated =
         "YOU ARE ${agentModel.name}. \nRole play in the conversation as this person.\n${agentModel.systemPrompt}";
     conversation.addSystemMessage(systemPromptAnnotated);
@@ -55,7 +48,6 @@ class Agent {
   // Convenience getters that delegate to AgentModel
   String get name => agentModel.name;
   String get systemPrompt => agentModel.systemPrompt;
-  String get notepad => agentModel.notepad;
   List<String> get contextFiles => agentModel.contextFiles;
   String? get mcpConfigPath => agentModel.mcpConfigPath;
 
@@ -130,7 +122,7 @@ class Agent {
       filteredTools.add(tool);
     }
 
-    logger.fine(
+    logger.info(
         '🛠️ AGENT TOOLS: Filtered ${filteredTools.length}/${allTools.length} tools based on preferences');
 
     return filteredTools;
@@ -312,173 +304,19 @@ class Agent {
     return agentModel.contextFiles.contains(filename);
   }
 
-  /// Sends a message to another agent's inbox
-  void sendMessage(Agent recipient, String content) {
-    // Log the message being sent
-    final inboxMessage = InboxMessage(
-      content: content,
-      sender: this,
-    );
-    recipient.inbox.add(inboxMessage);
+  // NOTE: Inter-agent messaging is now handled by MCP servers
 
-    // Note: We don't add the user message to conversation history here
-    // It will be added after the tool response is processed
-  }
+  // NOTE: Supervisor messaging is now handled by MCP servers
 
-  /// Sends a message to the agent's supervisor if one exists
-  ///
-  /// This is a convenience method that checks if a supervisor is assigned
-  /// and sends a message to them if so. If no supervisor is assigned,
-  /// this method logs a warning and does nothing.
-  ///
-  /// [content] is the message content to send to the supervisor
-  void sendMessageToSupervisor(String content) {
-    var supervisor = this.supervisor;
-    if (supervisor != null) {
-      sendMessage(supervisor, content);
-      logger.fine(
-          'Message sent to supervisor ${supervisor.agentModel.name}: $content');
-    } else {
-      logger.warning(
-          'Cannot send message to supervisor: No supervisor assigned for agent ${agentModel.name}');
-    }
-  }
+  // NOTE: Agent thinking/processing is now handled by conversation flow and MCP tools
 
-  Future<void> think() async {
-    // Skip thinking process if both inbox and to-do list are empty
-    logger.fine('Agent $name is thinking...');
+  // NOTE: Task processing is now handled by MCP task servers
 
-    if (inbox.isEmpty && toDoList.isEmpty) {
-      logger.fine('Nothing to process in inbox or to-do list');
-      return;
-    }
-
-    if (inbox.isNotEmpty) {
-      await processInboxItems();
-    }
-
-    if (toDoList.isNotEmpty) {
-      await processToDoList();
-    }
-
-    // Process inbox messages and to-do items
-    // This is where the agent would analyze its current state,
-    // prioritize tasks, and determine next actions based on
-    // inbox messages and to-do list items
-
-    // The actual implementation would likely involve:
-    // 1. Analyzing inbox messages
-    // 2. Prioritizing to-do list items
-    // 3. Using the conversation manager to process information
-    // 4. Potentially using MCP tools to complete tasks
-    // 5. Updating the notepad with new information
-    // 6. Generating reports as needed
-  }
-
-  /// Processes items in the agent's to-do list
-  ///
-  /// This method processes the first item in the to-do list,
-  /// using the conversation manager to handle the task.
-  /// If the to-do list is empty, this method returns immediately.
-  Future<void> processToDoList() async {
-    if (toDoList.isEmpty) {
-      return;
-    }
-
-    // Get the current to-do item being processed
-    final currentTask = toDoList.first;
-    logger.info('Processing to-do item: $currentTask');
-
-    // Add the task to conversation history
-    conversation.addUserMessage("""
-      ------
-      TO-DO TASK:
-      $currentTask
-      -------
-      Complete this task. Use appropriate MCP tools as needed.
-      
-      Available MCP tools: ${services.mcpService.getAllTools().map((t) => t.uniqueId).join(', ')}
-      
-      Current date and time: ${DateTime.now().toIso8601String()}
-      """);
-
-    try {
-      // Send the message and process any tool calls automatically
-      logger.fine('Working on to-do task');
-
-      await conversation.sendMessage();
-
-      // Note: We don't automatically remove the task here
-      // The agent should use an appropriate MCP tool to mark tasks as complete
-      // This ensures proper tracking and notification to supervisor
-
-      // conversation.clearConversation();
-    } catch (e) {
-      // Handle any errors during processing
-      logger.severe('Error processing to-do task: $e');
-    }
-  }
-
-  Future<void> processInboxItems() async {
-    if (inbox.isEmpty) {
-      return;
-    }
-
-    // Get the current inbox message being processed
-    final currentMessage = inbox.first;
-    logger.info(
-        'Processing inbox message from ${currentMessage.sender.name}: ${currentMessage.content}');
-
-    // Prepare the prompt for processing the inbox item
-    var prompt = currentMessage.content;
-
-    // Add the user message to conversation history after tool response
-    conversation.addUserMessage("""
-      ------
-      MESSAGE RECEIVED FROM: ${currentMessage.sender.name}
-      ${currentMessage.content}
-      -------
-      Process this message and create any necessary tasks.
-      
-      Available MCP tools: ${services.mcpService.getAllTools().map((t) => t.uniqueId).join(', ')}
-      
-      Current date & time: ${DateTime.now().toIso8601String()}
-      """);
-
-    conversation.addUserMessage(prompt);
-    try {
-      // Send the message and process any tool calls automatically
-      logger.fine('Actioning inbox message');
-
-      await conversation.sendMessage();
-
-      // Remove the processed item from inbox
-      if (inbox.isNotEmpty) {
-        logger.fine('Removing processed inbox item');
-        inbox.removeAt(0);
-      }
-      conversation.clearConversation();
-    } catch (e) {
-      // Handle any errors during processing
-      logger.severe('Error processing inbox item: $e');
-    }
-  }
+  // NOTE: Inbox processing is now handled by MCP messaging servers
 
   String details() {
     return """
 ----- ${agentModel.name} -----
-
-Notepad
------------
-${agentModel.notepad}
-
-Inbox
------------
-${inbox.join("\n")}
-
-ToDo List
-----------
-${toDoList.join("\n")}
 
 Context Files
 -----------

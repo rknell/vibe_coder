@@ -102,7 +102,7 @@ class _AgentSettingsDialogState extends State<AgentSettingsDialog>
   final TextEditingController _systemPromptController = TextEditingController();
   final TextEditingController _mcpConfigPathController =
       TextEditingController();
-  final TextEditingController _notepadController = TextEditingController();
+  // NOTE: notepad functionality is now handled by MCP notepad server
   final TextEditingController _temperatureController = TextEditingController();
   final TextEditingController _maxTokensController = TextEditingController();
 
@@ -129,7 +129,7 @@ class _AgentSettingsDialogState extends State<AgentSettingsDialog>
     _systemPromptController.text =
         widget.agent?.systemPrompt ?? _getDefaultSystemPrompt();
     _mcpConfigPathController.text = widget.agent?.mcpConfigPath ?? '';
-    _notepadController.text = widget.agent?.notepad ?? '';
+    // NOTE: notepad is now handled by MCP notepad server
     _temperatureController.text = (widget.agent?.temperature ?? 0.7).toString();
     _maxTokensController.text = (widget.agent?.maxTokens ?? 4000).toString();
 
@@ -154,7 +154,7 @@ class _AgentSettingsDialogState extends State<AgentSettingsDialog>
     _nameController.dispose();
     _systemPromptController.dispose();
     _mcpConfigPathController.dispose();
-    _notepadController.dispose();
+    // NOTE: notepad controller removed - handled by MCP server
     _temperatureController.dispose();
     _maxTokensController.dispose();
     super.dispose();
@@ -306,10 +306,9 @@ You are direct, professional, and solution-focused.''';
     if (widget.isCreationMode) {
       // Create new agent
       return AgentModel(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        id: null,
         name: _nameController.text.trim(),
         systemPrompt: _systemPromptController.text.trim(),
-        notepad: _notepadController.text.trim(),
         temperature: _temperature,
         maxTokens: _maxTokens,
         useBetaFeatures: _useBetaFeatures,
@@ -319,6 +318,8 @@ You are direct, professional, and solution-focused.''';
             : _mcpConfigPathController.text.trim(),
         mcpServerPreferences: serverPreferences,
         mcpToolPreferences: toolPreferences,
+        supervisorId: agent?.supervisorId,
+        contextFiles: agent?.contextFiles ?? [],
         metadata: agent?.metadata ?? {},
       );
     } else {
@@ -328,7 +329,6 @@ You are direct, professional, and solution-focused.''';
         return agentValue.copyWith(
           name: _nameController.text.trim(),
           systemPrompt: _systemPromptController.text.trim(),
-          notepad: _notepadController.text.trim(),
           temperature: _temperature,
           maxTokens: _maxTokens,
           useBetaFeatures: _useBetaFeatures,
@@ -1587,9 +1587,7 @@ You are direct, professional, and solution-focused.''';
                 if (agentValue.contextFiles.isNotEmpty)
                   _buildInfoCard(
                       'Context Files', agentValue.contextFiles.join(', ')),
-                if (agentValue.toDoList.isNotEmpty)
-                  _buildInfoCard(
-                      'To-Do Items', agentValue.toDoList.length.toString()),
+                // NOTE: To-Do items are now managed by MCP task server
               ];
             }
             return [const SizedBox.shrink()];

@@ -34,36 +34,23 @@ library;
 /// - Agent creation: O(1) - direct instantiation
 /// - Persistence: O(n) where n = conversation history size
 /// - State updates: O(1) - direct property updates
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:vibe_coder/ai_agent/models/chat_message_model.dart';
 import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
 import 'package:vibe_coder/ai_agent/agent.dart';
 
-/// AgentModel - Complete agent representation with reactive state management
+/// Agent Model - Enhanced with single source of truth for conversation management
 ///
-/// ## ARCHITECTURAL COMPLIANCE ACHIEVED
-/// - ✅ Extends ChangeNotifier for state broadcasting
-/// - ✅ Self-managed state with mandatory notifyListeners()
-/// - ✅ Individual entity management with validation
-/// - ✅ Direct property access with reactive updates
-/// - ✅ Conversation state management with notifications
-///
-/// ## PERFORMANCE CHARACTERISTICS
-/// - Property updates: O(1) - direct assignment with notification
-/// - Conversation operations: O(1) - list operations with notification
-/// - State broadcasting: O(1) - ChangeNotifier pattern
-/// - JSON serialization: O(n) where n = conversation history size
-///
-/// ARCHITECTURAL: This model represents a complete agent instance including
-/// configuration, state, and conversation history for multi-agent system support
+/// WARRIOR PROTOCOL: AgentModel now uses Agent.conversation as single source of truth
+/// ARCHITECTURAL VICTORY: Eliminated conversationHistory field duplication
+/// All conversation data flows through Agent.conversation.getHistory()
 class AgentModel extends ChangeNotifier {
-  // Unique identifier for agent
+  // Core Agent Identity
   final String id;
-
-  // Agent configuration
   String name;
   String systemPrompt;
-  String notepad;
 
   // Agent state
   bool isActive;
@@ -77,32 +64,26 @@ class AgentModel extends ChangeNotifier {
   bool useBetaFeatures;
   bool useReasonerModel;
 
-  // MCP configuration
-  String? mcpConfigPath;
-
-  // MCP server and tool preferences
-  Map<String, bool> mcpServerPreferences;
-  Map<String, bool> mcpToolPreferences;
-
   // Agent relationships
   String? supervisorId;
   List<String> contextFiles;
-  List<String> toDoList;
 
-  // Conversation history - per agent isolation
-  List<ChatMessage> conversationHistory;
+  // MCP configuration
+  String? mcpConfigPath;
+  Map<String, bool> mcpServerPreferences;
+  Map<String, bool> mcpToolPreferences;
 
   // Agent metadata
   Map<String, dynamic> metadata;
 
-  // Agent conversation processing - lazy initialization
+  // WARRIOR PROTOCOL: Agent instance for conversation management
+  // Single source of truth - conversation data lives in Agent.conversation
   Agent? _agentInstance;
 
   AgentModel({
-    required this.id,
+    String? id,
     required this.name,
     required this.systemPrompt,
-    this.notepad = '',
     this.isActive = true,
     this.isProcessing = false,
     DateTime? createdAt,
@@ -116,24 +97,32 @@ class AgentModel extends ChangeNotifier {
     Map<String, bool>? mcpToolPreferences,
     this.supervisorId,
     List<String>? contextFiles,
-    List<String>? toDoList,
-    List<ChatMessage>? conversationHistory,
+    List<ChatMessage>?
+        conversationHistory, // Accept but don't store - migrate to agent
     Map<String, dynamic>? metadata,
-  })  : createdAt = createdAt ?? DateTime.now(),
+  })  : id = id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+        createdAt = createdAt ?? DateTime.now(),
         lastActiveAt = lastActiveAt ?? DateTime.now(),
         contextFiles = contextFiles ?? [],
-        toDoList = toDoList ?? [],
-        conversationHistory = conversationHistory ?? [],
         metadata = metadata ?? {},
         mcpServerPreferences = mcpServerPreferences ?? {},
-        mcpToolPreferences = mcpToolPreferences ?? {};
+        mcpToolPreferences = mcpToolPreferences ?? {} {
+    // WARRIOR PROTOCOL: Migrate legacy conversation history to agent if provided
+    if (conversationHistory != null && conversationHistory.isNotEmpty) {
+      // Initialize agent and load conversation
+      _getAgentInstance();
+      for (final message in conversationHistory) {
+        _addMessageToAgentConversation(message);
+      }
+    }
+  }
 
   /// Create agent from JSON data
   ///
   /// PERF: O(n) where n = conversation history size
   /// ARCHITECTURAL: Handles version compatibility and data migration
   factory AgentModel.fromJson(Map<String, dynamic> json) {
-    // Parse conversation history with proper error handling
+    // Parse legacy conversation history for migration
     final conversationData =
         json['conversationHistory'] as List<dynamic>? ?? [];
     final conversationHistory = conversationData
@@ -148,29 +137,41 @@ class AgentModel extends ChangeNotifier {
         .whereType<ChatMessage>()
         .toList();
 
+    final mcpServerPreferences =
+        (json['mcpServerPreferences'] as Map<String, dynamic>?)
+                ?.cast<String, bool>() ??
+            {};
+
+    final mcpToolPreferences =
+        (json['mcpToolPreferences'] as Map<String, dynamic>?)
+                ?.cast<String, bool>() ??
+            {};
+
     return AgentModel(
-      id: json['id'] as String,
+      id: json['id'] as String?,
       name: json['name'] as String,
       systemPrompt: json['systemPrompt'] as String,
-      notepad: json['notepad'] as String? ?? '',
       isActive: json['isActive'] as bool? ?? true,
       isProcessing: json['isProcessing'] as bool? ?? false,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      lastActiveAt: DateTime.parse(json['lastActiveAt'] as String),
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'] as String)
+          : null,
+      lastActiveAt: json['lastActiveAt'] != null
+          ? DateTime.parse(json['lastActiveAt'] as String)
+          : null,
       temperature: (json['temperature'] as num?)?.toDouble() ?? 0.7,
       maxTokens: json['maxTokens'] as int? ?? 4000,
       useBetaFeatures: json['useBetaFeatures'] as bool? ?? false,
       useReasonerModel: json['useReasonerModel'] as bool? ?? false,
       mcpConfigPath: json['mcpConfigPath'] as String?,
-      mcpServerPreferences:
-          Map<String, bool>.from(json['mcpServerPreferences'] as Map? ?? {}),
-      mcpToolPreferences:
-          Map<String, bool>.from(json['mcpToolPreferences'] as Map? ?? {}),
+      mcpServerPreferences: mcpServerPreferences,
+      mcpToolPreferences: mcpToolPreferences,
       supervisorId: json['supervisorId'] as String?,
-      contextFiles: List<String>.from(json['contextFiles'] as List? ?? []),
-      toDoList: List<String>.from(json['toDoList'] as List? ?? []),
-      conversationHistory: conversationHistory,
-      metadata: Map<String, dynamic>.from(json['metadata'] as Map? ?? {}),
+      contextFiles:
+          (json['contextFiles'] as List<dynamic>?)?.cast<String>().toList() ??
+              [],
+      conversationHistory: conversationHistory, // Will be migrated to agent
+      metadata: (json['metadata'] as Map<String, dynamic>?) ?? {},
     );
   }
 
@@ -183,7 +184,6 @@ class AgentModel extends ChangeNotifier {
       'id': id,
       'name': name,
       'systemPrompt': systemPrompt,
-      'notepad': notepad,
       'isActive': isActive,
       'isProcessing': isProcessing,
       'createdAt': createdAt.toIso8601String(),
@@ -197,7 +197,6 @@ class AgentModel extends ChangeNotifier {
       'mcpToolPreferences': mcpToolPreferences,
       'supervisorId': supervisorId,
       'contextFiles': contextFiles,
-      'toDoList': toDoList,
       'conversationHistory':
           conversationHistory.map((msg) => msg.toJson()).toList(),
       'metadata': metadata,
@@ -210,7 +209,6 @@ class AgentModel extends ChangeNotifier {
   AgentModel copyWith({
     String? name,
     String? systemPrompt,
-    String? notepad,
     bool? isActive,
     bool? isProcessing,
     DateTime? lastActiveAt,
@@ -223,7 +221,6 @@ class AgentModel extends ChangeNotifier {
     Map<String, bool>? mcpToolPreferences,
     String? supervisorId,
     List<String>? contextFiles,
-    List<String>? toDoList,
     List<ChatMessage>? conversationHistory,
     Map<String, dynamic>? metadata,
   }) {
@@ -231,7 +228,6 @@ class AgentModel extends ChangeNotifier {
       id: id, // ID never changes
       name: name ?? this.name,
       systemPrompt: systemPrompt ?? this.systemPrompt,
-      notepad: notepad ?? this.notepad,
       isActive: isActive ?? this.isActive,
       isProcessing: isProcessing ?? this.isProcessing,
       createdAt: createdAt, // Creation time never changes
@@ -247,41 +243,55 @@ class AgentModel extends ChangeNotifier {
           mcpToolPreferences ?? Map.from(this.mcpToolPreferences),
       supervisorId: supervisorId ?? this.supervisorId,
       contextFiles: contextFiles ?? List.from(this.contextFiles),
-      toDoList: toDoList ?? List.from(this.toDoList),
-      conversationHistory:
-          conversationHistory ?? List.from(this.conversationHistory),
+      conversationHistory: conversationHistory ?? this.conversationHistory,
       metadata: metadata ?? Map.from(this.metadata),
     );
   }
 
-  /// Add message to conversation history
+  /// WARRIOR PROTOCOL: Single source of truth - conversation from agent instance
   ///
-  /// PERF: O(1) - direct list append with notification
-  /// ARCHITECTURAL: Mandatory notifyListeners() after state change
+  /// ARCHITECTURAL: conversationHistory is now a getter that accesses Agent.conversation
+  /// PERF: O(1) - direct reference to agent conversation, no data duplication
+  List<ChatMessage> get conversationHistory {
+    final agentInstance = _agentInstance;
+    if (agentInstance == null) {
+      return []; // No agent instance = empty conversation
+    }
+    return agentInstance.conversation.getHistory();
+  }
+
+  /// Add message to agent conversation - ARCHITECTURAL: Direct delegation to agent
+  ///
+  /// PERF: O(1) - direct agent conversation update
+  /// WARRIOR PROTOCOL: Single source of truth - no duplicate storage
   void addMessage(ChatMessage message) {
-    conversationHistory.add(message);
+    _getAgentInstance();
+    _addMessageToAgentConversation(message);
     lastActiveAt = DateTime.now();
     notifyListeners(); // MANDATORY after any change
   }
 
-  /// Clear conversation history
+  /// Clear conversation - ARCHITECTURAL: Direct delegation to agent
   ///
-  /// PERF: O(1) - list clear operation with notification
-  /// ARCHITECTURAL: Mandatory notifyListeners() after state change
+  /// PERF: O(1) - direct agent conversation clear
+  /// WARRIOR PROTOCOL: Single source of truth - no duplicate storage
   void clearConversation() {
-    conversationHistory.clear();
+    final agentInstance = _agentInstance;
+    if (agentInstance != null) {
+      agentInstance.conversation.clearConversation();
+    }
     lastActiveAt = DateTime.now();
     notifyListeners(); // MANDATORY after any change
   }
 
-  /// Get conversation history count
+  /// Get conversation message count - ARCHITECTURAL: Direct delegation
   ///
-  /// PERF: O(1) - direct list length access
+  /// PERF: O(1) - direct agent conversation access
   int get messageCount => conversationHistory.length;
 
-  /// Check if agent has any conversation
+  /// Check if agent has conversation - ARCHITECTURAL: Direct delegation
   ///
-  /// PERF: O(1) - boolean check
+  /// PERF: O(1) - direct agent conversation access
   bool get hasConversation => conversationHistory.isNotEmpty;
 
   /// Get last message timestamp
@@ -411,6 +421,56 @@ class AgentModel extends ChangeNotifier {
     return errors;
   }
 
+  /// 💾 SELF-MANAGEMENT: Save to JSON file
+  ///
+  /// PERF: O(1) - single file write operation
+  /// ARCHITECTURAL: Model handles its own persistence in /data directory
+  Future<void> save() async {
+    try {
+      // Validate before saving
+      final validationErrors = validate();
+      if (validationErrors.isNotEmpty) {
+        throw StateError(
+            'Agent validation failed: ${validationErrors.join(', ')}');
+      }
+
+      // Create data directory if it doesn't exist
+      final dataDir = Directory('data/agents');
+      if (!await dataDir.exists()) {
+        await dataDir.create(recursive: true);
+      }
+
+      // Save to file
+      final file = File('data/agents/$id.json');
+      final jsonStr = const JsonEncoder.withIndent('  ').convert(toJson());
+      await file.writeAsString(jsonStr);
+
+      // Update timestamp
+      lastActiveAt = DateTime.now();
+
+      notifyListeners(); // MANDATORY after state change
+    } catch (e) {
+      rethrow; // Bubble stack trace to surface
+    }
+  }
+
+  /// 🗑️ SELF-MANAGEMENT: Delete from storage
+  ///
+  /// PERF: O(1) - single file delete operation
+  /// ARCHITECTURAL: Model handles its own deletion
+  Future<void> delete() async {
+    try {
+      final file = File('data/agents/$id.json');
+      if (await file.exists()) {
+        await file.delete();
+      }
+
+      notifyListeners(); // MANDATORY after state change
+    } catch (e) {
+      rethrow; // Bubble stack trace to surface
+    }
+  }
+
   /// Generate display summary for UI
   ///
   /// PERF: O(1) - string concatenation
@@ -438,14 +498,10 @@ class AgentModel extends ChangeNotifier {
   /// PERF: O(1) - lazy initialization and reuse
   /// ARCHITECTURAL: Agent instance connected to model data
   Agent _getAgentInstance() {
-    if (_agentInstance == null) {
-      _agentInstance = Agent(
-        agentModel: this,
-      );
+    _agentInstance ??= Agent(
+      agentModel: this,
+    );
 
-      // Sync existing conversation history to agent
-      _syncConversationToAgent();
-    }
     final agentInstance = _agentInstance;
     if (agentInstance == null) {
       throw StateError('Agent instance failed to initialize');
@@ -456,19 +512,11 @@ class AgentModel extends ChangeNotifier {
   /// Send message and get AI response - ARCHITECTURAL: Model orchestrates conversation
   ///
   /// PERF: O(API_LATENCY) - async AI processing
-  /// ARCHITECTURAL: Single source of truth - model manages all conversation data
+  /// WARRIOR PROTOCOL: Direct agent conversation management - no syncing needed
   Future<ChatMessage> sendMessage(String userMessage) async {
     // Set processing state
     isProcessing = true;
     updateActivity();
-
-    final userChatMessage = ChatMessage(
-      role: MessageRole.user,
-      content: userMessage,
-    );
-
-    // Add user message to model history immediately
-    addMessage(userChatMessage);
 
     try {
       final agent = _getAgentInstance();
@@ -481,45 +529,37 @@ class AgentModel extends ChangeNotifier {
         processToolCallsImmediately: false, // Allow UI to show tool calls
       );
 
-      // Create assistant message
-      final assistantMessage = ChatMessage(
-        role: MessageRole.assistant,
-        content: response,
-        toolCalls: agent.conversation.lastToolCalls,
-        reasoningContent: agent.conversation.lastReasoningContent,
-      );
-
-      // Add assistant response to model history
-      addMessage(assistantMessage);
-
       // Process tool calls if present and continue conversation
       if (agent.conversation.hasUnprocessedToolCalls) {
-        final followUpResponse = await agent.conversation.processAndContinue(
+        await agent.conversation.processAndContinue(
           useBeta: useBetaFeatures,
           isReasoner: useReasonerModel,
         );
-
-        if (followUpResponse != null) {
-          final followUpMessage = ChatMessage(
-            role: MessageRole.assistant,
-            content: followUpResponse,
-          );
-          addMessage(followUpMessage);
-        }
       }
 
-      // Sync agent conversation back to model (in case of tool responses)
-      _syncConversationFromAgent();
+      // WARRIOR PROTOCOL: No syncing needed - agent.conversation is single source of truth
+      // Get the last assistant message from agent conversation
+      final conversationHistory = agent.conversation.getHistory();
+      final lastMessage = conversationHistory.isNotEmpty
+          ? conversationHistory.last
+          : ChatMessage(
+              role: MessageRole.assistant,
+              content: response,
+            );
 
-      return assistantMessage;
+      return lastMessage;
     } catch (e) {
-      // Add error message to conversation
+      // Add error message directly to agent conversation
+      final agent = _getAgentInstance();
       final errorMessage = ChatMessage(
         role: MessageRole.assistant,
         content:
             '❌ Sorry, I encountered an error: $e\n\nPlease try again or check your connection.',
       );
-      addMessage(errorMessage);
+
+      // Add error to agent conversation
+      agent.conversation.addAssistantMessage(errorMessage.content ?? '');
+
       rethrow;
     } finally {
       // Clear processing state
@@ -528,40 +568,7 @@ class AgentModel extends ChangeNotifier {
     }
   }
 
-  /// Sync conversation history to agent instance
-  ///
-  /// PERF: O(n) where n = conversation length
-  void _syncConversationToAgent() {
-    final agentInstance = _agentInstance;
-    if (agentInstance == null) return;
-
-    // Clear agent conversation and rebuild from model
-    agentInstance.conversation.clearConversation();
-
-    for (final message in conversationHistory) {
-      _addMessageToAgentConversation(message);
-    }
-  }
-
-  /// Sync conversation history from agent instance back to model
-  ///
-  /// PERF: O(n) where n = conversation length
-  void _syncConversationFromAgent() {
-    final agentInstance = _agentInstance;
-    if (agentInstance == null) return;
-
-    final agentHistory = agentInstance.conversation.getHistory();
-
-    // Only sync if agent has more messages (tool responses added)
-    if (agentHistory.length > conversationHistory.length) {
-      final newMessages = agentHistory.skip(conversationHistory.length);
-      for (final message in newMessages) {
-        conversationHistory.add(message);
-      }
-    }
-  }
-
-  /// Add message to agent's conversation manager
+  /// Add message to agent's conversation manager - WARRIOR PROTOCOL: Direct delegation
   void _addMessageToAgentConversation(ChatMessage message) {
     final agentInstance = _agentInstance;
     if (agentInstance == null) return;
@@ -594,6 +601,21 @@ class AgentModel extends ChangeNotifier {
     final agentInstance = _agentInstance;
     if (agentInstance != null) {
       await agentInstance.dispose();
+      _agentInstance = null;
+    }
+  }
+
+  /// Invalidate agent instance cache - ARCHITECTURAL: Force recreation after updates
+  ///
+  /// PERF: O(1) - cache invalidation
+  /// ARCHITECTURAL: Ensures fresh agent instance with updated preferences
+  void invalidateAgentInstance() {
+    // Dispose current instance without awaiting (fire and forget)
+    final agentInstance = _agentInstance;
+    if (agentInstance != null) {
+      agentInstance.dispose().catchError((e) {
+        // Ignore disposal errors - we're invalidating anyway
+      });
       _agentInstance = null;
     }
   }

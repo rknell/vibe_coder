@@ -1,6 +1,6 @@
 ---
-description:
-globs:
+description: 
+globs: 
 alwaysApply: true
 ---
 # ⚔️ VIBE CODER ARCHITECTURE PROTOCOL ⚔️
@@ -416,7 +416,7 @@ class AgentService extends ChangeNotifier {
 ### 3. 🎨 UI COMPONENTS LAYER
 **Stateless Display Components with Object-Oriented Callbacks**
 
-> **⚡ CROSS-REFERENCE**: For detailed component extraction protocols and functional widget builder elimination, see `flutter_architecture.mdc`.
+> **⚡ CROSS-REFERENCE**: For detailed component extraction protocols and functional widget builder elimination, see `flutter_architecture.mdc`. [flutter_architecture.mdc](mdc:.cursor/rules/flutter_architecture.mdc)
 
 #### 🎯 CORE RESPONSIBILITIES:
 - **Pure Display**: Stateless widgets for individual UI elements

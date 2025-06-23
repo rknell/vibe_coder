@@ -303,19 +303,54 @@ $content
     _logger
         .info('🔧 Processing pending tool calls and continuing conversation');
 
-    // Process tool calls through Agent's MCP system
-    final toolResponses = await processToolCalls();
+    String? finalResponse;
+    int maxToolCallRounds = 10; // Prevent infinite loops
+    int currentRound = 0;
 
-    if (toolResponses) {
-      // Send a follow-up message with the tool results
-      return await sendMessage(
-        useBeta: useBeta,
-        isReasoner: isReasoner,
-        toolChoice: toolChoice,
-      );
+    // 🔄 RECURSIVE TOOL PROCESSING: Handle multiple rounds of tool calls
+    while (hasUnprocessedToolCalls && currentRound < maxToolCallRounds) {
+      currentRound++;
+
+      _logger.info(
+          '🔧 Tool call round $currentRound: Processing ${lastToolCalls?.length ?? 0} tool calls');
+
+      // Process tool calls through Agent's MCP system
+      final toolResponses = await processToolCalls();
+
+      if (toolResponses) {
+        // Send a follow-up message with the tool results
+        finalResponse = await sendMessage(
+          useBeta: useBeta,
+          isReasoner: isReasoner,
+          toolChoice: toolChoice,
+        );
+
+        // Check if the response contains more tool calls
+        if (hasUnprocessedToolCalls) {
+          _logger.info(
+              '🔄 More tool calls detected, continuing to round ${currentRound + 1}');
+          // Loop will continue to process the new tool calls
+        } else {
+          _logger.info('✅ Tool processing complete after $currentRound rounds');
+          break;
+        }
+      } else {
+        _logger.warning('⚠️ Tool processing failed in round $currentRound');
+        break;
+      }
     }
 
-    return null;
+    if (currentRound >= maxToolCallRounds) {
+      _logger.severe(
+          '💥 TOOL CALL LIMIT: Reached maximum $maxToolCallRounds rounds, stopping to prevent infinite loop');
+      // Add an error message to conversation
+      _addToolErrorResponse(
+          'system_error_${DateTime.now().millisecondsSinceEpoch}',
+          'Error: Too many tool call rounds. Maximum of $maxToolCallRounds rounds exceeded.',
+          'system');
+    }
+
+    return finalResponse;
   }
 
   /// Processes tool calls using the Agent's MCP integration.
@@ -517,46 +552,58 @@ $content
     final agentInstance = agent;
     if (agentInstance == null) return;
 
-    if (agentInstance.notepad.isNotEmpty) {
-      addContext("notepad", agentInstance.notepad);
-    } else {
-      removeContext("notepad");
+    // 🔄 TOOL REFRESH PROTOCOL: Ensure MCP tools are current before each API call
+    // This prevents stale tool information from being used when users add/remove tools
+    _refreshMCPToolsBeforeCall();
+
+    // NOTE: notepad, to-do list, and inbox are now implemented as MCP servers
+    // Context is provided through MCP tool calls instead of hardcoded context
+  }
+
+  /// 🔄 TOOL REFRESH: Refresh MCP tools before each API call
+  ///
+  /// PERF: O(n) where n = connected servers - ensures current tool availability
+  /// ARCHITECTURAL: Tool freshness guarantee before function calling
+  /// 🎯 WARRIOR ENHANCEMENT: Prevents stale tool information during conversations
+  void _refreshMCPToolsBeforeCall() {
+    try {
+      final mcpService = services.mcpService;
+
+      if (!mcpService.isInitialized) {
+        _logger.fine(
+            '⏭️ TOOL REFRESH: MCP service not initialized - skipping refresh');
+        return;
+      }
+
+      // 🚀 BACKGROUND REFRESH: Non-blocking tool refresh to avoid conversation delays
+      // This ensures tools are current without making the user wait
+      unawaited(_backgroundRefreshMCPTools());
+    } catch (e, stackTrace) {
+      _logger.warning(
+          '⚠️ TOOL REFRESH: Failed to initiate refresh - $e', e, stackTrace);
+      // Don't rethrow - conversation should continue even if refresh fails
     }
+  }
 
-    if (agentInstance.toDoList.isNotEmpty) {
-      addContext(
-          "to do list",
-          agentInstance.toDoList
-              .take(5)
-              .map((item) => item)
-              .join("\n")
-              .toString());
-    } else {
-      removeContext("to do list");
+  /// 🔄 BACKGROUND TOOL REFRESH: Refresh MCP capabilities without blocking conversation
+  ///
+  /// PERF: O(n) where n = connected servers - parallel refresh operations
+  /// ARCHITECTURAL: Non-blocking background operation for tool freshness
+  Future<void> _backgroundRefreshMCPTools() async {
+    try {
+      final mcpService = services.mcpService;
+
+      _logger.fine('🔄 TOOL REFRESH: Starting background MCP tool refresh');
+
+      // Refresh all connected servers to ensure tool lists are current
+      await mcpService.refreshAll();
+
+      _logger.fine('✅ TOOL REFRESH: Background MCP tool refresh completed');
+    } catch (e, stackTrace) {
+      _logger.warning(
+          '⚠️ TOOL REFRESH: Background refresh failed - $e', e, stackTrace);
+      // Don't rethrow - this is a background operation
     }
-
-    if (agentInstance.inbox.isNotEmpty) {
-      addContext('inbox',
-          agentInstance.inbox.take(5).map((item) => item.content).join('\n'));
-    } else {
-      removeContext("inbox");
-    }
-
-    // Add task completion rules as a context
-    addContext("task_completion_rules", """
-When processing inbox messages:
-- Create TODO list tasks only if necessary to respond to the message
-- If a message is informational or states something is COMPLETED, don't create unnecessary follow-up tasks
-- Be specific and actionable when creating tasks
-- Always create a todo list item to inform the sender once required actions are completed
-
-When working on to-do tasks:
-- Focus only on completing the specific task - do not create additional tasks unless absolutely necessary
-- After completing a task, you MUST use the complete_todo_task tool to mark it as completed
-- Use complete_todo_task with either the index parameter (e.g., complete_todo_task(index: 1)) or the task parameter
-- If a task refers to sending information, mark it complete once sent
-- If a task refers to reviewing something, mark it complete once reviewed and results communicated
-""");
   }
 
   /// Sends the current conversation to the DeepSeek API and gets a response.

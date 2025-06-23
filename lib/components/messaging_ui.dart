@@ -63,6 +63,9 @@ class MessagingUI extends StatefulWidget {
   /// The string parameter contains the message text.
   final void Function(String)? onSendMessage;
 
+  /// Callback triggered when clear conversation is requested.
+  final VoidCallback? onClearConversation;
+
   /// Whether to show timestamps for messages.
   final bool showTimestamps;
 
@@ -84,6 +87,7 @@ class MessagingUI extends StatefulWidget {
     required this.messages,
     this.onMessageTap,
     this.onSendMessage,
+    this.onClearConversation,
     this.showTimestamps = false,
     this.theme,
     this.inputText,
@@ -184,14 +188,38 @@ class _MessagingUIState extends State<MessagingUI> {
             ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showDebugOverlay,
-        icon: const Icon(Icons.bug_report),
-        label: const Text('Debug'),
-        backgroundColor: Theme.of(context).colorScheme.tertiary,
-        foregroundColor: Theme.of(context).colorScheme.onTertiary,
-        tooltip: 'Open Debug Intelligence Center',
-      ),
+      floatingActionButton: widget.onClearConversation != null
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FloatingActionButton(
+                  onPressed: widget.onClearConversation,
+                  backgroundColor: Theme.of(context).colorScheme.error,
+                  foregroundColor: Theme.of(context).colorScheme.onError,
+                  tooltip: 'Clear Conversation',
+                  heroTag: 'clear_conversation',
+                  child: const Icon(Icons.clear_all),
+                ),
+                const SizedBox(height: 8),
+                FloatingActionButton.extended(
+                  onPressed: _showDebugOverlay,
+                  icon: const Icon(Icons.bug_report),
+                  label: const Text('Debug'),
+                  backgroundColor: Theme.of(context).colorScheme.tertiary,
+                  foregroundColor: Theme.of(context).colorScheme.onTertiary,
+                  tooltip: 'Open Debug Intelligence Center',
+                  heroTag: 'debug_overlay',
+                ),
+              ],
+            )
+          : FloatingActionButton.extended(
+              onPressed: _showDebugOverlay,
+              icon: const Icon(Icons.bug_report),
+              label: const Text('Debug'),
+              backgroundColor: Theme.of(context).colorScheme.tertiary,
+              foregroundColor: Theme.of(context).colorScheme.onTertiary,
+              tooltip: 'Open Debug Intelligence Center',
+            ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
     );
   }

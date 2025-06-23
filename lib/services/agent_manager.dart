@@ -276,7 +276,7 @@ class AgentManager {
       // Create runtime Agent instance
       final agent = Agent(
         agentModel: agentModel,
-        toDoList: List.from(agentModel.toDoList),
+        // NOTE: toDoList is now handled by MCP task server
       );
 
       // SKIP MCP initialization - GlobalMCP is already connected

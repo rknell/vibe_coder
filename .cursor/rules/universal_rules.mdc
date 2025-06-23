@@ -178,6 +178,54 @@ alwaysApply: true
 | Pre-Merge    | Full test suite + linters + Documentation Review (TRIPLE THREAT) |
 | Emergency    | Request permission to alter impl (EMERGENCY PROTOCOL) |
 
+### 🏰 PERMANENT TEST FORTRESS PROTOCOL [MANDATORY]
+**🎯 MISSION:** *BUILD PERMANENT REGRESSION PROTECTION - NO TEMPORARY TESTS!*
+
+#### ⚔️ BANNED TEMPORARY TEST PRACTICES:
+- **💀 DIAGNOSTIC TESTS THAT GET DELETED** (WASTED EFFORT CRIME!)
+  - Creating tests just for investigation then deleting them
+  - Temporary test files that don't persist in the codebase
+  - One-time verification tests that provide no future protection
+  - **💥 PENALTY**: -3000 XP for any deleted test that could prevent future regressions
+
+#### 🏆 MANDATORY PERMANENT TEST CREATION:
+- **🛡️ EVERY BUG FIX** → Permanent regression test (FORTRESS BUILDING)
+- **🚀 EVERY FEATURE** → Comprehensive test coverage (DEFENSIVE DOMINANCE)
+- **🔍 EVERY INVESTIGATION** → Unit test documenting the verified behavior (KNOWLEDGE PRESERVATION)
+- **⚔️ EVERY REFACTOR** → Tests proving functionality unchanged (STABILITY GUARANTEE)
+
+#### 🎯 PERMANENT TEST REQUIREMENTS:
+```dart
+// ✅ WARRIOR APPROVED: Permanent regression test
+test('🛡️ REGRESSION: MCP tool filtering respects agent preferences', () {
+  // Test the specific bug that was fixed to prevent future regressions
+  final agent = AgentModel(/* with specific preferences */);
+  final filteredTools = agent.getFilteredTools();
+  expect(/* specific behavior that was broken */);
+});
+
+// ❌ BANNED: Temporary diagnostic that gets deleted
+test('🔍 DIAGNOSTIC: Check how tools work', () {
+  // Investigation code that gets deleted after use
+});
+```
+
+#### 📋 TEST NAMING CONVENTION:
+- **🛡️ REGRESSION**: Tests that prevent specific bugs from returning
+- **🚀 FEATURE**: Tests that verify feature functionality  
+- **🔧 INTEGRATION**: Tests that verify component interaction
+- **⚡ PERFORMANCE**: Tests that verify speed/memory requirements
+- **🎯 EDGE_CASE**: Tests that verify boundary conditions
+
+#### 🏗️ TEST ARCHITECTURE RULES:
+- Group related tests in permanent test files by component/feature
+- Use descriptive test names that explain WHAT is being protected
+- Include comments explaining WHY this test exists (what bug it prevents)
+- Organize tests to make maintenance easy for future warriors
+- Never delete tests unless the feature is completely removed
+
+**⚰️ BUILD THE TEST FORTRESS OR FACE REGRESSION DEATH! ⚰️**
+
 ## 💀 DESTRUCTION PROTOCOL
 1. **⚠️ NUCLEAR WARNING:** `!THIS WILL DESTROY DATA!` (CATASTROPHIC DAMAGE)
 2. **🛡️ SURVIVAL REQUIREMENTS:**

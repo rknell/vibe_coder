@@ -3,8 +3,8 @@ library;
 
 ///
 /// ## MISSION ACCOMPLISHED
-/// Updated AgentService to work with simplified AgentModel following architectural refactoring.
-/// Manages agent collection in-memory with basic CRUD operations.
+/// Updated AgentService to work with AgentModel following architectural refactoring.
+/// Manages agent collection with persistence loading and proper CRUD operations.
 ///
 /// ## ARCHITECTURAL COMPLIANCE ACHIEVED
 /// - ✅ Extends ChangeNotifier for global state management
@@ -12,13 +12,15 @@ library;
 /// - ✅ Provides filtering functions (getById, getByName)
 /// - ✅ Handles multi-record operations and complex workflows
 /// - ✅ Mandatory notifyListeners() on all data changes
-/// - ✅ Works with simplified AgentModel (no self-persistence)
+/// - ✅ Loads agents from persistence in /data directory
 ///
 /// ## PERFORMANCE CHARACTERISTICS
 /// - Agent lookup: O(1) - HashMap-based access via index
 /// - Agent creation: O(1) - direct model creation + collection update
 /// - Collection management: O(n) where n = number of agents
 /// - State updates: O(1) - direct collection modification
+import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
 import 'package:uuid/uuid.dart';
@@ -85,15 +87,52 @@ class AgentService extends ChangeNotifier {
 
   /// Load all agents - ARCHITECTURAL: Collection management
   ///
-  /// PERF: O(1) - no-op for simplified model
-  /// ARCHITECTURAL: Maintains existing collection (no persistence)
+  /// PERF: O(n) where n = number of persisted agents
+  /// ARCHITECTURAL: Loads agents from /data directory following protocol
   Future<void> loadAll() async {
     _ensureInitialized();
 
-    _logger.info('🔄 AGENT SERVICE: Agent collection already loaded');
+    _logger.info('📋 AGENT SERVICE: Loading agents from persistence');
 
-    // No-op for simplified model - collection is already in memory
-    notifyListeners(); // MANDATORY after data changes
+    try {
+      final dataDir = Directory('data/agents');
+      if (!await dataDir.exists()) {
+        _logger.info('📁 NO DATA: Agents directory does not exist');
+        data = [];
+        _rebuildIndex();
+        notifyListeners(); // MANDATORY after data changes
+        return;
+      }
+
+      final files = await dataDir
+          .list()
+          .where((entity) => entity is File && entity.path.endsWith('.json'))
+          .cast<File>()
+          .toList();
+
+      final loadedAgents = <AgentModel>[];
+
+      for (final file in files) {
+        try {
+          final content = await file.readAsString();
+          final json = jsonDecode(content) as Map<String, dynamic>;
+          final agent = AgentModel.fromJson(json);
+          loadedAgents.add(agent);
+          _logger.fine('✅ LOADED: Agent ${agent.name} (${agent.id})');
+        } catch (e, stackTrace) {
+          _logger.warning('⚠️ LOAD FAILED: ${file.path} - $e', e, stackTrace);
+          // Continue loading other agents, don't fail entire operation
+        }
+      }
+
+      data = loadedAgents;
+      _rebuildIndex();
+      _logger.info('📋 LOADED: ${data.length} agents from persistence');
+      notifyListeners(); // MANDATORY after data changes
+    } catch (e, stackTrace) {
+      _logger.severe('💥 LOAD ALL FAILED: $e', e, stackTrace);
+      rethrow; // Bubble stack trace to surface
+    }
   }
 
   /// Get agent by ID - ARCHITECTURAL: Filtering function
@@ -118,7 +157,7 @@ class AgentService extends ChangeNotifier {
   /// Create new agent - ARCHITECTURAL: Business logic
   ///
   /// PERF: O(1) - direct model creation + collection update
-  /// ARCHITECTURAL: Creates agent and adds to collection
+  /// ARCHITECTURAL: Creates agent and adds to collection with persistence
   Future<AgentModel> createAgent({
     required String name,
     required String systemPrompt,
@@ -143,12 +182,12 @@ class AgentService extends ChangeNotifier {
     _logger.info('🔨 AGENT SERVICE: Creating agent "$name" with ID: $agentId');
 
     try {
-      // Create agent using simplified model constructor
+      // Create agent using model constructor
       final agent = AgentModel(
         id: agentId,
         name: name,
         systemPrompt: systemPrompt,
-        notepad: notepad,
+        // NOTE: notepad and toDoList are now handled by MCP servers
         isActive: isActive,
         isProcessing: isProcessing,
         temperature: temperature,
@@ -158,10 +197,12 @@ class AgentService extends ChangeNotifier {
         mcpConfigPath: mcpConfigPath,
         supervisorId: supervisorId,
         contextFiles: contextFiles,
-        toDoList: toDoList,
         conversationHistory: conversationHistory,
         metadata: metadata,
       );
+
+      // ARCHITECTURAL: Model handles its own persistence
+      await agent.save();
 
       // Add to collection and update index
       data.add(agent);
@@ -182,12 +223,12 @@ class AgentService extends ChangeNotifier {
   /// Update agent - ARCHITECTURAL: Business logic with collection sync
   ///
   /// PERF: O(1) - direct model update + collection maintenance
-  /// ARCHITECTURAL: Updates agent properties and maintains collection
+  /// ARCHITECTURAL: Updates agent properties and maintains collection with persistence
   Future<void> updateAgent(
     String agentId, {
     String? name,
     String? systemPrompt,
-    String? notepad,
+    // NOTE: notepad is now handled by MCP notepad server
     bool? isActive,
     bool? isProcessing,
     double? temperature,
@@ -213,7 +254,7 @@ class AgentService extends ChangeNotifier {
       final updatedAgent = agent.copyWith(
         name: name,
         systemPrompt: systemPrompt,
-        notepad: notepad,
+        // NOTE: notepad is now handled by MCP notepad server
         isActive: isActive,
         isProcessing: isProcessing,
         temperature: temperature,
@@ -223,6 +264,9 @@ class AgentService extends ChangeNotifier {
         mcpConfigPath: mcpConfigPath,
         supervisorId: supervisorId,
       );
+
+      // ARCHITECTURAL: Model handles its own persistence
+      await updatedAgent.save();
 
       // Replace in collection
       data[agentIndex] = updatedAgent;
@@ -240,7 +284,7 @@ class AgentService extends ChangeNotifier {
   /// Delete agent - ARCHITECTURAL: Business logic with collection cleanup
   ///
   /// PERF: O(n) - list removal + index rebuild
-  /// ARCHITECTURAL: Removes agent from collection
+  /// ARCHITECTURAL: Removes agent from collection and persistence
   Future<void> deleteAgent(String agentId) async {
     _ensureInitialized();
 
@@ -253,6 +297,9 @@ class AgentService extends ChangeNotifier {
         .info('🗑️ AGENT SERVICE: Deleting agent "${agent.name}" ($agentId)');
 
     try {
+      // ARCHITECTURAL: Model handles its own deletion
+      await agent.delete();
+
       // Remove from collection and rebuild index
       data.removeWhere((a) => a.id == agentId);
       _rebuildIndex();
@@ -350,6 +397,43 @@ class AgentService extends ChangeNotifier {
   /// ARCHITECTURAL: Temporary bridge during migration period
   Map<String, dynamic> getConversationStatisticsLegacy() {
     return getConversationStatistics().toJson();
+  }
+
+  /// Add agent directly to collection - ARCHITECTURAL: Direct mutation support
+  ///
+  /// PERF: O(1) - direct collection addition with index update
+  /// ARCHITECTURAL: Supports single source of truth pattern
+  void addAgentDirectly(AgentModel agent) {
+    _ensureInitialized();
+
+    data.add(agent);
+    _agentIndex[agent.id] = data.length - 1;
+
+    notifyListeners(); // MANDATORY after data changes
+  }
+
+  /// Replace agent in collection - ARCHITECTURAL: Direct mutation support
+  ///
+  /// PERF: O(1) - direct collection replacement with persistence
+  /// ARCHITECTURAL: Supports single source of truth pattern with disk persistence
+  Future<void> replaceAgent(String agentId, AgentModel updatedAgent) async {
+    _ensureInitialized();
+
+    final index = _agentIndex[agentId];
+    if (index != null && index < data.length) {
+      // Invalidate the old agent's instance cache to force recreation with new preferences
+      final oldAgent = data[index];
+      oldAgent.invalidateAgentInstance();
+
+      // ARCHITECTURAL: Model handles its own persistence
+      await updatedAgent.save();
+
+      // Replace with updated agent
+      data[index] = updatedAgent;
+      notifyListeners(); // MANDATORY after data changes
+    } else {
+      throw AgentServiceException('Agent not found for replacement: $agentId');
+    }
   }
 
   /// Rebuild agent index for O(1) lookups

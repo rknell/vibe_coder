@@ -1,12 +1,15 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
-import 'package:vibe_coder/ai_agent/models/chat_message_model.dart';
-import 'package:vibe_coder/components/messaging_ui.dart';
 import 'package:vibe_coder/components/agents/agent_list_component.dart';
 import 'package:vibe_coder/components/agents/agent_settings_dialog.dart';
+import 'package:vibe_coder/components/agents/agent_tab_bar.dart';
+import 'package:vibe_coder/components/common/dialogs/confirmation_dialog.dart';
 import 'package:vibe_coder/components/common/dialogs/mcp_server_management_dialog.dart';
-import 'package:vibe_coder/components/common/dialogs/tools_info_dialog.dart';
+import 'package:vibe_coder/components/common/indicators/mcp_status_icon.dart';
+import 'package:vibe_coder/components/common/indicators/status_banner.dart';
+import 'package:vibe_coder/components/messaging_ui.dart';
+import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
+import 'package:vibe_coder/ai_agent/models/chat_message_model.dart';
 import 'package:vibe_coder/models/agent_model.dart';
 import 'package:vibe_coder/models/mcp_server_info.dart';
 import 'package:vibe_coder/models/mcp_server_model.dart';
@@ -59,12 +62,12 @@ class HomeScreen extends StatefulWidget {
 ///
 /// ARCHITECTURAL: Each tab maintains direct reference to AgentModel (extends ChangeNotifier)
 /// PERF: O(1) access to conversation state via model with reactive updates
-class AgentTab {
+class AgentTabData {
   final AgentModel agent;
   final StreamSubscription<ChatMessage>? messageSubscription;
   final String? error;
 
-  const AgentTab({
+  const AgentTabData({
     required this.agent,
     this.messageSubscription,
     this.error,
@@ -72,12 +75,12 @@ class AgentTab {
 
   /// Create copy with updated values
   /// PERF: O(1) - immutable update pattern
-  AgentTab copyWith({
+  AgentTabData copyWith({
     AgentModel? agent,
     StreamSubscription<ChatMessage>? messageSubscription,
     String? error,
   }) {
-    return AgentTab(
+    return AgentTabData(
       agent: agent ?? this.agent,
       messageSubscription: messageSubscription ?? this.messageSubscription,
       error: error ?? this.error,
@@ -88,7 +91,7 @@ class AgentTab {
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // CLEAN ARCHITECTURE: Direct service usage for factory operations only
   late TabController _tabController;
-  final List<AgentTab> _agentTabs = [];
+  final List<AgentTabData> _agentTabs = [];
   int _selectedTabIndex = 0;
 
   // Available agents registry - loaded from AgentService
@@ -286,6 +289,53 @@ What would you like to work on today?''',
     }
   }
 
+  /// Clear agent conversation - ARCHITECTURAL: Direct agent model manipulation
+  /// PERF: O(1) - direct AgentModel method call
+  Future<void> _clearAgentConversation(String agentId) async {
+    if (!_isServiceInitialized) {
+      _showSnackBar('Service is not ready yet');
+      return;
+    }
+
+    // Find agent tab
+    final tabIndex = _agentTabs.indexWhere((tab) => tab.agent.id == agentId);
+    if (tabIndex == -1) {
+      _showSnackBar('Agent tab not found');
+      return;
+    }
+
+    final agentTab = _agentTabs[tabIndex];
+
+    // Show confirmation dialog
+    final confirmed = await ConfirmationDialog.showClear(
+      context,
+      itemName: agentTab.agent.name,
+      customContent:
+          'Are you sure you want to clear the conversation with "${agentTab.agent.name}"? This action cannot be undone.',
+    );
+
+    if (confirmed == true) {
+      if (!mounted) return;
+
+      try {
+        // CLEAN ARCHITECTURE: Direct AgentModel usage
+        agentTab.agent.clearConversation();
+
+        // Save the updated agent state
+        await agentTab.agent.save();
+
+        if (mounted) {
+          _showSnackBar(
+              'Conversation with "${agentTab.agent.name}" cleared successfully');
+        }
+      } catch (e) {
+        if (mounted) {
+          _showSnackBar('Failed to clear conversation: $e');
+        }
+      }
+    }
+  }
+
   /// Close agent tab
   /// PERF: O(1) - direct tab removal and cleanup
   Future<void> _closeAgentTab(int tabIndex) async {
@@ -326,7 +376,7 @@ What would you like to work on today?''',
     }
 
     // Create new agent tab
-    final agentTab = AgentTab(agent: agent);
+    final agentTab = AgentTabData(agent: agent);
 
     setState(() {
       _agentTabs.add(agentTab);
@@ -362,28 +412,10 @@ What would you like to work on today?''',
       if (!mounted) return;
 
       if (result != null) {
-        // Use AgentService to properly create the agent with proper ID generation and persistence
-        await services.agentService.createAgent(
-          name: result.name,
-          systemPrompt: result.systemPrompt,
-          notepad: result.notepad,
-          isActive: result.isActive,
-          isProcessing: result.isProcessing,
-          temperature: result.temperature,
-          maxTokens: result.maxTokens,
-          useBetaFeatures: result.useBetaFeatures,
-          useReasonerModel: result.useReasonerModel,
-          mcpConfigPath: result.mcpConfigPath,
-          supervisorId: result.supervisorId,
-          contextFiles: result.contextFiles,
-          toDoList: result.toDoList,
-          conversationHistory: result.conversationHistory,
-          metadata: result.metadata,
-        );
+        // WARRIOR PROTOCOL: Direct agent mutation - single source of truth
+        // Add the new agent directly to the service collection
+        services.agentService.addAgentDirectly(result);
 
-        // Reload agents from service to get the properly created agent
-        await services.agentService.loadAll();
-        // setState() no longer needed - ListenableBuilder handles updates
         if (mounted) {
           _showSnackBar('Agent "${result.name}" created successfully');
         }
@@ -412,24 +444,9 @@ What would you like to work on today?''',
     }
 
     // Show confirmation dialog
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Delete Agent'),
-        content: Text(
-            'Are you sure you want to delete "${agent.name}"? This action cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: Text('Delete'),
-          ),
-        ],
-      ),
+    final confirmed = await ConfirmationDialog.showDelete(
+      context,
+      itemName: agent.name,
     );
 
     if (confirmed == true) {
@@ -509,23 +526,33 @@ What would you like to work on today?''',
       if (!mounted) return;
 
       if (result != null) {
-        // Use AgentService to properly update the agent with persistence
-        await services.agentService.updateAgent(
-          agentId,
-          name: result.name,
-          systemPrompt: result.systemPrompt,
-          temperature: result.temperature,
-          maxTokens: result.maxTokens,
-          useBetaFeatures: result.useBetaFeatures,
-          useReasonerModel: result.useReasonerModel,
-          mcpConfigPath: result.mcpConfigPath,
-        );
+        // WARRIOR PROTOCOL: Direct agent mutation - single source of truth
+        // Replace the agent in the service collection with the updated one
+        try {
+          await services.agentService.replaceAgent(agentId, result);
 
-        // Reload agents from service to get the updated agent
-        await services.agentService.loadAll();
-        // setState() no longer needed - ListenableBuilder handles updates
-        if (mounted) {
-          _showSnackBar('Agent "${result.name}" updated successfully');
+          // CRITICAL FIX: Update any open AgentTab references to use the new AgentModel
+          // This ensures MCP preferences are immediately effective in active conversations
+          final tabIndex =
+              _agentTabs.indexWhere((tab) => tab.agent.id == agentId);
+          if (tabIndex != -1) {
+            // Invalidate old agent instance to force recreation with new preferences
+            _agentTabs[tabIndex].agent.invalidateAgentInstance();
+
+            // Update tab to reference the new AgentModel
+            setState(() {
+              _agentTabs[tabIndex] =
+                  _agentTabs[tabIndex].copyWith(agent: result);
+            });
+          }
+
+          if (mounted) {
+            _showSnackBar('Agent "${result.name}" updated successfully');
+          }
+        } catch (e) {
+          if (mounted) {
+            _showSnackBar('Agent not found in collection');
+          }
         }
       }
     } catch (e) {
@@ -562,32 +589,6 @@ What would you like to work on today?''',
     } catch (e) {
       if (mounted) {
         _showSnackBar('Failed to show MCP manager: $e');
-      }
-    }
-  }
-
-  /// Show Tools Information Dialog
-  ///
-  /// ARCHITECTURAL: Read-only MCP tools and server information display
-  /// PERF: O(1) - dialog display with server and tool enumeration
-  Future<void> _showToolsInfo() async {
-    if (!_isServiceInitialized) {
-      _showSnackBar('Please wait for services to initialize');
-      return;
-    }
-
-    try {
-      final mcpInfo = await _getMCPServerInfoForDialog();
-      if (mcpInfo == null) {
-        _showSnackBar('MCP server information is not available yet');
-        return;
-      }
-      if (!mounted) return;
-
-      await ToolsInfoDialog.show(context, mcpInfo);
-    } catch (e) {
-      if (mounted) {
-        _showSnackBar('Failed to show tools info: $e');
       }
     }
   }
@@ -693,60 +694,22 @@ What would you like to work on today?''',
         title: const Text('VibeCoder - Multi-Agent System'),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(kToolbarHeight),
-          child: ListenableBuilder(
-            listenable: services.agentService,
-            builder: (context, child) {
-              return TabBar(
-                controller: _tabController,
-                isScrollable: true,
-                tabs: [
-                  // Agents list tab - ARCHITECTURAL: Reactive agent count
-                  Tab(
-                    icon: const Icon(Icons.group),
-                    text: 'Agents (${services.agentService.data.length})',
-                  ),
-                  // Agent conversation tabs
-                  ..._agentTabs.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final tab = entry.value;
-                    return Tab(
-                      icon: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(tab.agent.isProcessing
-                              ? Icons.hourglass_empty
-                              : Icons.chat),
-                          if (tab.error != null)
-                            const Icon(Icons.error,
-                                color: Colors.red, size: 16),
-                          const SizedBox(width: 4),
-                          GestureDetector(
-                            onTap: () => _closeAgentTab(index),
-                            child: const Icon(Icons.close, size: 16),
-                          ),
-                        ],
-                      ),
-                      text: tab.agent.name,
-                    );
-                  }),
-                ],
-              );
-            },
+          child: AgentTabBar(
+            tabController: _tabController,
+            agentTabs: _agentTabs
+                .map((tabData) => AgentTab(
+                      agent: tabData.agent,
+                      error: tabData.error,
+                    ))
+                .toList(),
+            onCloseTab: _closeAgentTab,
           ),
         ),
         actions: [
-          // MCP Tools Info Button
-          IconButton(
-            onPressed: _isServiceInitialized ? _showToolsInfo : null,
-            icon: const Icon(Icons.info_outline),
-            tooltip: 'MCP Tools & Servers Info',
-          ),
-
-          // MCP Server Manager Button
-          IconButton(
-            onPressed: _isServiceInitialized ? _showMCPServerManager : null,
-            icon: const Icon(Icons.settings),
-            tooltip: 'MCP Server Management',
+          // MCP Status Icon - Compact status indicator with management access
+          MCPStatusIcon(
+            isServiceInitialized: _isServiceInitialized,
+            onTap: _isServiceInitialized ? _showMCPServerManager : null,
           ),
 
           if (_isLoading)
@@ -764,138 +727,17 @@ What would you like to work on today?''',
       ),
       body: Column(
         children: [
-          // Loading status banner
+          // Status banners - ARCHITECTURAL: Extracted component usage
           if (_loadingStatus != null)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              margin: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.blue.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.info, color: Colors.blue, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(_loadingStatus ?? '')),
-                  TextButton(
-                    onPressed: () {
-                      setState(() => _loadingStatus = null);
-                    },
-                    child: const Text('Dismiss'),
-                  ),
-                ],
-              ),
+            StatusBanner.loading(
+              message: _loadingStatus!,
+              onDismiss: () => setState(() => _loadingStatus = null),
             ),
 
-          // MCP Connection Status - Non-blocking connection progress
-          if (_isServiceInitialized)
-            ListenableBuilder(
-              listenable: services.mcpService,
-              builder: (context, child) {
-                final mcpService = services.mcpService;
-                final connectedServers = mcpService.connectedServers;
-                final totalServers = mcpService.data;
-                final connectingServers = totalServers
-                    .where((s) => s.status == MCPServerStatus.connecting);
-
-                // Only show status if there are servers connecting or recently connected
-                if (connectingServers.isEmpty && connectedServers.isEmpty) {
-                  return const SizedBox.shrink();
-                }
-
-                final isConnecting = connectingServers.isNotEmpty;
-                final statusText = isConnecting
-                    ? 'Connecting to MCP servers... (${connectedServers.length}/${totalServers.length} ready)'
-                    : 'MCP servers connected (${connectedServers.length}/${totalServers.length}) - ${mcpService.getAllTools().length} tools available';
-
-                return Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(8),
-                  margin: const EdgeInsets.symmetric(horizontal: 8),
-                  decoration: BoxDecoration(
-                    color: isConnecting
-                        ? Colors.orange.withValues(alpha: 0.1)
-                        : Colors.green.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                        color: isConnecting
-                            ? Colors.orange.withValues(alpha: 0.3)
-                            : Colors.green.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (isConnecting)
-                        const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      else
-                        Icon(Icons.check_circle, color: Colors.green, size: 16),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          statusText,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: isConnecting
-                                ? Colors.orange[800]
-                                : Colors.green[800],
-                          ),
-                        ),
-                      ),
-                      if (connectedServers.isNotEmpty)
-                        TextButton(
-                          onPressed: () {
-                            // Trigger reconnection for failed servers
-                            services.mcpService.triggerBackgroundConnections();
-                          },
-                          style: TextButton.styleFrom(
-                            minimumSize: const Size(60, 24),
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                          ),
-                          child: const Text('Retry',
-                              style: TextStyle(fontSize: 11)),
-                        ),
-                    ],
-                  ),
-                );
-              },
-            ),
-
-          // Error banner
           if (_errorMessage != null)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              margin: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.error, color: Colors.red, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _errorMessage ?? '',
-                      style: const TextStyle(color: Colors.red),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      setState(() => _errorMessage = null);
-                    },
-                    child: const Text('Dismiss'),
-                  ),
-                ],
-              ),
+            StatusBanner.error(
+              message: _errorMessage!,
+              onDismiss: () => setState(() => _errorMessage = null),
             ),
 
           // Main content based on selected tab
@@ -932,13 +774,13 @@ What would you like to work on today?''',
                         messages: tab.agent.conversationHistory,
                         onSendMessage: (message) =>
                             _handleSendMessage(tab.agent.id, message),
+                        onClearConversation: () =>
+                            _clearAgentConversation(tab.agent.id),
                         showTimestamps: true,
                         inputPlaceholder: tab.agent.isProcessing
                             ? '${tab.agent.name} is thinking...'
                             : 'Ask ${tab.agent.name} anything...',
-                        showInput: _isServiceInitialized &&
-                            !_isLoading &&
-                            !tab.agent.isProcessing,
+                        showInput: _isServiceInitialized && !_isLoading,
                       );
                     },
                   );
