@@ -183,7 +183,7 @@ void main() {
     });
 
     test('🔧 INTEGRATION: getPreviewLines method', () {
-      final content = 'Line 1\nLine 2\nLine 3\nLine 4\nLine 5\nLine 6';
+      const content = 'Line 1\nLine 2\nLine 3\nLine 4\nLine 5\nLine 6';
       final inbox = MCPInboxItem(content: content);
 
       final previewLines = inbox.getPreviewLines();

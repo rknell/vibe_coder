@@ -3,6 +3,7 @@ import 'package:vibe_coder/services/mcp_service.dart';
 import 'package:vibe_coder/services/mcp_content_service.dart';
 import 'package:vibe_coder/services/agent_service.dart';
 import 'package:vibe_coder/services/configuration_service.dart';
+import 'package:vibe_coder/services/layout_service.dart';
 import 'package:vibe_coder/services/debug_logger.dart';
 
 /// Services - Universal App State Management with GetIt
@@ -30,6 +31,9 @@ class Services {
   // 👥 AGENT MANAGEMENT LAYER - Architecture-compliant service
   final AgentService agentService;
 
+  // 🎨 LAYOUT SERVICES LAYER - Discord-style theme and layout management
+  final LayoutService layoutService;
+
   // ⚙️ CONFIGURATION SERVICES LAYER
   final ConfigurationService configurationService;
 
@@ -41,6 +45,7 @@ class Services {
       : mcpService = MCPService(),
         mcpContentService = MCPContentService(),
         agentService = AgentService(),
+        layoutService = LayoutService(),
         configurationService = ConfigurationService(),
         debugLogger = DebugLogger() {
     // 🚀 INITIALIZATION CHAIN: Set up service dependencies
@@ -76,6 +81,7 @@ class Services {
   void dispose() {
     mcpContentService.dispose();
     agentService.dispose();
+    layoutService.dispose();
     mcpService.dispose();
     configurationService.dispose();
     // DebugLogger doesn't need disposal

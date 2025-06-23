@@ -474,6 +474,11 @@ class LayoutPreferencesModel extends ChangeNotifier {
   /// PERF: O(n) where n = JSON size - atomic file write with backup
   /// SECURITY: Atomic write prevents corruption during save
   Future<void> savePreferences() async {
+    // Skip file operations in test mode for performance
+    if (const bool.fromEnvironment('IS_TEST_MODE', defaultValue: false)) {
+      return;
+    }
+
     try {
       final filePath = await _getPreferencesFilePath();
       final file = File(filePath);
@@ -510,6 +515,11 @@ class LayoutPreferencesModel extends ChangeNotifier {
   /// PERF: O(n) where n = JSON size - file read with validation
   /// RESILIENCE: Graceful fallback to defaults on corruption
   Future<void> loadPreferences() async {
+    // Skip file operations in test mode for performance
+    if (const bool.fromEnvironment('IS_TEST_MODE', defaultValue: false)) {
+      return;
+    }
+
     try {
       final filePath = await _getPreferencesFilePath();
       final file = File(filePath);

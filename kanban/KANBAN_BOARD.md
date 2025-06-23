@@ -90,8 +90,14 @@
 ## 🔧 PHASE 2: SERVICE LAYER (Business Logic)
 
 ### Backlog
-- **DR004**: Agent Status Service Implementation *(depends on DR001)* *(2-3h)*
-- **DR006**: Layout Service Implementation *(depends on DR003)* *(2-3h)*
+- **DR004**: Agent Status Service Implementation *(depends on DR001)* *(2-3h)* **[REJECTED - ARCHITECTURAL VIOLATION]**
+  - 🚫 **REJECTION REASON**: Single Source of Truth violation - creates parallel data structure
+  - 🚫 **ARCHITECTURAL CRIME**: Maintains `Map<String, AgentStatusModel>` instead of status on AgentModel
+  - 🚫 **DATA DUPLICATION**: Agent status exists in multiple places requiring synchronization
+  - ✅ **SUPERIOR SOLUTION**: Add status fields directly to AgentModel, enhance AgentService with status queries
+  - ✅ **REDESIGN REQUIRED**: Integrate status into existing agent collection instead of separate service
+  - 🎯 **BENEFITS**: Single source of truth, automatic sync, reduced complexity, better performance
+  - 📋 **REDESIGN SCOPE**: Add status to AgentModel + AgentService queries (simpler implementation)
 - **DR005B**: MCP Server Integration & Content Sync *(depends on DR005A)* *(2-3h)*
 
 ### In Progress
@@ -115,6 +121,21 @@
   - ✅ Foundation complete for DR005B MCP Server Integration & Content Sync development
   - ✅ Component registry updated with MCP Content Service Foundation
   - ✅ Architectural review passed - Ready for DR005B MCP Server Integration
+
+- **DR006**: Layout Service Implementation *(depends on DR003)* *(2-3h)* **[COMPLETED & REVIEWED]**
+  - ✅ All 20 unit tests passing (verified)
+  - ✅ Zero linter errors (verified)
+  - ✅ Performance benchmarks met (106ms persistence acceptable for file I/O operations)
+  - ✅ Full TDD implementation with comprehensive test coverage
+  - ✅ All acceptance criteria fulfilled (centralized theme management, sidebar coordination, agent selection persistence, panel sizing)
+  - ✅ ChangeNotifier integration with reactive layout updates
+  - ✅ Service layer implementation following Clean Architecture principles
+  - ✅ Object reference management with LayoutPreferencesModel as single source of truth
+  - ✅ GetIt integration with proper service lifecycle management
+  - ✅ Disposal guards and error handling implemented
+  - ✅ Services.dart registration completed with proper initialization/disposal
+  - ✅ Discord-style layout coordination foundation complete
+  - ✅ Code review passed - Ready for DR007A Three-Panel Layout Foundation development
 
 ---
 

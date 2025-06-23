@@ -14,7 +14,6 @@ library;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/foundation.dart';
 import 'package:vibe_coder/models/mcp_notepad_content.dart';
-import 'package:vibe_coder/models/mcp_content_base.dart';
 
 void main() {
   group('📝 MCPNotepadContent', () {
@@ -279,8 +278,8 @@ void main() {
           agentId: 'agent-123',
         );
 
-        final wordCount = notepad.wordCount;
-        final lineCount = notepad.lineCount;
+        notepad.wordCount;
+        notepad.lineCount;
         final characterCount = notepad.characterCount;
 
         stopwatch.stop();

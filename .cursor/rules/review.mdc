@@ -1,0 +1,398 @@
+---
+description: Job description and success criteria for code review
+globs: 
+alwaysApply: false
+---
+# ⚔️ ELITE CODE REVIEW WARRIOR PROTOCOL ⚔️
+
+## 🎯 ULTIMATE REVIEW MISSION
+**🏆 ELIMINATE ARCHITECTURAL CRIMES. ENFORCE SINGLE SOURCE OF TRUTH. DISCOVER SUPERIOR SOLUTIONS. 🏆**
+
+This document defines the mandatory code review protocol for VibeCoder following **Elite Warrior Standards** with zero tolerance for architectural violations, code duplication, and lazy workarounds.
+
+## ⚡ REVIEWER COMBAT CLASSIFICATION
+
+### 🌟 LEGENDARY REVIEWER (10,000+ XP)
+**🔥 THE MASTER DESTROYER OF ANTI-PATTERNS**
+- **Detects architectural violations instantly**
+- **Spots single source of truth violations from orbit**
+- **Suggests revolutionary alternatives to proposed solutions**
+- **Mentors junior warriors without mercy**
+- **Rejects tickets that violate sacred architecture rules**
+
+### ⭐ ELITE REVIEWER (5,000+ XP)
+**⚔️ THE ANTI-PATTERN HUNTER**
+- **Catches code duplication across modules**
+- **Identifies better function placement opportunities**
+- **Enforces object-oriented data passing patterns**
+- **Questions implementation approaches fearlessly**
+
+### 🛡️ WARRIOR REVIEWER (2,500+ XP)
+**🎯 THE COMPLIANCE ENFORCER**
+- **Validates architecture protocol adherence**
+- **Ensures proper component extraction**
+- **Checks for banned patterns systematically**
+- **Provides constructive improvement suggestions**
+
+### ⚡ INITIATE REVIEWER (0+ XP)
+**📚 THE LEARNING DESTROYER**
+- **Follows checklist religiously**
+- **Questions everything with curiosity**
+- **Learns from senior warrior feedback**
+- **Builds architectural knowledge systematically**
+
+## 🚨 ULTIMATE REJECTION CRITERIA [INSTANT FAILURE]
+
+### 💀 ARCHITECTURAL DEATH SENTENCES
+**These violations result in IMMEDIATE ticket rejection with ZERO MERCY:**
+
+1. **DATA DUPLICATION CRIMES** (-5000 XP)
+   - Creating copies of objects instead of passing references
+   - Extracting individual fields from objects for method parameters
+   - Converting objects to Maps for internal communication
+   - Maintaining separate copies of the same data
+
+2. **SINGLE SOURCE OF TRUTH VIOLATIONS** (-5000 XP)
+   - Multiple components managing the same data independently
+   - Field extraction instead of whole object passing
+   - Object reconstruction instead of reference mutation
+   - Data synchronization between duplicated sources
+
+3. **PARALLEL DATA STRUCTURE CRIMES** (-5000 XP)
+   - Creating separate collections that mirror existing model data
+   - Maintaining Map<String, Model> alongside List<Model> for same entities
+   - Services that duplicate data already managed by other services
+   - Integration hooks that hide architectural violations
+
+4. **UNNECESSARY SERVICE CREATION** (-4000 XP)
+   - Creating new services when functionality belongs in existing models/services
+   - Service proliferation without architectural justification
+   - Complex service coordination when simple model enhancement would suffice
+   - Violating service layer responsibilities by duplicating model concerns
+
+5. **FUNCTIONAL WIDGET BUILDER CRIMES** (-3000 XP)
+   - Any `_buildSomething()` method in UI components
+   - Functional builders instead of proper component extraction
+   - Violation of Flutter architecture protocols
+
+6. **NULL SAFETY DESTROYER PATTERNS** (-3000 XP)
+   - Usage of `late` variables (except framework-required exceptions)
+   - Null assertion operator `!` usage (except in tests)
+   - Bypassing null safety guarantees
+
+7. **WEAK TYPING VULNERABILITIES** (-2500 XP)
+   - `Map<String, dynamic>` return types (except internal JSON parsing)
+   - Dynamic type usage without strong justification
+   - Lack of compile-time safety for contracts
+
+## 🎯 WARRIOR REVIEW CHECKLIST
+
+### ⚔️ PHASE 0: FUNDAMENTAL ARCHITECTURE QUESTIONING [MANDATORY FIRST]
+
+#### 💀 SERVICE NECESSITY INTERROGATION
+- [ ] **Service Justification**: Is this new service actually needed, or can functionality be added to existing models/services?
+- [ ] **Data Source Analysis**: Does this service manage data that already exists elsewhere in the system?
+- [ ] **Integration Complexity**: Are "integration hooks" actually hiding architectural violations?
+- [ ] **Parallel Structure Detection**: Does this create a secondary data structure mirroring existing collections?
+- [ ] **Simplification Opportunity**: Could this be solved with simple model enhancements instead of new service?
+
+#### 🌐 ARCHITECTURAL QUESTIONING PROTOCOL
+**MANDATORY QUESTIONS FOR EVERY NEW SERVICE:**
+
+1. **🎯 NECESSITY CHALLENGE**: "Why does this need to be a separate service instead of enhancing existing AgentModel/AgentService?"
+
+2. **💀 DATA DUPLICATION AUDIT**: "Does this service maintain data that already exists in another model or service?"
+
+3. **🔄 INTEGRATION HOOK SUSPICION**: "Are the integration hooks hiding the fact that this data should live elsewhere?"
+
+4. **⚡ SIMPLIFICATION TEST**: "Could we achieve the same result by adding fields/methods to existing models?"
+
+5. **🏗️ SINGLE SOURCE VERIFICATION**: "Will this create multiple sources of truth for the same logical data?"
+
+6. **📊 COLLECTION ANALYSIS**: "Are we creating Map<String, SomeModel> when we already have List<SomeModel> elsewhere?"
+
+### ⚔️ PHASE 1: ARCHITECTURAL SUPREMACY [MANDATORY]
+
+#### 🏗️ SINGLE SOURCE OF TRUTH ENFORCEMENT
+- [ ] **Object Reference Validation**: Are whole objects passed instead of individual fields?
+- [ ] **Data Duplication Detection**: Zero copies of the same data across components?
+- [ ] **Mutation Pattern Check**: Direct object mutation instead of reconstruction?
+- [ ] **Service Integration**: Object references managed, not data copies?
+- [ ] **Navigation Pattern**: Complete objects passed between screens?
+
+#### 💻 COMPONENT ARCHITECTURE COMPLIANCE
+- [ ] **Widget State Mandate**: StatefulWidget for screens, StatelessWidget for components?
+- [ ] **Component Extraction**: Zero functional widget builders (`_buildSomething()`)?
+- [ ] **Callback Pattern**: Object-oriented callbacks instead of field extraction?
+- [ ] **ListenableBuilder Positioning**: Strategic reactive UI updates?
+
+#### 🔄 DATA MODEL LAYER VALIDATION
+- [ ] **ChangeNotifier Extension**: All models extend ChangeNotifier?
+- [ ] **State Broadcasting**: `notifyListeners()` called on all changes?
+- [ ] **Self-Management**: Models handle own persistence and validation?
+- [ ] **Object Integrity**: Single source of truth maintained?
+
+### ⚔️ PHASE 2: ANTI-PATTERN ANNIHILATION [CRITICAL]
+
+#### 💀 CODE DUPLICATION EXTERMINATION
+- [ ] **Logic Duplication**: Repeated code blocks across files/modules?
+- [ ] **Copy-Paste Detection**: Similar functions that could be consolidated?
+- [ ] **Validation Redundancy**: Same business rules implemented multiple times?
+- [ ] **Configuration Duplication**: Hardcoded values repeated across contexts?
+- [ ] **Error Handling Patterns**: Consistent error handling implementations?
+
+#### 🎯 FUNCTION PLACEMENT OPTIMIZATION
+- [ ] **Responsibility Alignment**: Functions placed in correct architectural layer?
+- [ ] **Coupling Reduction**: Functions moved to reduce inter-module dependencies?
+- [ ] **Cohesion Maximization**: Related functions grouped appropriately?
+- [ ] **Abstraction Level**: Functions at appropriate abstraction for their layer?
+- [ ] **Reusability Enhancement**: Functions positioned for maximum reuse potential?
+
+#### 🌐 BETTER SOLUTION DISCOVERY
+- [ ] **Alternative Approach Analysis**: Is there a fundamentally better way?
+- [ ] **Pattern Recognition**: Could established patterns solve this more elegantly?
+- [ ] **Library/Framework Utilization**: Existing solutions instead of reinventing?
+- [ ] **Performance Implications**: More efficient approaches available?
+- [ ] **Maintenance Burden**: Solutions that reduce long-term complexity?
+
+### ⚔️ PHASE 3: EXCELLENCE ENFORCEMENT [OPTIMIZATION]
+
+#### 🔒 SECURITY & PERFORMANCE FORTRESS
+- [ ] **Input Validation**: Comprehensive sanitization and validation?
+- [ ] **Authentication/Authorization**: Proper access control implementation?
+- [ ] **Performance Bottlenecks**: Efficient algorithms and data structures?
+- [ ] **Resource Management**: Proper cleanup and disposal patterns?
+- [ ] **Concurrency Safety**: Thread-safe operations where needed?
+
+#### 📚 DOCUMENTATION & TESTING SUPREMACY
+- [ ] **Test Coverage**: Comprehensive unit/integration test suite?
+- [ ] **Documentation Quality**: Clear, accurate, and helpful documentation?
+- [ ] **Code Clarity**: Self-documenting code with meaningful names?
+- [ ] **Error Messages**: Helpful, actionable error reporting?
+- [ ] **API Design**: Intuitive and consistent interface design?
+
+## 🎮 GAMIFIED SCORING SYSTEM
+
+### 🏆 XP REWARDS FOR REVIEWERS
+
+#### ⚡ DETECTION BONUSES
+- **Architectural Violation Detection**: +1000 XP
+- **Parallel Data Structure Detection**: +1000 XP
+- **Unnecessary Service Identification**: +750 XP
+- **Code Duplication Discovery**: +500 XP
+- **Better Solution Suggestion**: +750 XP
+- **Security Vulnerability Catch**: +800 XP
+- **Performance Optimization Idea**: +600 XP
+
+#### 🎯 IMPROVEMENT SUGGESTIONS
+- **Service Simplification Proposal**: +500 XP
+- **Model Enhancement Alternative**: +400 XP
+- **Constructive Alternative Proposal**: +400 XP
+- **Learning Resource Sharing**: +300 XP
+- **Pattern Recognition**: +350 XP
+- **Mentoring Moment**: +250 XP
+
+#### 💀 ANTI-PATTERN ELIMINATION
+- **Parallel Data Structure Destruction**: +750 XP
+- **Unnecessary Service Prevention**: +600 XP
+- **Functional Widget Builder Destruction**: +500 XP
+- **Data Duplication Annihilation**: +600 XP
+- **Null Safety Violation Catch**: +400 XP
+- **Weak Typing Detection**: +350 XP
+
+### 🚨 XP PENALTIES FOR AUTHORS
+
+#### 💀 ARCHITECTURAL CRIMES
+- **Parallel Data Structure Creation**: -5000 XP
+- **Single Source of Truth Violation**: -5000 XP
+- **Unnecessary Service Creation**: -4000 XP
+- **Data Duplication Implementation**: -1500 XP
+- **Functional Widget Builder Usage**: -1000 XP
+- **Null Safety Bypass**: -1200 XP
+
+#### ⚠️ QUALITY VIOLATIONS
+- **Insufficient Test Coverage**: -500 XP
+- **Poor Documentation**: -300 XP
+- **Code Duplication**: -600 XP
+- **Security Vulnerability Introduction**: -1000 XP
+
+#### 🔄 IMPROVEMENT OPPORTUNITIES
+- **Accepting Better Solution**: +200 XP
+- **Implementing Suggested Refactor**: +300 XP
+- **Adding Comprehensive Tests**: +250 XP
+- **Improving Documentation**: +150 XP
+
+## 🔥 REVIEW EXECUTION PROTOCOLS
+
+### ⚔️ MANDATORY REVIEW QUESTIONS
+**Every reviewer MUST answer these questions:**
+
+1. **🏗️ SERVICE NECESSITY**: "Is this new service actually needed, or should this functionality be integrated into existing models/services?"
+
+2. **💀 PARALLEL DATA DETECTION**: "Does this create a secondary data structure that mirrors data already managed elsewhere?"
+
+3. **🔄 INTEGRATION HOOK ANALYSIS**: "Are the integration hooks hiding architectural violations or data duplication?"
+
+4. **🎯 SOLUTION QUALITY**: "Is this the BEST way to solve this problem, or is there a superior approach?"
+
+5. **🏗️ ARCHITECTURAL ALIGNMENT**: "Does this strictly follow VibeCoder architecture protocols with zero violations?"
+
+6. **💀 DUPLICATION DETECTION**: "Is this functionality implemented elsewhere, and could it be consolidated?"
+
+7. **🔄 OBJECT-ORIENTED COMPLIANCE**: "Are whole objects passed instead of extracted fields?"
+
+8. **🌐 SINGLE SOURCE OF TRUTH**: "Is there exactly ONE authoritative source for this data?"
+
+9. **⚡ PERFORMANCE IMPACT**: "Will this solution scale efficiently under production loads?"
+
+10. **🛡️ SECURITY IMPLICATIONS**: "Are there any security vulnerabilities or risks introduced?"
+
+11. **📚 MAINTAINABILITY**: "Will future developers understand and be able to modify this code easily?"
+
+12. **🎯 SIMPLIFICATION POTENTIAL**: "Could this be achieved with simple model enhancements instead of service proliferation?"
+
+### 🚀 REVIEW VELOCITY TARGETS
+
+#### ⚡ SPEED REQUIREMENTS
+- **Small PRs (< 200 lines)**: 2 hours maximum
+- **Medium PRs (200-500 lines)**: 24 hours maximum  
+- **Large PRs (500+ lines)**: REJECTED - must be split
+
+#### 🎯 QUALITY THRESHOLDS
+- **Architecture Compliance**: 100% required
+- **Test Coverage**: 90% minimum for new code
+- **Documentation Coverage**: All public APIs documented
+- **Performance Regression**: Zero tolerance
+
+## 🏆 LEGENDARY REVIEW EXAMPLES
+
+### ✅ WARRIOR APPROVED FEEDBACK
+
+**🎯 SUPERIOR SOLUTION DISCOVERY:**
+```
+"While this implementation works, consider using the Observer pattern 
+instead of polling. This would reduce CPU usage by 80% and improve 
+real-time responsiveness. See [link to pattern documentation]."
+```
+
+**⚔️ ARCHITECTURAL ENFORCEMENT:**
+```
+"This violates Single Source of Truth principle by extracting agent.name 
+and agent.temperature as separate parameters. Pass the entire AgentModel 
+object to maintain object reference integrity. See architecture.mdc 
+Section 2.1 for required pattern."
+```
+
+**💀 PARALLEL DATA STRUCTURE DETECTION:**
+```
+"CRITICAL ARCHITECTURAL VIOLATION: This AgentStatusService creates a 
+Map<String, AgentStatusModel> that duplicates agent data already managed 
+by AgentService. This violates Single Source of Truth and creates 
+synchronization complexity. SOLUTION: Add status fields directly to 
+AgentModel and enhance AgentService with status query methods. This 
+eliminates data duplication and reduces architectural complexity."
+```
+
+**🏗️ SERVICE NECESSITY QUESTIONING:**
+```
+"This new service is unnecessary - agent status should be a simple field 
+on AgentModel, not a separate service. The 'integration hooks' are hiding 
+the fact that we're creating parallel data structures. The superior 
+solution is to add setProcessing(), setIdle(), setError() methods directly 
+to AgentModel and query methods to AgentService. This follows our 
+architectural principle of enhancing existing models rather than creating 
+service proliferation."
+```
+
+**💀 ANTI-PATTERN ELIMINATION:**
+```
+"Detected functional widget builder _buildSettingsCard(). Extract this 
+into SettingsCard component following flutter_architecture.mdc protocols. 
+This reduces complexity and improves reusability."
+```
+
+**🔄 INTEGRATION HOOK SUSPICION:**
+```
+"These integration hooks (onAgentMessageStart, onAgentMCPOperationStart) 
+suggest architectural violation. When you need complex integration hooks 
+to synchronize data, it indicates the data lives in the wrong place. 
+Agent processing status should be a direct property of AgentModel, not 
+managed by a separate service requiring synchronization."
+```
+
+### 🚫 BANNED WEAK FEEDBACK
+
+**❌ VAGUE CRITICISM:**
+```
+"This code looks complicated"  // NO ACTIONABLE GUIDANCE
+```
+
+**❌ ACCEPTANCE OF VIOLATIONS:**
+```
+"This works fine"  // IGNORES ARCHITECTURAL VIOLATIONS
+```
+
+**❌ NITPICKING:**
+```
+"Add a space here"  // FOCUS ON SUBSTANCE, NOT STYLE
+```
+
+## 🎪 REVIEW CULTURE PROTOCOLS
+
+### 🤝 COLLABORATION STANDARDS
+- **Assume Positive Intent**: Authors want to write good code
+- **Focus on Code, Not Coder**: Attack the problem, not the person
+- **Suggest, Don't Demand**: Propose better alternatives with reasoning
+- **Learn Together**: Reviews are bilateral learning opportunities
+- **Celebrate Excellence**: Acknowledge great solutions publicly
+
+### 📈 CONTINUOUS IMPROVEMENT
+- **Pattern Library Updates**: Document new anti-patterns discovered
+- **Architecture Evolution**: Update protocols based on lessons learned
+- **Tool Enhancement**: Improve automated detection capabilities
+- **Knowledge Sharing**: Regular architecture review sessions
+
+### 🎯 SUCCESS METRICS
+- **Architecture Compliance Rate**: Track violations over time
+- **Code Duplication Index**: Measure and reduce duplication
+- **Review Velocity**: Balance speed with thoroughness
+- **Developer Satisfaction**: Ensure reviews add value, not friction
+
+## 🚨 ESCALATION PROCEDURES
+
+### 💀 IMMEDIATE ESCALATION TRIGGERS
+1. **Architecture Rule Violations**: Author refuses to fix violations
+2. **Security Vulnerabilities**: Critical security issues ignored
+3. **Performance Regressions**: Significant performance degradation
+4. **Repeated Pattern Violations**: Author shows pattern of ignoring feedback
+
+### 📞 ESCALATION CHAIN
+1. **Senior Reviewer**: Architecture expert review
+2. **Tech Lead**: Team leadership intervention
+3. **Engineering Manager**: Management escalation
+4. **Architecture Council**: Final authority for architecture disputes
+
+## ⚰️ VICTORY CONDITIONS
+
+### ✅ APPROVED TICKET CRITERIA
+- [ ] **Zero Architecture Violations**: Perfect compliance with VibeCoder protocols
+- [ ] **Single Source of Truth Maintained**: No data duplication detected
+- [ ] **Superior Solution Confirmed**: Best possible approach validated
+- [ ] **Comprehensive Test Coverage**: All critical paths tested
+- [ ] **Security Validated**: No vulnerabilities introduced
+- [ ] **Performance Verified**: No regressions detected
+- [ ] **Documentation Complete**: All public interfaces documented
+
+### 🏆 REVIEW EXCELLENCE ACHIEVED
+**When ticket meets ALL criteria above:**
+- **Author Gains**: +500 XP for architectural excellence
+- **Reviewer Gains**: +300 XP for thorough validation
+- **Team Gains**: Reduced technical debt and improved quality
+
+**⚰️ ARCHITECTURAL EXCELLENCE OR DEATH! ⚰️**
+
+---
+
+*"In the realm of code review, there are no participation trophies. Only architectural supremacy, single source of truth enforcement, and the relentless pursuit of superior solutions. Review with the fury of a thousand warriors, for mediocrity is the enemy of greatness."*
+
+**🔥 MAY YOUR REVIEWS BE SWIFT, YOUR FEEDBACK DEVASTATING, AND YOUR ARCHITECTURE ETERNAL! 🔥**
