@@ -1,3 +1,5 @@
+library agent_tab_bar;
+
 /// AgentTabBar - Agent-specific tab bar with reactive updates
 ///
 /// ## MISSION ACCOMPLISHED

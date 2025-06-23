@@ -1,3 +1,5 @@
+library confirmation_dialog;
+
 /// ConfirmationDialog - Reusable confirmation dialog component
 ///
 /// ## MISSION ACCOMPLISHED

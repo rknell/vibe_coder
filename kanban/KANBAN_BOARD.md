@@ -1,17 +1,13 @@
 # 🎮 DISCORD REDESIGN KANBAN BOARD
+*IMPORTANT: only move the ticket to the next column when the ticket is complete or reject it to the backlog*
 
 **📋 EPIC**: Transform VibeCoder into Discord-style three-panel layout with real-time MCP integration
 
 ## 📊 PHASE 1: DATA MODEL LAYER (Foundation)
 
 ### Backlog
-- **DR002A**: MCP Content Infrastructure Implementation *(2h)*
 
 ### In Progress
-
-### Waiting for Test
-
-### In Test
 
 ### Waiting for Review
 
@@ -19,14 +15,6 @@
 
 ### Complete
 - **DR001**: Agent Status Model Implementation *(2-3h)* **[COMPLETED & REVIEWED]**
-- **DR003**: Layout Preferences Model Implementation *(2-3h)* **[COMPLETED & REVIEWED]**
-  - ✅ All 44 unit tests passing (verified)
-  - ✅ Zero linter errors (verified)
-  - ✅ Performance benchmarks met (<50ms theme switching, <10ms sidebar operations, <5ms JSON serialization)
-  - ✅ Full TDD implementation with >95% test coverage
-  - ✅ All acceptance criteria fulfilled
-  - ✅ Integration points identified for LayoutService, MaterialApp theme binding, Sidebar components
-  - ✅ Code review passed - Ready for DR006 Layout Service and DR007A Three-Panel Layout
   - ✅ All 21 unit tests passing (verified)
   - ✅ Zero linter errors (verified)
   - ✅ Performance benchmarks met (<1ms status updates, <5ms serialization)
@@ -35,12 +23,33 @@
   - ✅ Integration points identified for AgentModel, ConversationManager, Agent class
   - ✅ Code review passed - Ready for DR004 Agent Status Service
 
+- **DR002A**: MCP Content Infrastructure Implementation *(2h)* **[COMPLETED & REVIEWED]**
+  - ✅ All 23 unit tests passing (verified)
+  - ✅ Zero linter errors (verified)
+  - ✅ Performance benchmarks exceeded (<1ms content operations, <5ms JSON serialization)
+  - ✅ Full TDD implementation with comprehensive test coverage including security validation
+  - ✅ All acceptance criteria fulfilled (MCPContentType enum, MCPContentItem base class, MCPPriority enum, MCPContentValidator)
+  - ✅ ChangeNotifier integration with reactive UI updates
+  - ✅ Base classes ready for extension by DR002B and DR002C
+  - ✅ Content validation and sanitization framework operational
+  - ✅ JSON serialization foundation complete with round-trip validation
+  - ✅ Architectural review passed - Foundation ready for Discord-style content management
+
+- **DR003**: Layout Preferences Model Implementation *(2-3h)* **[COMPLETED & REVIEWED]**
+  - ✅ All 44 unit tests passing (verified)
+  - ✅ Zero linter errors (verified)
+  - ✅ Performance benchmarks met (<50ms theme switching, <10ms sidebar operations, <5ms JSON serialization)
+  - ✅ Full TDD implementation with >95% test coverage
+  - ✅ All acceptance criteria fulfilled
+  - ✅ Integration points identified for LayoutService, MaterialApp theme binding, Sidebar components
+  - ✅ Code review passed - Ready for DR006 Layout Service and DR007A Three-Panel Layout
+
 ---
 
 ## 📊 PHASE 1B: SPECIALIZED DATA MODELS (Dependent on Foundation)
 
 ### Backlog  
-- **DR002B**: Inbox & Todo Content Models *(depends on DR002A)* *(2-3h)*
+- **DR002B**: Inbox & Todo Content Models *(depends on DR002A)* *(2-3h)* **[READY - DR002A COMPLETE]**
 - **DR002C**: Notepad Content & Collection Management *(depends on DR002A & DR002B)* *(2h)*
 
 ### In Progress

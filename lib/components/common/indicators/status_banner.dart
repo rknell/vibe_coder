@@ -1,3 +1,5 @@
+library status_banner;
+
 /// StatusBanner - Universal status message display component
 ///
 /// ## MISSION ACCOMPLISHED

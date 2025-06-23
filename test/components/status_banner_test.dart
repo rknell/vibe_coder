@@ -1,3 +1,5 @@
+library status_banner_test;
+
 /// StatusBanner Component Tests - Comprehensive test coverage
 ///
 /// PERMANENT TEST FORTRESS: Regression protection for status display component

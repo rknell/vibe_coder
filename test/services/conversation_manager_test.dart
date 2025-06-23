@@ -131,6 +131,7 @@ void main() {
       // Configure logging for tests
       Logger.root.level = Level.INFO;
       Logger.root.onRecord.listen((record) {
+        // ignore: avoid_print
         print('${record.level.name}: ${record.time}: ${record.message}');
       });
 
