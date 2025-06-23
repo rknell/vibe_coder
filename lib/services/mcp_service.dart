@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
 import 'package:vibe_coder/models/mcp_server_model.dart';
@@ -47,6 +48,12 @@ class MCPService extends ChangeNotifier {
   bool _isLoading = false;
   String? _lastError;
 
+  // 🚀 NON-BLOCKING CONNECTION SYSTEM
+  bool _backgroundConnectionsStarted = false;
+  Timer? _backgroundConnectionTimer;
+  final Set<String> _connectionAttempts =
+      {}; // Track connection attempts to prevent duplicates
+
   /// 🚀 INITIALIZATION: Load all MCP servers from persistence
   ///
   /// PERF: O(n) where n = number of server files
@@ -79,6 +86,9 @@ class MCPService extends ChangeNotifier {
 
       _logger.info('✅ MCP SERVICE: Initialized with ${data.length} servers');
       notifyListeners();
+
+      // 🚀 START NON-BLOCKING CONNECTIONS: Begin background server connections
+      _startBackgroundConnections();
     } catch (e, stackTrace) {
       _logger.severe(
           '💥 MCP SERVICE: Initialization failed - $e', e, stackTrace);
@@ -87,6 +97,131 @@ class MCPService extends ChangeNotifier {
       notifyListeners();
       rethrow; // Bubble stack trace to surface
     }
+  }
+
+  /// 🌐 NON-BLOCKING CONNECTIONS: Start background server connections
+  ///
+  /// PERF: O(1) - immediate return, connections happen asynchronously
+  /// ARCHITECTURAL: Allows app to be usable immediately while servers connect
+  void _startBackgroundConnections() {
+    if (_backgroundConnectionsStarted || data.isEmpty) return;
+
+    _backgroundConnectionsStarted = true;
+    _logger.info(
+        '🌐 BACKGROUND CONNECTIONS: Starting non-blocking MCP server connections');
+    _logger.info('📊 SERVERS TO CONNECT: ${data.length} servers configured');
+
+    // Start connections with a small delay to ensure UI is ready
+    _backgroundConnectionTimer = Timer(const Duration(milliseconds: 500), () {
+      _connectServersInBackground();
+    });
+  }
+
+  /// 🔄 BACKGROUND CONNECTION WORKER: Connect servers asynchronously
+  ///
+  /// PERF: O(n) - connects each server, but non-blocking for UI
+  /// ARCHITECTURAL: Individual server failures don't block other connections
+  void _connectServersInBackground() async {
+    _logger.info('🔄 CONNECTING: Starting background MCP server connections');
+
+    // Process servers in parallel for faster connection
+    final connectionFutures = <Future<void>>[];
+
+    for (final server in data) {
+      // Skip if already connected or connection already attempted
+      if (server.status == MCPServerStatus.connected ||
+          _connectionAttempts.contains(server.id)) {
+        continue;
+      }
+
+      // Track connection attempt
+      _connectionAttempts.add(server.id);
+
+      // Create connection future
+      final connectionFuture = _connectServerSafely(server);
+      connectionFutures.add(connectionFuture);
+    }
+
+    if (connectionFutures.isEmpty) {
+      _logger.info(
+          '⏭️ SKIP CONNECTIONS: All servers already connected or attempted');
+      return;
+    }
+
+    _logger.info(
+        '🚀 PARALLEL CONNECTIONS: Attempting ${connectionFutures.length} server connections');
+
+    // Wait for all connections to complete (or fail)
+    await Future.wait(
+      connectionFutures,
+      eagerError: false, // Don't stop on first error
+    );
+
+    // Get connection status after all attempts complete
+    final connectedServers = getByStatus(MCPServerStatus.connected);
+
+    _logger.info('✅ BACKGROUND CONNECTIONS COMPLETE:');
+    _logger.info('🔌 CONNECTED: ${connectedServers.length} servers online');
+    _logger.info('🛠️ TOOLS AVAILABLE: ${getAllTools().length} total tools');
+
+    if (connectedServers.isNotEmpty) {
+      _logger.info(
+          '🎯 READY: MCP infrastructure is now available for AI conversations');
+    } else {
+      _logger.warning(
+          '⚠️ NO CONNECTIONS: No MCP servers could be connected - AI will work without tools');
+    }
+
+    // Notify UI of connection status changes
+    notifyListeners();
+  }
+
+  /// 🛡️ SAFE CONNECTION: Connect individual server with error isolation
+  ///
+  /// PERF: O(1) per server - isolated connection attempt
+  /// ARCHITECTURAL: Individual failures don't impact other servers or app stability
+  Future<void> _connectServerSafely(MCPServerModel server) async {
+    try {
+      _logger.info(
+          '🔌 CONNECTING: ${server.name} (${server.type.toString().split('.').last})');
+
+      // Update status to show connection attempt
+      server.updateStatus(MCPServerStatus.connecting);
+      notifyListeners(); // Update UI immediately
+
+      await connectServer(server.id);
+
+      _logger.info(
+          '✅ CONNECTED: ${server.name} - ${server.availableTools.length} tools loaded');
+    } catch (e) {
+      _logger.warning('⚠️ CONNECTION FAILED: ${server.name} - $e');
+
+      // Update status to show failure, but don't rethrow
+      server.updateStatus(MCPServerStatus.error);
+      notifyListeners(); // Update UI with error status
+
+      // Continue with other servers - this is non-blocking
+    }
+  }
+
+  /// 🎯 PUBLIC API: Manually trigger background connections
+  ///
+  /// PERF: O(1) - immediate return if already started
+  /// ARCHITECTURAL: Allows manual retry of failed connections
+  void triggerBackgroundConnections() {
+    if (!_isInitialized) {
+      _logger.warning('⚠️ TRIGGER FAILED: Service not initialized yet');
+      return;
+    }
+
+    _logger
+        .info('🔄 MANUAL TRIGGER: Starting background connections on demand');
+
+    // Reset connection attempts to allow retry
+    _connectionAttempts.clear();
+    _backgroundConnectionsStarted = false;
+
+    _startBackgroundConnections();
   }
 
   /// 📋 COLLECTION LOADING: Load all servers from data directory
@@ -933,6 +1068,10 @@ class MCPService extends ChangeNotifier {
   @override
   void dispose() {
     _logger.info('🧹 DISPOSING: MCP service');
+
+    // Cancel background connection timer
+    _backgroundConnectionTimer?.cancel();
+    _backgroundConnectionTimer = null;
 
     // Close all client connections
     for (final client in _clients.values) {

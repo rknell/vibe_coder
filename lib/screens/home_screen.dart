@@ -790,6 +790,83 @@ What would you like to work on today?''',
               ),
             ),
 
+          // MCP Connection Status - Non-blocking connection progress
+          if (_isServiceInitialized)
+            ListenableBuilder(
+              listenable: services.mcpService,
+              builder: (context, child) {
+                final mcpService = services.mcpService;
+                final connectedServers = mcpService.connectedServers;
+                final totalServers = mcpService.data;
+                final connectingServers = totalServers
+                    .where((s) => s.status == MCPServerStatus.connecting);
+
+                // Only show status if there are servers connecting or recently connected
+                if (connectingServers.isEmpty && connectedServers.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+
+                final isConnecting = connectingServers.isNotEmpty;
+                final statusText = isConnecting
+                    ? 'Connecting to MCP servers... (${connectedServers.length}/${totalServers.length} ready)'
+                    : 'MCP servers connected (${connectedServers.length}/${totalServers.length}) - ${mcpService.getAllTools().length} tools available';
+
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(8),
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: isConnecting
+                        ? Colors.orange.withValues(alpha: 0.1)
+                        : Colors.green.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                        color: isConnecting
+                            ? Colors.orange.withValues(alpha: 0.3)
+                            : Colors.green.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isConnecting)
+                        const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      else
+                        Icon(Icons.check_circle, color: Colors.green, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          statusText,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isConnecting
+                                ? Colors.orange[800]
+                                : Colors.green[800],
+                          ),
+                        ),
+                      ),
+                      if (connectedServers.isNotEmpty)
+                        TextButton(
+                          onPressed: () {
+                            // Trigger reconnection for failed servers
+                            services.mcpService.triggerBackgroundConnections();
+                          },
+                          style: TextButton.styleFrom(
+                            minimumSize: const Size(60, 24),
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                          ),
+                          child: const Text('Retry',
+                              style: TextStyle(fontSize: 11)),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
+
           // Error banner
           if (_errorMessage != null)
             Container(

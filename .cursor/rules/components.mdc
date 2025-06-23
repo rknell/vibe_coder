@@ -28,6 +28,7 @@ alwaysApply: false
 | **MessageContent** | `message_parts/message_content.dart` | `ChatMessage` → `Widget` | O(1) | **HIGH** - Text content display |
 | **MessageReasoningContent** | `message_parts/message_reasoning_content.dart` | `ChatMessage` → `Widget` | O(1) | **MEDIUM** - AI reasoning display |
 | **MessageToolCalls** | `message_parts/message_tool_calls.dart` | `List<Map>` → `Widget` | O(n) | **HIGH** - Tool call lists |
+| **MessageToolCallsEnhanced** | `message_parts/message_tool_calls_enhanced.dart` | `List<Map>` → `Widget` | O(n) | **HIGH** - Enhanced tool call display |
 | **MessageTimestamp** | `message_parts/message_timestamp.dart` | `DateTime` → `Widget` | O(1) | **MAXIMUM** - Any timestamp display |
 | **MessageAvatar** | `message_parts/message_avatar.dart` | `MessageRole` → `Widget` | O(1) | **HIGH** - Profile indicators |
 
@@ -109,6 +110,7 @@ alwaysApply: false
 | Component | Location | Domain | Universal Applicability |
 |-----------|----------|--------|----------------------|
 | **ToolsInfoDialog** | `common/dialogs/tools_info_dialog.dart` | MCP Tool Display | **MCP Integration** |
+| **MCPServerManagementDialog** | `common/dialogs/mcp_server_management_dialog.dart` | MCP Server Management | **MCP Administration** |
 | **ChatStatusIndicator** | `common/indicators/chat_status_indicator.dart` | Status Visualization | **ANY STATUS DISPLAY** |
 
 ---
@@ -126,6 +128,7 @@ alwaysApply: false
   - User profile editing
   - API key input fields
   - Filter input components
+  - MCP server management dialogs
 
 #### 🎯 **MessageTimestamp Component**
 **UNIVERSAL TIME DISPLAY COMPONENT**
@@ -135,6 +138,7 @@ alwaysApply: false
   - File modification times
   - Agent creation dates
   - Tool call timestamps
+  - MCP server connection times
   - Any datetime display needs
 
 #### 🎯 **ToolCallJsonDisplay Component**
@@ -145,7 +149,18 @@ alwaysApply: false
   - Debug log data display
   - API response visualization
   - Agent model data display
+  - MCP server response display
   - Any JSON data presentation
+
+#### 🎯 **ChatStatusIndicator Component**
+**UNIVERSAL STATUS VISUALIZATION**
+- **Current Users**: Chat status display
+- **Expansion Targets**:
+  - MCP server connection status
+  - Agent processing status
+  - Configuration validation status
+  - Debug overlay connection status
+  - Any boolean/enum status display
 
 ### 🚨 CRITICAL COMPONENT EXTRACTION TARGETS
 
@@ -163,7 +178,21 @@ alwaysApply: false
 🏆 VICTORY IMPACT: Massive - enables debug UI everywhere
 ```
 
-#### **PRIORITY 2: AgentListComponent Sub-Components**
+#### **PRIORITY 2: MCPServerManagementDialog Sub-Components**
+```
+📍 LOCATION: lib/components/common/dialogs/mcp_server_management_dialog.dart
+🎯 EXTRACTION TARGETS:
+- MCPServerCard (server display card)
+- MCPServerStatusIndicator (connection status)
+- MCPServerActions (refresh/start/stop buttons)
+- MCPServerDetails (expandable server info)
+
+💥 REUSE MULTIPLICATION: 6x potential for MCP management
+⚔️ EXTRACTION DIFFICULTY: Medium - dialog state dependencies
+🏆 VICTORY IMPACT: High - enables MCP management everywhere
+```
+
+#### **PRIORITY 3: AgentListComponent Sub-Components**
 ```
 📍 LOCATION: lib/components/agents/agent_list_component.dart
 🎯 EXTRACTION TARGETS:
@@ -177,18 +206,40 @@ alwaysApply: false
 🏆 VICTORY IMPACT: High - enables consistent list UIs
 ```
 
-#### **PRIORITY 3: Generic List Components**
+#### **PRIORITY 4: Generic List Components**
 ```
 🎯 CREATE NEW UNIVERSAL COMPONENTS:
 - GenericListHeader (from AgentListHeader pattern)
 - GenericErrorDisplay (from AgentListErrorDisplay pattern)
 - GenericEmptyState (from existing empty states)
 - GenericItemCard (from ToolCallCard pattern)
+- GenericStatusCard (from ChatStatusIndicator pattern)
 
 💥 REUSE MULTIPLICATION: 10x+ potential
 ⚔️ CREATION DIFFICULTY: Medium - requires abstraction
 🏆 VICTORY IMPACT: MAXIMUM - universal list components
 ```
+
+---
+
+## 🎯 COMPONENT SIZE & COMPLEXITY ANALYSIS
+
+### 📊 COMPONENT METRICS
+| Component | Size (KB) | Lines | Complexity | Extraction Priority |
+|-----------|-----------|-------|------------|-------------------|
+| **AgentSettingsDialog** | 40KB | 1206 | **MEGA** | **IMMEDIATE** |
+| **MCPServerManagementDialog** | 26KB | 773 | **ULTRA** | **IMMEDIATE** |
+| **DebugOverlay** | 22KB | 714 | **ULTRA** | **IMMEDIATE** |
+| **AgentListComponent** | 16KB | 560 | **HIGH** | **HIGH** |
+| **AgentConfigurationScreen** | 16KB | 479 | **HIGH** | **MEDIUM** |
+| **MessageReasoningContent** | 11KB | 244 | **MEDIUM** | **LOW** |
+
+### 🚨 MEGA-COMPONENT BREAKDOWN TARGETS
+**Components over 20KB MUST be broken down:**
+
+1. **AgentSettingsDialog (40KB)** - Extract form sections, validation components, dialog actions
+2. **MCPServerManagementDialog (26KB)** - Extract server cards, status indicators, action buttons
+3. **DebugOverlay (22KB)** - Extract tab bar, filter bar, log entries, export actions
 
 ---
 
@@ -213,7 +264,11 @@ alwaysApply: false
    - **PENALTY**: -1000 XP (DUPLICATION SIN)
    - **SOLUTION**: Use MessageTimestamp component
 
-5. **Manual Error Display**: Custom error widgets
+5. **Manual Status Display**: Custom status widgets
+   - **PENALTY**: -800 XP (PATTERN VIOLATION)
+   - **SOLUTION**: Use ChatStatusIndicator or create GenericStatusIndicator
+
+6. **Manual Error Display**: Custom error widgets
    - **PENALTY**: -800 XP (PATTERN VIOLATION)
    - **SOLUTION**: Use or create GenericErrorDisplay
 
@@ -223,7 +278,8 @@ alwaysApply: false
 1. ✅ **Search existing components**: `grep -r "class.*Widget" lib/components/`
 2. ✅ **Check interfaces**: Can existing component handle this use case?
 3. ✅ **Evaluate extraction**: Can this be abstracted for reuse?
-4. ✅ **Document decision**: Why new component vs. existing?
+4. ✅ **Size check**: Is this component over 10KB? Consider breaking down.
+5. ✅ **Document decision**: Why new component vs. existing?
 
 ---
 
@@ -294,6 +350,39 @@ class [Name]ListComponent extends StatelessWidget {
 }
 ```
 
+#### **Dialog Component Interface**
+```dart
+// MANDATORY PATTERN for all dialog components
+class [Name]Dialog extends StatefulWidget {
+  const [Name]Dialog({
+    super.key,
+    required this.data,
+    this.onSave,
+    this.onCancel,
+    this.isReadOnly = false,
+  });
+
+  final [DataType] data;
+  final void Function([DataType])? onSave;
+  final VoidCallback? onCancel;
+  final bool isReadOnly;
+
+  static Future<[DataType]?> show({
+    required BuildContext context,
+    required [DataType] data,
+    bool isReadOnly = false,
+  }) async {
+    return showDialog<[DataType]>(
+      context: context,
+      builder: (context) => [Name]Dialog(
+        data: data,
+        isReadOnly: isReadOnly,
+      ),
+    );
+  }
+}
+```
+
 ---
 
 ## 🏆 COMPONENT VICTORY CONDITIONS
@@ -306,6 +395,7 @@ class [Name]ListComponent extends StatelessWidget {
 - **🔄 REUSABILITY**: At least 2 potential use cases identified
 - **🎯 NAMING**: Clear, descriptive component name
 - **📦 EXPORTS**: Proper barrel exports added
+- **📏 SIZE CHECK**: Component under 10KB or breakdown justified
 
 ### ✅ **Component Reuse Checklist**
 - **🔍 INTERFACE MATCH**: Existing component interface fits use case
@@ -313,6 +403,13 @@ class [Name]ListComponent extends StatelessWidget {
 - **📋 DOCUMENTATION**: Usage example added to component docs
 - **🧪 TESTING**: New use case covered in tests
 - **⚡ PERFORMANCE**: No performance regression introduced
+
+### ✅ **Component Breakdown Checklist**
+- **📏 SIZE ANALYSIS**: Component over 10KB analyzed for breakdown
+- **🎯 SEPARATION**: Single responsibility principle enforced
+- **🔄 REUSABILITY**: Sub-components have independent value
+- **📋 DOCUMENTATION**: Breakdown rationale documented
+- **🧪 TESTING**: All sub-components tested independently
 
 ---
 
@@ -324,11 +421,13 @@ class [Name]ListComponent extends StatelessWidget {
 3. **Documentation Completeness**: All new components documented
 4. **Test Coverage**: All components have minimum test coverage
 5. **Performance Analysis**: No O(n²) rendering introduced
+6. **Size Analysis**: Components over 10KB justified or broken down
 
 ### 🛡️ **ONGOING MONITORING**
 - **Weekly Component Audit**: Review new components for reuse opportunities
 - **Monthly Refactoring**: Extract reusable patterns from existing code
 - **Quarterly Architecture Review**: Validate component architecture decisions
+- **Size Monitoring**: Track component growth and enforce breakdown protocols
 
 ---
 
