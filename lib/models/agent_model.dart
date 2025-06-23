@@ -80,6 +80,10 @@ class AgentModel extends ChangeNotifier {
   // MCP configuration
   String? mcpConfigPath;
 
+  // MCP server and tool preferences
+  Map<String, bool> mcpServerPreferences;
+  Map<String, bool> mcpToolPreferences;
+
   // Agent relationships
   String? supervisorId;
   List<String> contextFiles;
@@ -108,6 +112,8 @@ class AgentModel extends ChangeNotifier {
     this.useBetaFeatures = false,
     this.useReasonerModel = false,
     this.mcpConfigPath,
+    Map<String, bool>? mcpServerPreferences,
+    Map<String, bool>? mcpToolPreferences,
     this.supervisorId,
     List<String>? contextFiles,
     List<String>? toDoList,
@@ -118,7 +124,9 @@ class AgentModel extends ChangeNotifier {
         contextFiles = contextFiles ?? [],
         toDoList = toDoList ?? [],
         conversationHistory = conversationHistory ?? [],
-        metadata = metadata ?? {};
+        metadata = metadata ?? {},
+        mcpServerPreferences = mcpServerPreferences ?? {},
+        mcpToolPreferences = mcpToolPreferences ?? {};
 
   /// Create agent from JSON data
   ///
@@ -154,6 +162,10 @@ class AgentModel extends ChangeNotifier {
       useBetaFeatures: json['useBetaFeatures'] as bool? ?? false,
       useReasonerModel: json['useReasonerModel'] as bool? ?? false,
       mcpConfigPath: json['mcpConfigPath'] as String?,
+      mcpServerPreferences:
+          Map<String, bool>.from(json['mcpServerPreferences'] as Map? ?? {}),
+      mcpToolPreferences:
+          Map<String, bool>.from(json['mcpToolPreferences'] as Map? ?? {}),
       supervisorId: json['supervisorId'] as String?,
       contextFiles: List<String>.from(json['contextFiles'] as List? ?? []),
       toDoList: List<String>.from(json['toDoList'] as List? ?? []),
@@ -181,6 +193,8 @@ class AgentModel extends ChangeNotifier {
       'useBetaFeatures': useBetaFeatures,
       'useReasonerModel': useReasonerModel,
       'mcpConfigPath': mcpConfigPath,
+      'mcpServerPreferences': mcpServerPreferences,
+      'mcpToolPreferences': mcpToolPreferences,
       'supervisorId': supervisorId,
       'contextFiles': contextFiles,
       'toDoList': toDoList,
@@ -205,6 +219,8 @@ class AgentModel extends ChangeNotifier {
     bool? useBetaFeatures,
     bool? useReasonerModel,
     String? mcpConfigPath,
+    Map<String, bool>? mcpServerPreferences,
+    Map<String, bool>? mcpToolPreferences,
     String? supervisorId,
     List<String>? contextFiles,
     List<String>? toDoList,
@@ -225,6 +241,10 @@ class AgentModel extends ChangeNotifier {
       useBetaFeatures: useBetaFeatures ?? this.useBetaFeatures,
       useReasonerModel: useReasonerModel ?? this.useReasonerModel,
       mcpConfigPath: mcpConfigPath ?? this.mcpConfigPath,
+      mcpServerPreferences:
+          mcpServerPreferences ?? Map.from(this.mcpServerPreferences),
+      mcpToolPreferences:
+          mcpToolPreferences ?? Map.from(this.mcpToolPreferences),
       supervisorId: supervisorId ?? this.supervisorId,
       contextFiles: contextFiles ?? List.from(this.contextFiles),
       toDoList: toDoList ?? List.from(this.toDoList),
@@ -305,6 +325,62 @@ class AgentModel extends ChangeNotifier {
     notifyListeners(); // MANDATORY after any change
   }
 
+  /// Set MCP server preference
+  ///
+  /// PERF: O(1) - direct map update with notification
+  /// ARCHITECTURAL: Mandatory notifyListeners() after state change
+  void setMCPServerPreference(String serverName, bool enabled) {
+    if (mcpServerPreferences[serverName] != enabled) {
+      mcpServerPreferences[serverName] = enabled;
+      lastActiveAt = DateTime.now();
+      notifyListeners(); // MANDATORY after any change
+    }
+  }
+
+  /// Set MCP tool preference
+  ///
+  /// PERF: O(1) - direct map update with notification
+  /// ARCHITECTURAL: Mandatory notifyListeners() after state change
+  void setMCPToolPreference(String toolId, bool enabled) {
+    if (mcpToolPreferences[toolId] != enabled) {
+      mcpToolPreferences[toolId] = enabled;
+      lastActiveAt = DateTime.now();
+      notifyListeners(); // MANDATORY after any change
+    }
+  }
+
+  /// Get MCP server preference (defaults to true if not set)
+  ///
+  /// PERF: O(1) - direct map access
+  bool getMCPServerPreference(String serverName) {
+    return mcpServerPreferences[serverName] ?? true;
+  }
+
+  /// Get MCP tool preference (defaults to true if not set)
+  ///
+  /// PERF: O(1) - direct map access
+  bool getMCPToolPreference(String toolId) {
+    return mcpToolPreferences[toolId] ?? true;
+  }
+
+  /// Set all MCP server preferences
+  ///
+  /// PERF: O(n) where n = number of servers
+  /// ARCHITECTURAL: Mandatory notifyListeners() after state change
+  void setAllMCPServerPreferences(List<String> serverNames, bool enabled) {
+    bool changed = false;
+    for (final serverName in serverNames) {
+      if (mcpServerPreferences[serverName] != enabled) {
+        mcpServerPreferences[serverName] = enabled;
+        changed = true;
+      }
+    }
+    if (changed) {
+      lastActiveAt = DateTime.now();
+      notifyListeners(); // MANDATORY after any change
+    }
+  }
+
   /// Validate agent data
   ///
   /// PERF: O(1) - field validation
@@ -364,9 +440,7 @@ class AgentModel extends ChangeNotifier {
   Agent _getAgentInstance() {
     if (_agentInstance == null) {
       _agentInstance = Agent(
-        name: name,
-        systemPrompt: systemPrompt,
-        mcpConfigPath: mcpConfigPath,
+        agentModel: this,
       );
 
       // Sync existing conversation history to agent

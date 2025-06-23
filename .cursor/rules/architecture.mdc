@@ -10,6 +10,261 @@ alwaysApply: true
 
 This document defines the mandatory layered architecture for VibeCoder following **Clean Architecture** principles with Flutter-specific optimizations using **Repository Pattern + Observer Pattern** hybrid architecture.
 
+## ⚔️ SINGLE SOURCE OF TRUTH SUPREMACY
+**🏆 OBJECT-ORIENTED DATA PASSING & ZERO DUPLICATION PROTOCOL**
+
+### 🎯 CORE PRINCIPLE
+**💀 ELIMINATE DATA DUPLICATION - PASS WHOLE OBJECTS - MAINTAIN SINGLE SOURCE OF TRUTH**
+
+All data must have exactly ONE authoritative source. All components must receive and manipulate the SAME object instances, never copies or transposed data.
+
+### 💻 OBJECT-ORIENTED PATTERNS (MANDATORY)
+
+#### ⚔️ PASS WHOLE MODELS PATTERN:
+```dart
+// ✅ WARRIOR APPROVED: Pass entire model object
+class AgentSettingsDialog extends StatefulWidget {
+  final AgentModel agent; // Single source of truth
+  
+  void _updateSettings() {
+    agent.updateTemperature(0.7); // Direct mutation
+    agent.updateModel('deepseek-chat'); // Direct mutation
+    agent.save(); // Persistence handled by model
+    // UI updates automatically via ChangeNotifier
+  }
+}
+
+// ✅ WARRIOR APPROVED: Pass entire collection
+class AgentListComponent extends StatelessWidget {
+  final List<AgentModel> agents; // Direct reference to service data
+  
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      itemCount: agents.length,
+      itemBuilder: (context, index) {
+        final agent = agents[index]; // Direct reference
+        return AgentListItem(agent: agent); // Pass whole object
+      },
+    );
+  }
+}
+```
+
+#### 🚫 BANNED ANTI-PATTERNS:
+```dart
+// ❌ DATA DUPLICATION CRIME: Transposing data
+class AgentSettingsDialog extends StatefulWidget {
+  final String agentId;
+  final String agentName;
+  final double temperature;
+  final String model;
+  // VIOLATION: Duplicated data creates inconsistency
+}
+
+// ❌ COPY CREATION CRIME: Creating data copies
+class AgentListComponent extends StatelessWidget {
+  final List<Map<String, dynamic>> agentData; // WEAK TYPING + DUPLICATION
+  
+  void _buildAgentData() {
+    final agentData = agents.map((agent) => {
+      'id': agent.id,
+      'name': agent.name,
+      'temperature': agent.temperature,
+    }).toList(); // CRIME: Creating copies instead of passing objects
+  }
+}
+
+// ❌ FIELD EXTRACTION CRIME: Extracting individual fields
+void _navigateToSettings(String agentId, String name, double temp) {
+  // VIOLATION: Extracting fields instead of passing whole object
+}
+```
+
+### 🎯 OBJECT MUTATION PROTOCOL
+
+#### ⚔️ DIRECT OBJECT MANIPULATION:
+```dart
+// ✅ WARRIOR APPROVED: Direct model mutation
+class ConfigurationService {
+  void updateAgentConfiguration(AgentModel agent, AgentConfiguration config) {
+    agent.updateFromConfiguration(config); // Direct mutation
+    agent.save(); // Model handles persistence
+    // All UI components automatically update via ChangeNotifier
+  }
+}
+
+// ✅ WARRIOR APPROVED: Object method delegation
+class AgentActions {
+  final AgentModel agent;
+  
+  void deleteAgent() {
+    agent.delete(); // Model handles its own deletion
+    // Service will automatically update via ChangeNotifier
+  }
+  
+  void activateAgent() {
+    agent.setActive(true); // Direct state change
+    // All dependent UI updates automatically
+  }
+}
+```
+
+#### 🚫 BANNED TRANSPOSITION PATTERNS:
+```dart
+// ❌ SETTINGS EXTRACTION CRIME: Extracting settings
+class ConfigurationService {
+  void updateAgentSettings(String agentId, {
+    String? name,
+    double? temperature,
+    String? model,
+  }) {
+    // VIOLATION: Extracting individual fields instead of passing whole object
+  }
+}
+
+// ❌ DATA RECONSTRUCTION CRIME: Rebuilding objects
+class AgentActions {
+  void updateAgent(String id, String name, double temp) {
+    final agent = AgentModel(
+      id: id,
+      name: name,
+      temperature: temp,
+    ); // CRIME: Reconstructing instead of mutating existing object
+  }
+}
+```
+
+### 🎯 WRAPPER COMPONENT PROTOCOL
+
+#### ⚔️ OBJECT-ORIENTED WRAPPER PATTERN:
+```dart
+// ✅ WARRIOR APPROVED: Wrapper receives whole object
+class AgentWrapper extends StatelessWidget {
+  final AgentModel agent; // Single source of truth
+  final Widget child;
+  
+  @override
+  Widget build(BuildContext context) {
+    return Provider<AgentModel>.value(
+      value: agent, // Pass whole object to descendants
+      child: child,
+    );
+  }
+}
+
+// ✅ WARRIOR APPROVED: Wrapper provides object access
+class AgentCardWrapper extends StatelessWidget {
+  final AgentModel agent;
+  final Widget Function(AgentModel) builder;
+  
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: builder(agent), // Pass object to builder
+    );
+  }
+}
+```
+
+#### 🚫 BANNED WRAPPER ANTI-PATTERNS:
+```dart
+// ❌ DATA TRANSPOSITION CRIME: Wrapper extracts data
+class AgentWrapper extends StatelessWidget {
+  final String agentName;
+  final double temperature;
+  final String model;
+  // VIOLATION: Extracting fields instead of passing object
+}
+
+// ❌ SETTINGS WRAPPER CRIME: Wrapper handles individual settings
+class AgentCardWrapper extends StatelessWidget {
+  final String name;
+  final bool isActive;
+  final int messageCount;
+  // VIOLATION: Duplicating data instead of object reference
+}
+```
+
+### 🎯 SERVICE INTEGRATION PROTOCOL
+
+#### ⚔️ OBJECT REFERENCE PATTERN:
+```dart
+// ✅ WARRIOR APPROVED: Services manage object references
+class AgentService extends ChangeNotifier {
+  List<AgentModel> data = []; // Single source of truth
+  
+  void updateAgent(AgentModel agent) {
+    // Object already exists in collection
+    // UI updates automatically via agent's ChangeNotifier
+    notifyListeners(); // Optional: notify collection change
+  }
+  
+  AgentModel getAgentById(String id) {
+    return data.firstWhere((agent) => agent.id == id);
+    // Returns same object instance - no duplication
+  }
+}
+```
+
+#### 🚫 BANNED SERVICE ANTI-PATTERNS:
+```dart
+// ❌ DATA DUPLICATION CRIME: Service creates copies
+class AgentService extends ChangeNotifier {
+  void updateAgent(String id, Map<String, dynamic> updates) {
+    final agent = data.firstWhere((a) => a.id == id);
+    final updatedAgent = AgentModel.fromJson({
+      ...agent.toJson(),
+      ...updates,
+    }); // CRIME: Creating copies instead of mutating
+  }
+}
+
+// ❌ FIELD EXTRACTION CRIME: Service extracts individual fields
+class AgentService extends ChangeNotifier {
+  void updateAgentName(String id, String name) {
+    final agent = data.firstWhere((a) => a.id == id);
+    // VIOLATION: Method should receive whole object or use agent.updateName()
+  }
+}
+```
+
+### 🚫 ULTIMATE BANNED PATTERNS
+
+#### 💀 DATA DUPLICATION CRIMES:
+- Creating copies of objects instead of passing references
+- Extracting individual fields from objects for method parameters
+- Transposing object data to different data structures
+- Rebuilding objects from extracted data
+- Maintaining separate copies of the same data
+
+#### 💀 TRANSPOSITION CRIMES:
+- Converting objects to Maps for data passing
+- Extracting object properties for individual parameters
+- Creating DTOs (Data Transfer Objects) for internal communication
+- Serializing objects for internal component communication
+- Flattening object hierarchies for parameter passing
+
+#### 💀 WRAPPER CRIMES:
+- Wrappers that extract data instead of receiving objects
+- Components that accept individual fields instead of objects
+- Builders that receive decomposed data instead of objects
+- Providers that supply individual values instead of objects
+
+### 🏆 SINGLE SOURCE OF TRUTH VICTORY CONDITIONS
+
+#### ✅ MANDATORY COMPLIANCE:
+- [ ] All components receive whole object instances
+- [ ] Zero data duplication across the application
+- [ ] All object mutations happen on the original instance
+- [ ] All navigation passes complete objects
+- [ ] All services manage object references, not copies
+- [ ] All wrappers receive and pass whole objects
+- [ ] All method parameters are objects, not extracted fields
+- [ ] All UI components operate on the same object instances
+
+**⚰️ SINGLE SOURCE OF TRUTH OR ARCHITECTURAL DEATH! ⚰️**
+
 ## 🏗️ ARCHITECTURAL LAYERS
 
 ### 1. 📊 DATA MODEL LAYER
@@ -22,15 +277,18 @@ This document defines the mandatory layered architecture for VibeCoder following
 - **Relationship Management**: Populate related records via functions/getters
 - **Data Validation**: Handle validation at individual record level
 - **JSON Persistence**: Manage own persistence in `/data` directory
+- **Object Integrity**: Maintain single source of truth for all data
 
 #### 💻 IMPLEMENTATION PATTERN:
 ```dart
 class AgentModel extends ChangeNotifier {
   String id;
   String name;
+  double temperature;
+  String model;
   // ... other fields
 
-  // Self-management methods
+  // Self-management methods that maintain object integrity
   Future<void> save() async {
     // Save to /data/agents/${id}.json
     notifyListeners(); // MANDATORY after any change
@@ -41,15 +299,38 @@ class AgentModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Validation
-  bool validate() {
-    // Handle validation logic here
-    return isValid;
+  // Direct mutation methods (OBJECT-ORIENTED)
+  void updateTemperature(double newTemperature) {
+    temperature = newTemperature;
+    notifyListeners(); // UI updates automatically
   }
 
-  // Related data access
+  void updateModel(String newModel) {
+    model = newModel;
+    notifyListeners(); // UI updates automatically
+  }
+
+  void updateFromConfiguration(AgentConfiguration config) {
+    // Update multiple fields from configuration object
+    name = config.name;
+    temperature = config.temperature;
+    model = config.model;
+    notifyListeners(); // Single notification for bulk update
+  }
+
+  // Validation operates on complete object
+  bool validate() {
+    return name.isNotEmpty && 
+           temperature >= 0 && 
+           temperature <= 2 &&
+           model.isNotEmpty;
+  }
+
+  // Related data access returns object references
   List<MCPServerModel> get availableMCPServers {
-    // Return related MCP servers
+    // Return references to actual server objects
+    return services.mcpService.data.where((server) => 
+      server.isAvailableForAgent(this)).toList();
   }
 }
 ```
@@ -58,39 +339,68 @@ class AgentModel extends ChangeNotifier {
 - External persistence handling (Service layer should NOT handle persistence)
 - Silent state changes (MUST call `notifyListeners()`)
 - Cross-entity validation (handle in individual models)
+- **Field extraction methods** (extract individual fields for external use)
+- **Data transposition methods** (convert to Maps/DTOs for internal use)
+- **Copy creation methods** (create duplicate instances)
 
 ### 2. 🔧 SERVICE / DATA MODEL SERVICE LAYER
 **Multi-Record Management & Business Logic**
 
 #### 🎯 CORE RESPONSIBILITIES:
-- **Collection Management**: Handle lists of data models
+- **Collection Management**: Handle lists of data models as object references
 - **Loading Operations**: Populate full lists (loadAllAgents, loadAllMCPServers)
-- **Filtering Functions**: Convenient access (getByName, getById)
-- **State Management**: Maintain `List<DataModel> data` field
-- **Business Logic**: Multi-record operations and complex workflows
+- **Filtering Functions**: Convenient access (getByName, getById) returning object references
+- **State Management**: Maintain `List<DataModel> data` field with actual object instances
+- **Business Logic**: Multi-record operations using object-oriented patterns
 - **Global State**: App-wide state management via `ChangeNotifier`
+- **Object Reference Management**: Ensure single source of truth across collections
 
 #### 💻 IMPLEMENTATION PATTERN:
 ```dart
 class AgentService extends ChangeNotifier {
-  List<AgentModel> data = [];
+  List<AgentModel> data = []; // Single source of truth collection
 
-  // Collection management
+  // Collection management with object references
   Future<void> loadAll() async {
-    // Load all agents from /data directory
-    data = await _loadAgentsFromDisk();
+    data = await _loadAgentsFromDisk(); // Load actual objects
     notifyListeners(); // MANDATORY after data changes
   }
 
-  // Filtering functions
-  AgentModel? getById(String id) => data.firstWhere((a) => a.id == id);
-  AgentModel? getByName(String name) => data.firstWhere((a) => a.name == name);
+  // Filtering functions return object references (not copies)
+  AgentModel? getById(String id) => 
+    data.firstWhereOrNull((agent) => agent.id == id);
+  
+  AgentModel? getByName(String name) => 
+    data.firstWhereOrNull((agent) => agent.name == name);
 
-  // Business operations
+  // Business operations using whole objects
   Future<void> createAgent(AgentModel agent) async {
     await agent.save(); // Model handles its own persistence
-    data.add(agent);
+    data.add(agent); // Add object reference to collection
     notifyListeners();
+  }
+
+  Future<void> updateAgent(AgentModel agent) async {
+    // Object already exists in collection and is mutated directly
+    // No need to update collection - same object reference
+    await agent.save(); // Model handles persistence
+    notifyListeners(); // Notify collection observers
+  }
+
+  Future<void> deleteAgent(AgentModel agent) async {
+    await agent.delete(); // Model handles its own deletion
+    data.remove(agent); // Remove object reference from collection
+    notifyListeners();
+  }
+
+  // Multi-agent operations using object references
+  Future<void> bulkUpdateAgents(List<AgentModel> agents, 
+                                AgentConfiguration config) async {
+    for (final agent in agents) {
+      agent.updateFromConfiguration(config); // Direct object mutation
+      await agent.save();
+    }
+    notifyListeners(); // Single notification for bulk operation
   }
 }
 ```
@@ -99,17 +409,22 @@ class AgentService extends ChangeNotifier {
 - Direct persistence handling (models handle their own persistence)
 - UI logic in services (pure business logic only)
 - Silent collection changes (MUST call `notifyListeners()`)
+- **Creating object copies** (always work with same instances)
+- **Field extraction parameters** (methods should receive whole objects)
+- **Data transposition** (converting objects to Maps for internal use)
 
 ### 3. 🎨 UI COMPONENTS LAYER
-**Stateless Display Components with Callbacks (Default)**
+**Stateless Display Components with Object-Oriented Callbacks**
 
 > **⚡ CROSS-REFERENCE**: For detailed component extraction protocols and functional widget builder elimination, see `flutter_architecture.mdc`.
 
 #### 🎯 CORE RESPONSIBILITIES:
 - **Pure Display**: Stateless widgets for individual UI elements
+- **Object-Oriented Interface**: Receive whole objects, not individual fields
 - **Minimal Logic**: Simple display logic only
-- **Callback Pattern**: Use callbacks to parent for data manipulation
+- **Callback Pattern**: Use object-oriented callbacks to parent for data manipulation
 - **Reusability**: General-purpose components for multiple contexts
+- **Single Source of Truth**: Always display data from original object instances
 
 #### ⚔️ WIDGET STATE SUPREMACY:
 - **🛡️ DEFAULT: StatelessWidget** - All components MUST be StatelessWidget by default
@@ -120,13 +435,13 @@ class AgentService extends ChangeNotifier {
   - Form validation state that cannot be lifted up
 - **🚨 JUSTIFICATION REQUIRED**: Any StatefulWidget component MUST include comment explaining necessity
 
-#### 💻 IMPLEMENTATION PATTERN (STATELESS DEFAULT):
+#### 💻 OBJECT-ORIENTED IMPLEMENTATION PATTERN:
 ```dart
 class AgentListViewItem extends StatelessWidget {
-  final AgentModel agent;
-  final VoidCallback? onTap;
-  final VoidCallback? onEdit;
-  final VoidCallback? onDelete;
+  final AgentModel agent; // Single source of truth
+  final void Function(AgentModel)? onTap; // Object-oriented callback
+  final void Function(AgentModel)? onEdit; // Object-oriented callback
+  final void Function(AgentModel)? onDelete; // Object-oriented callback
 
   const AgentListViewItem({
     Key? key,
@@ -139,59 +454,96 @@ class AgentListViewItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      title: Text(agent.name),
-      subtitle: Text('${agent.messages.length} messages'),
-      onTap: onTap,
+      title: Text(agent.name), // Direct object property access
+      subtitle: Text('${agent.messages.length} messages • ${agent.model}'),
       trailing: PopupMenuButton(
         itemBuilder: (context) => [
-          PopupMenuItem(child: Text('Edit'), onTap: onEdit),
-          PopupMenuItem(child: Text('Delete'), onTap: onDelete),
+          PopupMenuItem(
+            child: Text('Edit'),
+            onTap: () => onEdit?.call(agent), // Pass whole object
+          ),
+          PopupMenuItem(
+            child: Text('Delete'),
+            onTap: () => onDelete?.call(agent), // Pass whole object
+          ),
         ],
       ),
+      onTap: () => onTap?.call(agent), // Pass whole object
     );
   }
 }
-```
 
-#### 💻 STATEFUL EXCEPTION PATTERN (RARE USAGE):
-```dart
-// WARRIOR PROTOCOL EXCEPTION: TextEditingController requires StatefulWidget for proper disposal
-class SearchFilterComponent extends StatefulWidget {
-  final ValueChanged<String> onSearchChanged;
-  
-  const SearchFilterComponent({Key? key, required this.onSearchChanged}) : super(key: key);
-  
-  @override
-  State<SearchFilterComponent> createState() => _SearchFilterComponentState();
-}
+class AgentConfigurationForm extends StatelessWidget {
+  final AgentModel agent; // Single source of truth
+  final void Function(AgentModel)? onSave; // Object-oriented callback
 
-class _SearchFilterComponentState extends State<SearchFilterComponent> {
-  final TextEditingController _controller = TextEditingController();
-  
-  @override
-  void dispose() {
-    _controller.dispose(); // MANDATORY resource cleanup
-    super.dispose();
-  }
-  
+  const AgentConfigurationForm({
+    Key? key,
+    required this.agent,
+    this.onSave,
+  }) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: _controller,
-      onChanged: widget.onSearchChanged,
+    return Column(
+      children: [
+        TextField(
+          controller: TextEditingController(text: agent.name),
+          onChanged: (value) => agent.updateName(value), // Direct mutation
+        ),
+        Slider(
+          value: agent.temperature,
+          onChanged: (value) => agent.updateTemperature(value), // Direct mutation
+          min: 0,
+          max: 2,
+        ),
+        DropdownButton<String>(
+          value: agent.model,
+          onChanged: (value) => agent.updateModel(value!), // Direct mutation
+          items: availableModels.map((model) => 
+            DropdownMenuItem(value: model, child: Text(model))).toList(),
+        ),
+        ElevatedButton(
+          onPressed: () => onSave?.call(agent), // Pass whole object
+          child: Text('Save'),
+        ),
+      ],
     );
   }
 }
 ```
 
-#### 🚫 BANNED PATTERNS:
-- Direct service manipulation (use callbacks only)
-- StatefulWidget without clear justification (default to StatelessWidget)
-- Business logic in components (delegate to parent)
-- Unnecessary state management (lift state up to parent screens)
+#### 🚫 BANNED COMPONENT ANTI-PATTERNS:
+```dart
+// ❌ FIELD EXTRACTION CRIME: Component accepts individual fields
+class AgentListViewItem extends StatelessWidget {
+  final String agentId;
+  final String agentName;
+  final int messageCount;
+  final String model;
+  // VIOLATION: Should receive whole AgentModel object
+}
+
+// ❌ CALLBACK FIELD CRIME: Callbacks extract individual fields
+class AgentListViewItem extends StatelessWidget {
+  final AgentModel agent;
+  final void Function(String id, String name)? onEdit; // VIOLATION: Should pass whole object
+}
+
+// ❌ DATA EXTRACTION CRIME: Component extracts data for display
+class AgentCard extends StatelessWidget {
+  final AgentModel agent;
+  
+  Map<String, dynamic> get agentData => {
+    'name': agent.name,
+    'model': agent.model,
+    'temperature': agent.temperature,
+  }; // VIOLATION: Creating data copies instead of using object directly
+}
+```
 
 ### 4. 📱 SCREEN WIDGETS LAYER
-**Stateful Orchestration & State Management (Always StatefulWidget)**
+**Stateful Orchestration & Object-Oriented State Management**
 
 #### ⚔️ WIDGET STATE MANDATES:
 - **💀 MANDATORY: StatefulWidget** - ALL screen widgets MUST be StatefulWidget
@@ -199,14 +551,15 @@ class _SearchFilterComponentState extends State<SearchFilterComponent> {
 - **🎯 JUSTIFICATION**: Screens manage lifecycle, navigation, service integration, and future state needs
 
 #### 🎯 CORE RESPONSIBILITIES:
-- **State Orchestration**: Stateful widgets managing screen state
+- **State Orchestration**: Stateful widgets managing screen state with object references
 - **Service Integration**: Direct interaction with Services and DataModels
-- **Navigation Logic**: Only logic allowed is `Navigator.of(context).push()`
+- **Object-Oriented Navigation**: Pass whole objects between screens
 - **Reactive UI**: Use `ListenableBuilder` positioned strategically
 - **Error Handling**: Display errors from lower layers with stack traces
 - **Lifecycle Management**: initState(), dispose(), and other lifecycle methods
+- **Single Source of Truth**: Maintain object references across screen lifecycle
 
-#### 💻 IMPLEMENTATION PATTERN:
+#### 💻 OBJECT-ORIENTED SCREEN PATTERN:
 ```dart
 class AgentListScreen extends StatefulWidget {
   @override
@@ -217,28 +570,32 @@ class _AgentListScreenState extends State<AgentListScreen> {
   @override
   void initState() {
     super.initState();
-    services.agentService.loadAll(); // Direct service interaction
+    services.agentService.loadAll(); // Load object references
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: ListenableBuilder( // Positioned close to changing content
+      body: ListenableBuilder(
         listenable: services.agentService,
         builder: (context, child) {
           return ListView.builder(
             itemCount: services.agentService.data.length,
             itemBuilder: (context, index) {
-              final agent = services.agentService.data[index];
+              final agent = services.agentService.data[index]; // Object reference
               return AgentListViewItem(
-                agent: agent,
-                onTap: () => _navigateToDetail(agent),
-                onEdit: () => _editAgent(agent),
-                onDelete: () => _deleteAgent(agent),
+                agent: agent, // Pass whole object
+                onTap: (agent) => _navigateToDetail(agent), // Object-oriented callback
+                onEdit: (agent) => _editAgent(agent), // Object-oriented callback
+                onDelete: (agent) => _deleteAgent(agent), // Object-oriented callback
               );
             },
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _createNewAgent,
+        child: Icon(Icons.add),
       ),
     );
   }
@@ -246,23 +603,72 @@ class _AgentListScreenState extends State<AgentListScreen> {
   void _navigateToDetail(AgentModel agent) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => AgentDetailScreen(agent: agent), // Pass whole model
+        builder: (context) => AgentDetailScreen(agent: agent), // Pass whole object
       ),
     );
   }
 
   void _editAgent(AgentModel agent) {
-    // Call model methods directly
-    // UI will update via ListenableBuilder automatically
+    showDialog(
+      context: context,
+      builder: (context) => AgentSettingsDialog(agent: agent), // Pass whole object
+    );
+  }
+
+  void _deleteAgent(AgentModel agent) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete Agent'),
+        content: Text('Delete ${agent.name}?'), // Direct object access
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              services.agentService.deleteAgent(agent); // Pass whole object
+              Navigator.pop(context);
+            },
+            child: Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _createNewAgent() {
+    final newAgent = AgentModel.create(); // Create new object
+    showDialog(
+      context: context,
+      builder: (context) => AgentSettingsDialog(agent: newAgent), // Pass whole object
+    );
   }
 }
 ```
 
-#### 🚫 BANNED PATTERNS:
-- StatelessWidget screens (ALL screens must be StatefulWidget)
-- Root-level `ListenableBuilder` (position close to changing content)
-- Business logic in screens (delegate to services)
-- Named routes (use direct navigation with model passing)
+#### 🚫 BANNED SCREEN ANTI-PATTERNS:
+```dart
+// ❌ FIELD EXTRACTION CRIME: Screen extracts individual fields
+void _navigateToDetail(String agentId, String agentName) {
+  // VIOLATION: Should pass whole AgentModel object
+}
+
+// ❌ DATA TRANSPOSITION CRIME: Screen converts objects to data
+void _editAgent(AgentModel agent) {
+  final agentData = {
+    'id': agent.id,
+    'name': agent.name,
+    'temperature': agent.temperature,
+  }; // VIOLATION: Creating data copies instead of passing object
+}
+
+// ❌ FIELD PARAMETER CRIME: Screen methods accept individual fields
+void _deleteAgent(String agentId, String agentName) {
+  // VIOLATION: Should receive whole AgentModel object
+}
+```
 
 ### 5. 🌐 API/DATABASE LAYER
 **Data Transport & Authentication**
@@ -366,37 +772,108 @@ class MockServices implements Services {
 - Filtered stack traces (preserve full debugging information)
 
 ## 🔄 INTER-SCREEN COMMUNICATION
+**Object-Oriented Data Flow & Single Source of Truth**
 
-### 🎯 DATA FLOW PATTERNS
+### 🎯 OBJECT-ORIENTED DATA FLOW PATTERNS
 
-#### 💻 NAVIGATION WITH MODEL PASSING:
+#### ⚔️ NAVIGATION WITH WHOLE OBJECT PASSING:
 ```dart
-// Pass whole model to detail screen
+// ✅ WARRIOR APPROVED: Pass complete object to detail screen
 Navigator.of(context).push(
   MaterialPageRoute(
-    builder: (context) => AgentDetailScreen(agent: agent),
+    builder: (context) => AgentDetailScreen(agent: agent), // Whole object
   ),
 );
 
-// Detail screen calls model methods directly
-class AgentDetailScreen extends StatelessWidget {
-  final AgentModel agent;
+// ✅ WARRIOR APPROVED: Detail screen operates on same object instance
+class AgentDetailScreen extends StatefulWidget {
+  final AgentModel agent; // Single source of truth
 
+  @override
+  _AgentDetailScreenState createState() => _AgentDetailScreenState();
+}
+
+class _AgentDetailScreenState extends State<AgentDetailScreen> {
   void _saveChanges() {
-    agent.save(); // Model handles persistence
+    widget.agent.save(); // Direct mutation of original object
     // UI updates automatically via ChangeNotifier
+  }
+
+  void _updateConfiguration(AgentConfiguration config) {
+    widget.agent.updateFromConfiguration(config); // Direct object mutation
+    // All other screens showing this agent update automatically
   }
 }
 ```
 
-#### 💻 GLOBAL NOTIFICATIONS:
+#### 🚫 BANNED NAVIGATION ANTI-PATTERNS:
 ```dart
+// ❌ FIELD EXTRACTION CRIME: Passing individual fields
+Navigator.of(context).push(
+  MaterialPageRoute(
+    builder: (context) => AgentDetailScreen(
+      agentId: agent.id,
+      agentName: agent.name,
+      temperature: agent.temperature,
+    ), // VIOLATION: Should pass whole object
+  ),
+);
+
+// ❌ DATA SERIALIZATION CRIME: Converting object to data
+Navigator.of(context).push(
+  MaterialPageRoute(
+    builder: (context) => AgentDetailScreen(
+      agentData: agent.toJson(), // VIOLATION: Creating copy via serialization
+    ),
+  ),
+);
+```
+
+#### ⚔️ GLOBAL OBJECT-ORIENTED NOTIFICATIONS:
+```dart
+// ✅ WARRIOR APPROVED: Global notifications with object references
 class NotificationService extends ChangeNotifier {
+  AgentModel? _activeAgent;
   String? _currentMessage;
   
-  void showGlobalMessage(String message) {
+  void showAgentNotification(AgentModel agent, String message) {
+    _activeAgent = agent; // Object reference, not copy
     _currentMessage = message;
     notifyListeners();
+  }
+  
+  void clearNotification() {
+    _activeAgent = null;
+    _currentMessage = null;
+    notifyListeners();
+  }
+}
+
+// ✅ WARRIOR APPROVED: Cross-screen agent updates
+class AgentSyncService extends ChangeNotifier {
+  void syncAgentAcrossScreens(AgentModel agent) {
+    // Agent object is shared across all screens
+    // Any mutation automatically updates all UI components
+    agent.updateLastActivity(DateTime.now());
+    // No explicit syncing needed - single source of truth
+  }
+}
+```
+
+#### 🚫 BANNED GLOBAL NOTIFICATION ANTI-PATTERNS:
+```dart
+// ❌ DATA DUPLICATION CRIME: Storing agent data separately
+class NotificationService extends ChangeNotifier {
+  String? _agentId;
+  String? _agentName;
+  double? _temperature;
+  // VIOLATION: Duplicating agent data instead of object reference
+}
+
+// ❌ CROSS-SCREEN SYNC CRIME: Manual data synchronization
+class AgentSyncService extends ChangeNotifier {
+  void syncAgentData(String agentId, Map<String, dynamic> data) {
+    // VIOLATION: Should use object references, not data syncing
   }
 }
 ```
@@ -431,7 +908,7 @@ data/                # JSON Persistence
 
 ## 🏆 VICTORY CONDITIONS
 
-### ✅ COMPLIANCE CHECKLIST:
+### ✅ ARCHITECTURAL COMPLIANCE CHECKLIST:
 - [ ] All data models extend `ChangeNotifier`
 - [ ] All state changes call `notifyListeners()`
 - [ ] Services manage collections with `List<DataModel> data`
@@ -444,4 +921,30 @@ data/                # JSON Persistence
 - [ ] Navigation passes whole models as props
 - [ ] API clients focus on transport only
 
-**⚰️ TOTAL ARCHITECTURAL COMPLIANCE OR DEFEAT! ⚰️**
+### ✅ SINGLE SOURCE OF TRUTH COMPLIANCE CHECKLIST:
+- [ ] All components receive whole object instances (never individual fields)
+- [ ] Zero data duplication across the entire application
+- [ ] All object mutations happen on the original instance
+- [ ] All navigation passes complete objects (never serialized data)
+- [ ] All services manage object references, not copies
+- [ ] All wrappers receive and pass whole objects
+- [ ] All method parameters are objects, not extracted fields
+- [ ] All UI components operate on the same object instances
+- [ ] All callbacks pass whole objects (never individual fields)
+- [ ] All inter-screen communication uses object references
+- [ ] All global state management uses object references
+- [ ] Zero field extraction patterns across the codebase
+- [ ] Zero data transposition patterns across the codebase
+- [ ] Zero object copy creation patterns across the codebase
+
+### ✅ OBJECT-ORIENTED DESIGN COMPLIANCE CHECKLIST:
+- [ ] All models provide direct mutation methods
+- [ ] All services use object-oriented business logic
+- [ ] All components use object-oriented callback patterns
+- [ ] All screens use object-oriented navigation patterns
+- [ ] All data validation operates on complete objects
+- [ ] All persistence operations use object self-management
+- [ ] All relationship management uses object references
+- [ ] All state broadcasting uses object ChangeNotifier patterns
+
+**⚰️ TOTAL ARCHITECTURAL COMPLIANCE + SINGLE SOURCE OF TRUTH OR DEFEAT! ⚰️**

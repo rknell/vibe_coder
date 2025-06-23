@@ -275,12 +275,8 @@ class AgentManager {
     try {
       // Create runtime Agent instance
       final agent = Agent(
-        name: agentModel.name,
-        systemPrompt: agentModel.systemPrompt,
-        mcpConfigPath: agentModel.mcpConfigPath,
-        notepad: agentModel.notepad,
+        agentModel: agentModel,
         toDoList: List.from(agentModel.toDoList),
-        contextFiles: List.from(agentModel.contextFiles),
       );
 
       // SKIP MCP initialization - GlobalMCP is already connected
@@ -343,9 +339,6 @@ class AgentManager {
       final updatedModel = agentModel.copyWith(
         isActive: false,
         conversationHistory: conversationHistory,
-        notepad: activeAgent.notepad,
-        toDoList: activeAgent.toDoList,
-        contextFiles: activeAgent.contextFiles,
         lastActiveAt: DateTime.now(),
       );
 
@@ -503,18 +496,17 @@ class AgentManager {
 
   /// Update active agent configuration
   ///
-  /// PERF: O(1) - direct agent property updates
+  /// PERF: O(1) - agent automatically reflects AgentModel changes
+  /// ARCHITECTURAL: Agent references AgentModel directly, no manual sync needed
   Future<void> _updateActiveAgent(String agentId, AgentModel agentModel) async {
     final activeAgent = _activeAgents[agentId];
     if (activeAgent == null) return;
 
-    // Update agent properties
-    activeAgent.name = agentModel.name;
-    activeAgent.systemPrompt = agentModel.systemPrompt;
-    activeAgent.notepad = agentModel.notepad;
+    // Agent automatically reflects AgentModel changes through direct reference
+    // No manual property updates needed
 
-    // Note: For more complex updates (like MCP config changes),
-    // we might need to deactivate and reactivate the agent
+    // Note: For complex updates (like MCP config changes that require reconnection),
+    // we might need to deactivate and reactivate the agent in the future
   }
 
   /// Ensure manager is initialized

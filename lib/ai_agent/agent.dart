@@ -5,60 +5,59 @@ import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
 import 'package:vibe_coder/ai_agent/models/mcp_models.dart' as legacy;
 import 'package:vibe_coder/services/services.dart';
 import 'package:vibe_coder/services/mcp_service.dart';
+import 'package:vibe_coder/models/agent_model.dart';
 import 'dart:io';
 import 'dart:convert';
 
 class Agent {
-  String systemPrompt;
+  // Reference to AgentModel - single source of truth
+  final AgentModel agentModel;
+
   final ConversationManager conversation;
-  String name;
-  String notepad;
   final List<InboxMessage> inbox;
   final List<String> toDoList;
   final List<String> taskDetails;
   final Agent? supervisor;
-  final List<String> contextFiles; // List of filenames to include in context
-
-  // MCP Integration - now uses shared services architecture
-  final String? mcpConfigPath;
 
   final Logger logger;
 
   Agent({
-    required this.systemPrompt,
-    required this.name,
-    this.notepad = '',
+    required this.agentModel,
     List<InboxMessage>? inbox,
     List<String>? toDoList,
     List<String>? taskDetails,
     this.supervisor,
-    List<String>? contextFiles,
-    this.mcpConfigPath,
   })  : inbox = inbox ?? [],
         toDoList = toDoList ?? [],
         taskDetails = taskDetails ?? [],
-        contextFiles = contextFiles ?? [],
         logger = Logger(
-            "AGENT-$name"), // WARRIOR PROTOCOL: Direct initialization eliminates late variable vulnerability
-        conversation = ConversationManager(name: name, agent: null) {
+            "AGENT-${agentModel.name}"), // WARRIOR PROTOCOL: Direct initialization eliminates late variable vulnerability
+        conversation = ConversationManager(name: agentModel.name, agent: null) {
     // WARRIOR PROTOCOL: Direct initialization eliminates late variable vulnerability
 
     // Set agent reference after construction to avoid circular dependency
     conversation.agent = this;
 
-    logger.info('Agent "$name" initialized');
-    logger.info('System prompt: $systemPrompt');
+    logger.info('Agent "${agentModel.name}" initialized');
+    logger.info('System prompt: ${agentModel.systemPrompt}');
 
     // MCP is now handled by Services.mcpService - no per-agent initialization needed
 
     // Add system prompt and the inbox processing prompt
     final systemPromptAnnotated =
-        "YOU ARE $name. \nRole play in the conversation as this person.\n$systemPrompt";
+        "YOU ARE ${agentModel.name}. \nRole play in the conversation as this person.\n${agentModel.systemPrompt}";
     conversation.addSystemMessage(systemPromptAnnotated);
 
     logger.info(
         'Agent constructor completed - MCP initialization will be done async');
   }
+
+  // Convenience getters that delegate to AgentModel
+  String get name => agentModel.name;
+  String get systemPrompt => agentModel.systemPrompt;
+  String get notepad => agentModel.notepad;
+  List<String> get contextFiles => agentModel.contextFiles;
+  String? get mcpConfigPath => agentModel.mcpConfigPath;
 
   /// Initialize MCP configuration - INSTANT since MCP is pre-initialized globally
   ///
@@ -96,16 +95,45 @@ class Agent {
     }
   }
 
-  /// Get all available MCP tools from service
+  /// Get available MCP tools filtered by agent preferences
   ///
-  /// PERF: O(1) - direct access to shared MCP infrastructure
+  /// PERF: O(n) where n = number of tools - filtering based on agent preferences
+  /// ARCHITECTURAL: Single source of truth - uses AgentModel preferences directly
   List<MCPToolWithServer> getAvailableTools() {
     final mcpService = services.mcpService;
     if (!mcpService.isInitialized) {
       logger.warning('⚠️ AGENT: MCP service not initialized');
       return [];
     }
-    return mcpService.getAllTools();
+
+    final allTools = mcpService.getAllTools();
+    final filteredTools = <MCPToolWithServer>[];
+
+    for (final tool in allTools) {
+      final serverName = tool.serverName;
+      final toolUniqueId =
+          tool.uniqueId; // This should be in format "server:tool"
+
+      // Check server preference (defaults to true if not set)
+      final serverEnabled = agentModel.getMCPServerPreference(serverName);
+      if (!serverEnabled) {
+        continue; // Skip tools from disabled servers
+      }
+
+      // Check individual tool preference (defaults to true if not set)
+      final toolEnabled = agentModel.getMCPToolPreference(toolUniqueId);
+      if (!toolEnabled) {
+        continue; // Skip disabled tools
+      }
+
+      // Tool is enabled - add to filtered list
+      filteredTools.add(tool);
+    }
+
+    logger.fine(
+        '🛠️ AGENT TOOLS: Filtered ${filteredTools.length}/${allTools.length} tools based on preferences');
+
+    return filteredTools;
   }
 
   /// Call an MCP tool using service
@@ -248,8 +276,8 @@ class Agent {
   /// Returns true if the file was added, false if it already exists in the list
   bool addFileToContext(String filename) {
     // Only add if not already in the list
-    if (!contextFiles.contains(filename)) {
-      contextFiles.add(filename);
+    if (!agentModel.contextFiles.contains(filename)) {
+      agentModel.contextFiles.add(filename);
       logger.fine('Added file "$filename" to context');
       return true;
     }
@@ -267,7 +295,7 @@ class Agent {
   ///
   /// Returns true if the file was removed, false if it wasn't in the context
   bool removeFileFromContext(String filename) {
-    final removed = contextFiles.remove(filename);
+    final removed = agentModel.contextFiles.remove(filename);
 
     if (removed) {
       logger.fine('Removed file "$filename" from context');
@@ -281,7 +309,7 @@ class Agent {
 
   /// Returns true if the specified file is in the agent's context
   bool hasFileInContext(String filename) {
-    return contextFiles.contains(filename);
+    return agentModel.contextFiles.contains(filename);
   }
 
   /// Sends a message to another agent's inbox
@@ -308,10 +336,11 @@ class Agent {
     var supervisor = this.supervisor;
     if (supervisor != null) {
       sendMessage(supervisor, content);
-      logger.fine('Message sent to supervisor ${supervisor.name}: $content');
+      logger.fine(
+          'Message sent to supervisor ${supervisor.agentModel.name}: $content');
     } else {
       logger.warning(
-          'Cannot send message to supervisor: No supervisor assigned for agent $name');
+          'Cannot send message to supervisor: No supervisor assigned for agent ${agentModel.name}');
     }
   }
 
@@ -437,11 +466,11 @@ class Agent {
 
   String details() {
     return """
------ $name -----
+----- ${agentModel.name} -----
 
 Notepad
 -----------
-$notepad
+${agentModel.notepad}
 
 Inbox
 -----------
@@ -453,12 +482,12 @@ ${toDoList.join("\n")}
 
 Context Files
 -----------
-${contextFiles.join("\n")}
+${agentModel.contextFiles.join("\n")}
 
 MCP Status
 -----------
 Connected servers: ${services.mcpService.connectedServers.join(", ")}
-Available tools: ${services.mcpService.getAllTools().map((t) => t.uniqueId).join(", ")}
+Available tools: ${getAvailableTools().map((t) => t.uniqueId).join(", ")}
 
 ----------------
 """;
@@ -472,7 +501,7 @@ Available tools: ${services.mcpService.getAllTools().map((t) => t.uniqueId).join
       await dir.create();
     }
 
-    final logFile = File('logs/${name.toLowerCase()}.log');
+    final logFile = File('logs/${agentModel.name.toLowerCase()}.log');
     final buffer = StringBuffer();
 
     // Add timestamp header
@@ -517,9 +546,10 @@ Available tools: ${services.mcpService.getAllTools().map((t) => t.uniqueId).join
   ///
   /// PERF: O(1) - resource cleanup - now uses shared services MCP service
   Future<void> dispose() async {
-    logger.info('Disposing Agent: $name');
+    logger.info('Disposing Agent: ${agentModel.name}');
 
     // MCP connections are shared globally - no need to close per agent
-    logger.info('Agent disposed: $name (MCP connections remain shared)');
+    logger.info(
+        'Agent disposed: ${agentModel.name} (MCP connections remain shared)');
   }
 }

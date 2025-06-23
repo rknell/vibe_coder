@@ -85,6 +85,13 @@ alwaysApply: false
 | **AgentListEmptyState** | `AgentListComponent` | **READY FOR EXTRACTION** | ⭐⭐⭐⭐⭐ |
 | **AgentListView** | `AgentListComponent` | **READY FOR EXTRACTION** | ⭐⭐⭐⭐ |
 
+#### 🔧 MCP Configuration Components (NEW - Granular Tool Control)
+| Component | Location | Responsibility | Reuse Potential |
+|-----------|----------|----------------|-----------------|
+| **MCPServerCard** | `agent_settings_dialog.dart` | Server status & tool management | ⭐⭐⭐⭐⭐ |
+| **MCPToolCard** | `agent_settings_dialog.dart` | Individual tool enable/disable | ⭐⭐⭐⭐⭐ |
+| **MCPBulkControls** | `agent_settings_dialog.dart` | Enable/disable all operations | ⭐⭐⭐⭐⭐ |
+
 ---
 
 ### 🔍 DEBUG COMPONENTS - Debug Intelligence Warfare

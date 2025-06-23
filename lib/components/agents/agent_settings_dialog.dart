@@ -102,6 +102,9 @@ class _AgentSettingsDialogState extends State<AgentSettingsDialog>
   final TextEditingController _systemPromptController = TextEditingController();
   final TextEditingController _mcpConfigPathController =
       TextEditingController();
+  final TextEditingController _notepadController = TextEditingController();
+  final TextEditingController _temperatureController = TextEditingController();
+  final TextEditingController _maxTokensController = TextEditingController();
 
   // Configuration Values - WARRIOR PROTOCOL: Safe initialization with defaults
   double _temperature = 0.7;
@@ -120,7 +123,29 @@ class _AgentSettingsDialogState extends State<AgentSettingsDialog>
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
-    _initializeControllers();
+
+    // Initialize form controllers with agent data
+    _nameController.text = widget.agent?.name ?? '';
+    _systemPromptController.text =
+        widget.agent?.systemPrompt ?? _getDefaultSystemPrompt();
+    _mcpConfigPathController.text = widget.agent?.mcpConfigPath ?? '';
+    _notepadController.text = widget.agent?.notepad ?? '';
+    _temperatureController.text = (widget.agent?.temperature ?? 0.7).toString();
+    _maxTokensController.text = (widget.agent?.maxTokens ?? 4000).toString();
+
+    // Initialize configuration values from agent or defaults
+    _temperature = widget.agent?.temperature ?? 0.7;
+    _maxTokens = widget.agent?.maxTokens ?? 4000;
+    _useBetaFeatures = widget.agent?.useBetaFeatures ?? false;
+    _useReasonerModel = widget.agent?.useReasonerModel ?? false;
+
+    // Initialize MCP state from agent preferences
+    _initializeMCPStateFromAgent();
+
+    // Set up change listeners for validation
+    _nameController.addListener(_validateAndSetChanges);
+    _systemPromptController.addListener(_validateAndSetChanges);
+    _mcpConfigPathController.addListener(_validateAndSetChanges);
   }
 
   @override
@@ -129,41 +154,26 @@ class _AgentSettingsDialogState extends State<AgentSettingsDialog>
     _nameController.dispose();
     _systemPromptController.dispose();
     _mcpConfigPathController.dispose();
+    _notepadController.dispose();
+    _temperatureController.dispose();
+    _maxTokensController.dispose();
     super.dispose();
   }
 
-  /// Initialize form controllers with agent data or defaults
+  /// Initialize MCP state from agent's saved preferences
   ///
-  /// PERF: O(1) - direct value assignment
-  /// ARCHITECTURAL: Centralized initialization prevents inconsistent state
-  void _initializeControllers() {
-    final agent = widget.agent;
+  /// ARCHITECTURAL: Load saved preferences into dialog state
+  void _initializeMCPStateFromAgent() {
+    if (widget.agent != null) {
+      final agent = widget.agent!;
 
-    _nameController.text = agent?.name ?? '';
-    _systemPromptController.text =
-        agent?.systemPrompt ?? _getDefaultSystemPrompt();
-    _mcpConfigPathController.text = agent?.mcpConfigPath ?? '';
+      // Initialize server states from agent preferences
+      _mcpServerStates.clear();
+      _mcpServerStates.addAll(agent.mcpServerPreferences);
 
-    _temperature = agent?.temperature ?? 0.7;
-    _maxTokens = agent?.maxTokens ?? 4000;
-    _useBetaFeatures = agent?.useBetaFeatures ?? false;
-    _useReasonerModel = agent?.useReasonerModel ?? false;
-
-    // Load MCP server states from agent metadata
-    final agentMetadata = agent?.metadata['mcpServerStates'];
-    if (agentMetadata != null) {
-      final savedStates = Map<String, dynamic>.from(agentMetadata as Map);
-      for (final entry in savedStates.entries) {
-        if (entry.value is bool) {
-          _mcpServerStates[entry.key] = entry.value as bool;
-        }
-      }
+      // Initialize tool states from agent preferences
+      _mcpServerStates.addAll(agent.mcpToolPreferences);
     }
-
-    // Set up change listeners for validation
-    _nameController.addListener(_validateAndSetChanges);
-    _systemPromptController.addListener(_validateAndSetChanges);
-    _mcpConfigPathController.addListener(_validateAndSetChanges);
   }
 
   /// Get default system prompt for new agents
@@ -271,30 +281,26 @@ You are direct, professional, and solution-focused.''';
   ///
   /// PERF: O(1) - direct object creation
   AgentModel _createAgentFromForm() {
-    // Prepare metadata with MCP server states
     final agent = widget.agent;
-    final metadata = widget.isCreationMode
-        ? <String, dynamic>{}
-        : (() {
-            if (agent != null) {
-              return Map<String, dynamic>.from(agent.metadata);
-            }
-            return <String, dynamic>{};
-          })();
 
-    // Save MCP server states to metadata (only save non-null explicit states)
-    final explicitStates = <String, bool>{};
+    // Separate server and tool preferences from the combined state
+    final serverPreferences = <String, bool>{};
+    final toolPreferences = <String, bool>{};
+
+    // Process MCP states to separate servers from tools
     for (final entry in _mcpServerStates.entries) {
-      final entryValue = entry.value;
-      if (entryValue != null) {
-        explicitStates[entry.key] = entryValue;
-      }
-    }
+      final key = entry.key;
+      final value = entry.value;
 
-    if (explicitStates.isNotEmpty) {
-      metadata['mcpServerStates'] = explicitStates;
-    } else {
-      metadata.remove('mcpServerStates'); // Clean up if no explicit states
+      if (value != null) {
+        // If key contains colon, it's a tool (server:tool format)
+        if (key.contains(':')) {
+          toolPreferences[key] = value;
+        } else {
+          // Otherwise it's a server
+          serverPreferences[key] = value;
+        }
+      }
     }
 
     if (widget.isCreationMode) {
@@ -303,6 +309,7 @@ You are direct, professional, and solution-focused.''';
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         name: _nameController.text.trim(),
         systemPrompt: _systemPromptController.text.trim(),
+        notepad: _notepadController.text.trim(),
         temperature: _temperature,
         maxTokens: _maxTokens,
         useBetaFeatures: _useBetaFeatures,
@@ -310,7 +317,9 @@ You are direct, professional, and solution-focused.''';
         mcpConfigPath: _mcpConfigPathController.text.trim().isEmpty
             ? null
             : _mcpConfigPathController.text.trim(),
-        metadata: metadata,
+        mcpServerPreferences: serverPreferences,
+        mcpToolPreferences: toolPreferences,
+        metadata: agent?.metadata ?? {},
       );
     } else {
       // Update existing agent
@@ -319,6 +328,7 @@ You are direct, professional, and solution-focused.''';
         return agentValue.copyWith(
           name: _nameController.text.trim(),
           systemPrompt: _systemPromptController.text.trim(),
+          notepad: _notepadController.text.trim(),
           temperature: _temperature,
           maxTokens: _maxTokens,
           useBetaFeatures: _useBetaFeatures,
@@ -326,7 +336,8 @@ You are direct, professional, and solution-focused.''';
           mcpConfigPath: _mcpConfigPathController.text.trim().isEmpty
               ? null
               : _mcpConfigPathController.text.trim(),
-          metadata: metadata,
+          mcpServerPreferences: serverPreferences,
+          mcpToolPreferences: toolPreferences,
         );
       } else {
         throw StateError('Cannot update agent: agent is null in edit mode');
@@ -383,21 +394,30 @@ You are direct, professional, and solution-focused.''';
 
   /// Set all MCP servers enabled/disabled state
   ///
-  /// PERF: O(n) where n = number of MCP servers - bulk state update
+  /// PERF: O(n*m) where n = number of MCP servers, m = tools per server - bulk state update
   void _setAllMCPServers(bool enabled) {
     setState(() {
-      // Set state for all configured servers
-      // This works with both placeholder servers and real server data
-      final serverNames = [
-        'filesystem',
-        'memory',
-        'notepad',
-        'todo',
-        'company-directory'
-      ];
-      for (final serverName in serverNames) {
+      final mcpInfo = _getAgentMCPInfo();
+      final servers = (mcpInfo['servers'] as List<dynamic>?) ?? [];
+
+      // Set state for all configured servers and their tools
+      for (final serverData in servers) {
+        final serverMap = serverData as Map<String, dynamic>;
+        final serverName = serverMap['name'] as String;
+
+        // Set server state
         _mcpServerStates[serverName] = enabled;
+
+        // Set all tool states for this server
+        final toolsData = serverMap['tools'] as List<dynamic>? ?? [];
+        for (final toolData in toolsData) {
+          final toolMap = toolData as Map<String, dynamic>;
+          final toolUniqueId = toolMap['uniqueId'] as String? ??
+              '$serverName:${toolMap['name']}';
+          _mcpServerStates[toolUniqueId] = enabled;
+        }
       }
+
       _validateAndSetChanges();
     });
   }
@@ -407,7 +427,65 @@ You are direct, professional, and solution-focused.''';
   /// PERF: O(1) - direct state update
   void _toggleMCPServer(String serverName, bool enabled) {
     setState(() {
+      // Always set the user preference, regardless of connection status
       _mcpServerStates[serverName] = enabled;
+
+      // If disabling server, also disable all its tools
+      if (!enabled) {
+        final mcpInfo = _getAgentMCPInfo();
+        final servers = (mcpInfo['servers'] as List<dynamic>?) ?? [];
+
+        for (final serverData in servers) {
+          final serverMap = serverData as Map<String, dynamic>;
+          if (serverMap['name'] == serverName) {
+            final toolsData = serverMap['tools'] as List<dynamic>? ?? [];
+            for (final toolData in toolsData) {
+              final toolMap = toolData as Map<String, dynamic>;
+              final toolUniqueId = toolMap['uniqueId'] as String? ??
+                  '$serverName:${toolMap['name']}';
+              _mcpServerStates[toolUniqueId] = false;
+            }
+            break;
+          }
+        }
+      }
+
+      _validateAndSetChanges();
+    });
+  }
+
+  /// Toggle all tools for a server
+  ///
+  /// PERF: O(n) where n = number of tools in server
+  void _toggleAllServerTools(String serverName, bool enabled) {
+    setState(() {
+      final mcpInfo = _getAgentMCPInfo();
+      final servers = (mcpInfo['servers'] as List<dynamic>?) ?? [];
+
+      for (final serverData in servers) {
+        final serverMap = serverData as Map<String, dynamic>;
+        if (serverMap['name'] == serverName) {
+          final toolsData = serverMap['tools'] as List<dynamic>? ?? [];
+          for (final toolData in toolsData) {
+            final toolMap = toolData as Map<String, dynamic>;
+            final toolUniqueId = toolMap['uniqueId'] as String? ??
+                '$serverName:${toolMap['name']}';
+            _mcpServerStates[toolUniqueId] = enabled;
+          }
+          break;
+        }
+      }
+
+      _validateAndSetChanges();
+    });
+  }
+
+  /// Toggle individual MCP tool state
+  ///
+  /// PERF: O(1) - direct state update
+  void _toggleMCPTool(String toolUniqueId, bool enabled) {
+    setState(() {
+      _mcpServerStates[toolUniqueId] = enabled;
       _validateAndSetChanges();
     });
   }
@@ -473,7 +551,7 @@ You are direct, professional, and solution-focused.''';
 
   /// Build MCP server cards from real agent data
   ///
-  /// PERF: O(n) where n = number of configured servers
+  /// PERF: O(n log n) where n = number of configured servers (due to sorting)
   /// ARCHITECTURAL: Gets real MCP data from active agent or shows loading state
   List<Widget> _buildRealMCPServerCards() {
     try {
@@ -517,7 +595,27 @@ You are direct, professional, and solution-focused.''';
         ];
       }
 
-      return servers.map((serverData) {
+      // Sort servers: connected first, disconnected last
+      final sortedServers = List<dynamic>.from(servers);
+      sortedServers.sort((a, b) {
+        final aMap = a as Map<String, dynamic>;
+        final bMap = b as Map<String, dynamic>;
+        final aConnected =
+            (aMap['status'] as String? ?? 'unknown') == 'connected';
+        final bConnected =
+            (bMap['status'] as String? ?? 'unknown') == 'connected';
+
+        // Connected servers first (true sorts before false when reversed)
+        if (aConnected && !bConnected) return -1;
+        if (!aConnected && bConnected) return 1;
+
+        // Within same connection status, sort alphabetically by name
+        final aName = aMap['name'] as String? ?? '';
+        final bName = bMap['name'] as String? ?? '';
+        return aName.compareTo(bName);
+      });
+
+      return sortedServers.map((serverData) {
         return _buildMCPServerCard(serverData as Map<String, dynamic>);
       }).toList();
     } catch (e) {
@@ -567,7 +665,17 @@ You are direct, professional, and solution-focused.''';
     // Use passed MCP server info if available
     final mcpServerInfo = widget.mcpServerInfo;
     if (mcpServerInfo != null) {
-      return mcpServerInfo;
+      // Handle legacy Map format from toJson()
+      final serversMap =
+          mcpServerInfo['servers'] as Map<String, dynamic>? ?? {};
+      final serversList = serversMap.values.toList();
+
+      return {
+        'servers': serversList,
+        'totalTools': mcpServerInfo['toolCount'] ?? 0,
+        'connectedServers': mcpServerInfo['connectedCount'] ?? 0,
+        'configuredServers': mcpServerInfo['totalCount'] ?? 0,
+      };
     }
 
     // Fallback for cases where no MCP info is provided
@@ -590,89 +698,341 @@ You are direct, professional, and solution-focused.''';
     final String serverType = serverData['type'] as String? ?? 'unknown';
     final bool isConnected = status == 'connected';
 
-    // Get server enabled state - null means use connection status as default
+    // Separate user preference from connection status
     final bool? userEnabledState = _mcpServerStates[serverName];
-    final bool enabled = userEnabledState ?? isConnected;
+    final bool userWantsEnabled = userEnabledState ??
+        true; // Default to enabled unless user explicitly disabled
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Server Header
-            Row(
-              children: [
-                Icon(
-                  enabled ? Icons.check_circle : Icons.cancel,
-                  color: enabled ? Colors.green : Colors.red,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        serverName,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+      // Grey out entire card if server is disconnected
+      color: isConnected ? null : Colors.grey.withValues(alpha: 0.1),
+      child: Container(
+        // Add subtle overlay for disconnected servers
+        decoration: isConnected
+            ? null
+            : BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                color: Colors.grey.withValues(alpha: 0.05),
+              ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Server Header - Enhanced with clearer status indicators
+              Row(
+                children: [
+                  // Connection Status Icon
+                  Icon(
+                    isConnected ? Icons.wifi : Icons.wifi_off,
+                    color: isConnected ? Colors.green : Colors.grey,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+
+                  // User Preference Icon
+                  Icon(
+                    userWantsEnabled
+                        ? Icons.check_circle
+                        : (isConnected ? Icons.cancel : Icons.link_off),
+                    color: userWantsEnabled
+                        ? (isConnected ? Colors.green : Colors.orange)
+                        : (isConnected ? Colors.red : Colors.grey),
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              serverName,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: isConnected ? null : Colors.grey[600],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Status Badge
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: isConnected
+                                    ? Colors.green.withValues(alpha: 0.1)
+                                    : Colors.grey.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: isConnected
+                                      ? Colors.green.withValues(alpha: 0.3)
+                                      : Colors.grey.withValues(alpha: 0.3),
+                                ),
+                              ),
+                              child: Text(
+                                isConnected ? 'Connected' : 'Disconnected',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: isConnected
+                                      ? Colors.green[700]
+                                      : Colors.grey[600],
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      Text(
-                        '$serverType server (${isConnected ? 'Connected' : 'Disconnected'})',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 13,
+                        const SizedBox(height: 2),
+                        Text(
+                          '$serverType server',
+                          style: TextStyle(
+                            color: isConnected
+                                ? Colors.grey[600]
+                                : Colors.grey[500],
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // User Preference Toggle
+                  Switch(
+                    value: userWantsEnabled,
+                    onChanged: widget.isViewOnly
+                        ? null
+                        : (value) => _toggleMCPServer(serverName, value),
+                    // Disable switch if server is disconnected
+                    activeColor: isConnected ? null : Colors.orange,
+                  ),
+                ],
+              ),
+
+              // Server Description (if available)
+              if (serverData['description'] != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  serverData['description'] as String,
+                  style: TextStyle(
+                    color: isConnected ? Colors.grey[600] : Colors.grey[500],
+                    fontSize: 13,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+
+              // Disconnection Warning (show if user wants enabled but server is disconnected)
+              if (userWantsEnabled && !isConnected) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(4),
+                    border:
+                        Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning, color: Colors.orange[700], size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Server is enabled in preferences but currently disconnected. Tools will be available when connection is restored.',
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.orange[800]),
                         ),
                       ),
                     ],
                   ),
                 ),
-                Switch(
-                  value: enabled,
-                  onChanged: widget.isViewOnly
-                      ? null
-                      : (value) => _toggleMCPServer(serverName, value),
-                ),
               ],
-            ),
 
-            if (enabled && toolsData.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              const Divider(),
-              const SizedBox(height: 8),
+              // Tools Section (show if user wants enabled and has tools)
+              if (userWantsEnabled && toolsData.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 12),
 
-              // Tools Header
-              Text(
-                'Available Tools ($toolCount):',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
+                // Tools Header with Bulk Controls
+                Row(
+                  children: [
+                    Icon(
+                      Icons.build,
+                      color: isConnected ? Colors.blue[600] : Colors.grey[500],
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Tools ($toolCount):',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: isConnected ? null : Colors.grey[600],
+                      ),
+                    ),
+                    const Spacer(),
+                    if (!widget.isViewOnly) ...[
+                      TextButton(
+                        onPressed: () =>
+                            _toggleAllServerTools(serverName, true),
+                        child: Text(
+                          'Enable All',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isConnected
+                                ? Colors.blue[600]
+                                : Colors.grey[500],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      TextButton(
+                        onPressed: () =>
+                            _toggleAllServerTools(serverName, false),
+                        child: Text(
+                          'Disable All',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isConnected
+                                ? Colors.red[600]
+                                : Colors.grey[500],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-              ),
 
-              const SizedBox(height: 8),
+                const SizedBox(height: 12),
 
-              // Tools List
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: toolsData.map((toolData) {
+                // Individual Tool Controls
+                ...toolsData.map((toolData) {
                   final toolMap = toolData as Map<String, dynamic>;
                   final toolName = toolMap['name'] as String? ?? 'Unknown';
-                  return Chip(
-                    label: Text(
-                      toolName,
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    backgroundColor: Colors.blue.withValues(alpha: 0.1),
-                    side: BorderSide(color: Colors.blue.withValues(alpha: 0.3)),
+                  final toolDescription =
+                      toolMap['description'] as String? ?? '';
+                  final toolUniqueId =
+                      toolMap['uniqueId'] as String? ?? '$serverName:$toolName';
+
+                  // Get tool enabled state - defaults to server enabled state
+                  final bool toolEnabled =
+                      _mcpServerStates[toolUniqueId] ?? userWantsEnabled;
+
+                  return _buildToolCard(
+                    serverName: serverName,
+                    toolName: toolName,
+                    toolDescription: toolDescription,
+                    toolUniqueId: toolUniqueId,
+                    isEnabled: toolEnabled,
+                    isServerEnabled: userWantsEnabled,
+                    isServerConnected: isConnected,
                   );
-                }).toList(),
-              ),
+                }),
+              ],
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Build individual tool card with enable/disable control
+  ///
+  /// ARCHITECTURAL: Granular tool control component
+  Widget _buildToolCard({
+    required String serverName,
+    required String toolName,
+    required String toolDescription,
+    required String toolUniqueId,
+    required bool isEnabled,
+    required bool isServerEnabled,
+    required bool isServerConnected,
+  }) {
+    final bool effectivelyAvailable =
+        isEnabled && isServerEnabled && isServerConnected;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      color: effectivelyAvailable
+          ? Colors.green.withValues(alpha: 0.02)
+          : isServerConnected
+              ? Colors.grey.withValues(alpha: 0.02)
+              : Colors.grey.withValues(alpha: 0.01),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(
+          color: effectivelyAvailable
+              ? Colors.green.withValues(alpha: 0.1)
+              : Colors.grey.withValues(alpha: 0.1),
+          width: 0.5,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            // Tool Icon
+            Icon(
+              isEnabled
+                  ? Icons.check_circle_outline
+                  : Icons.radio_button_unchecked,
+              color: isEnabled
+                  ? (isServerConnected ? Colors.green : Colors.orange)
+                  : Colors.grey,
+              size: 18,
+            ),
+            const SizedBox(width: 12),
+
+            // Tool Info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    toolName,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: effectivelyAvailable
+                          ? Colors.green[800]
+                          : isServerConnected
+                              ? (isEnabled
+                                  ? Colors.orange[800]
+                                  : Colors.grey[600])
+                              : Colors.grey[500],
+                    ),
+                  ),
+                  if (toolDescription.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      toolDescription,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isServerConnected
+                            ? Colors.grey[600]
+                            : Colors.grey[500],
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+            // Tool Toggle
+            if (!widget.isViewOnly && isServerEnabled)
+              Switch(
+                value: isEnabled,
+                onChanged: (value) => _toggleMCPTool(toolUniqueId, value),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                activeColor: isServerConnected ? null : Colors.orange,
+              ),
           ],
         ),
       ),
@@ -704,7 +1064,7 @@ You are direct, professional, and solution-focused.''';
               tabs: const [
                 Tab(icon: Icon(Icons.person), text: 'Basic'),
                 Tab(icon: Icon(Icons.tune), text: 'Settings'),
-                Tab(icon: Icon(Icons.settings), text: 'Advanced'),
+                Tab(icon: Icon(Icons.extension), text: 'MCP'),
                 Tab(icon: Icon(Icons.info), text: 'Info'),
               ],
             ),
@@ -991,7 +1351,7 @@ You are direct, professional, and solution-focused.''';
     );
   }
 
-  /// Build advanced settings tab
+  /// Build MCP settings tab
   ///
   /// ARCHITECTURAL: MCP server and tool configuration with granular control
   Widget _buildAdvancedSettingsTab() {
@@ -1003,10 +1363,10 @@ You are direct, professional, and solution-focused.''';
           // MCP Configuration Header
           Row(
             children: [
-              const Icon(Icons.extension, color: Colors.orange),
+              const Icon(Icons.extension, color: Colors.blue),
               const SizedBox(width: 8),
               Text(
-                'MCP Server & Tool Configuration',
+                'Model Context Protocol Configuration',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -1014,40 +1374,108 @@ You are direct, professional, and solution-focused.''';
             ],
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
 
-          // Bulk Controls
-          Row(
-            children: [
-              ElevatedButton.icon(
-                onPressed:
-                    widget.isViewOnly ? null : () => _setAllMCPServers(true),
-                icon: const Icon(Icons.check_circle),
-                label: const Text('Enable All'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
+          Text(
+            'Configure which MCP servers and tools are available to this agent',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.grey[600],
                 ),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton.icon(
-                onPressed:
-                    widget.isViewOnly ? null : () => _setAllMCPServers(false),
-                icon: const Icon(Icons.cancel),
-                label: const Text('Disable All'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
+          ),
+
+          const SizedBox(height: 24),
+
+          // Bulk Controls - Enhanced with sophisticated styling
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.blue.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.tune, color: Colors.blue[600], size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Bulk Operations',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: Colors.blue[800],
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: widget.isViewOnly
+                            ? null
+                            : () => _setAllMCPServers(true),
+                        icon: Icon(Icons.check_circle_outline,
+                            size: 16, color: Colors.green[600]),
+                        label: Text(
+                          'Enable All Servers & Tools',
+                          style:
+                              TextStyle(fontSize: 13, color: Colors.green[700]),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(
+                              color: Colors.green.withValues(alpha: 0.3)),
+                          backgroundColor: Colors.green.withValues(alpha: 0.05),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: widget.isViewOnly
+                            ? null
+                            : () => _setAllMCPServers(false),
+                        icon: Icon(Icons.cancel_outlined,
+                            size: 16, color: Colors.red[600]),
+                        label: Text(
+                          'Disable All Servers & Tools',
+                          style:
+                              TextStyle(fontSize: 13, color: Colors.red[700]),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(
+                              color: Colors.red.withValues(alpha: 0.3)),
+                          backgroundColor: Colors.red.withValues(alpha: 0.05),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Configure all servers and their tools at once. Individual servers can be fine-tuned below.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ),
           ),
 
           const SizedBox(height: 24),
 
           // MCP Servers List
           Text(
-            'Available MCP Servers:',
+            'Available MCP Servers & Tools:',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -1064,22 +1492,22 @@ You are direct, professional, and solution-focused.''';
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.orange.withValues(alpha: 0.1),
+              color: Colors.blue.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+              border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Icon(Icons.info, color: Colors.orange[700], size: 20),
+                    Icon(Icons.info, color: Colors.blue[700], size: 20),
                     const SizedBox(width: 8),
                     Text(
                       'MCP Configuration Guide',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Colors.orange[700],
+                        color: Colors.blue[700],
                       ),
                     ),
                   ],
@@ -1087,10 +1515,11 @@ You are direct, professional, and solution-focused.''';
                 const SizedBox(height: 8),
                 const Text(
                   '• Enable/disable entire servers or individual tools\n'
-                  '• Disabled tools will not be available to the agent\n'
-                  '• Use "Enable All" for maximum capabilities\n'
-                  '• Use selective enabling for specialized agents\n'
-                  '• Changes take effect immediately upon saving',
+                  '• Disabled servers/tools will not be available to the agent\n'
+                  '• Each tool can be independently controlled\n'
+                  '• Use "Enable All" for maximum AI capabilities\n'
+                  '• Use selective enabling for specialized or restricted agents\n'
+                  '• Changes take effect immediately upon saving the agent',
                   style: TextStyle(fontSize: 13),
                 ),
               ],
