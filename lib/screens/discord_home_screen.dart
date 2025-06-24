@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:vibe_coder/models/layout_preferences_model.dart';
+import 'package:vibe_coder/models/agent_model.dart';
 import 'package:vibe_coder/services/services.dart';
 import 'package:vibe_coder/components/discord_layout/left_sidebar_panel.dart';
 import 'package:vibe_coder/components/discord_layout/center_chat_panel.dart';
 import 'package:vibe_coder/components/discord_layout/right_sidebar_panel.dart';
+import 'package:vibe_coder/components/agents/agent_settings_dialog.dart';
 
 /// DiscordHomeScreen - Three-Panel Layout Foundation
 ///
@@ -61,6 +63,9 @@ class _DiscordHomeScreenState extends State<DiscordHomeScreen> {
   static const double leftSidebarWidth = 250.0;
   static const double rightSidebarWidth = 300.0;
 
+  // Agent selection state
+  AgentModel? _selectedAgent;
+
   @override
   void initState() {
     super.initState();
@@ -100,6 +105,8 @@ class _DiscordHomeScreenState extends State<DiscordHomeScreen> {
               // Left Sidebar Panel - Agent Management
               LeftSidebarPanel(
                 width: leftSidebarWidth,
+                selectedAgent: _selectedAgent,
+                onAgentSelected: _handleAgentSelected,
                 onCreateAgent: _handleCreateAgent,
               ),
 
@@ -122,15 +129,50 @@ class _DiscordHomeScreenState extends State<DiscordHomeScreen> {
     );
   }
 
+  /// Handle agent selection
+  ///
+  /// INTEGRATION: Agent selection coordination with object-oriented pattern
+  void _handleAgentSelected(AgentModel agent) {
+    setState(() {
+      _selectedAgent = agent;
+    });
+
+    // Future integration: Update chat service to show selected agent's conversation
+    debugPrint('🤖 Agent selected: ${agent.name} (${agent.id})');
+  }
+
   /// Handle create agent action
   ///
-  /// INTEGRATION: Ready for DR008 Agent Settings Dialog integration
-  void _handleCreateAgent() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Agent creation - Integration pending DR008'),
-      ),
-    );
+  /// INTEGRATION: Real agent creation dialog integration
+  void _handleCreateAgent() async {
+    try {
+      final result = await AgentSettingsDialog.showCreateDialog(context);
+
+      if (result != null) {
+        // Agent was created successfully
+        await services.agentService.createAgent(
+          name: result.name,
+          systemPrompt: result.systemPrompt,
+          temperature: result.temperature,
+          maxTokens: result.maxTokens,
+          useBetaFeatures: result.useBetaFeatures,
+          useReasonerModel: result.useReasonerModel,
+        );
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Agent "${result.name}" created successfully'),
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to create agent: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    }
   }
 
   /// Handle theme toggle action

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:vibe_coder/components/discord_layout/placeholder_agent_list.dart';
+import 'package:vibe_coder/components/agents/agent_sidebar_component.dart';
+import 'package:vibe_coder/models/agent_model.dart';
 
 /// LeftSidebarPanel - Agent Management Sidebar
 ///
@@ -50,12 +51,20 @@ class LeftSidebarPanel extends StatelessWidget {
   /// Width of the left sidebar panel
   final double width;
 
+  /// Currently selected agent (for highlighting)
+  final AgentModel? selectedAgent;
+
+  /// Callback when an agent is selected (object-oriented pattern)
+  final void Function(AgentModel)? onAgentSelected;
+
   /// Callback for create agent button
   final VoidCallback? onCreateAgent;
 
   const LeftSidebarPanel({
     super.key,
     required this.width,
+    this.selectedAgent,
+    this.onAgentSelected,
     this.onCreateAgent,
   });
 
@@ -98,39 +107,13 @@ class LeftSidebarPanel extends StatelessWidget {
             ),
           ),
 
-          // Panel content - Agent list and create button
+          // Panel content - Real agent sidebar component
           Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Agent list component
-                  PlaceholderAgentList(
-                    onAgentTap: (agentName) {
-                      // Agent selection handling - placeholder for DR008
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                              'Selected $agentName - Integration pending DR008'),
-                        ),
-                      );
-                    },
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Create agent button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: onCreateAgent,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Create Agent'),
-                    ),
-                  ),
-                ],
-              ),
+            child: AgentSidebarComponent(
+              width: width,
+              selectedAgent: selectedAgent,
+              onAgentSelected: onAgentSelected,
+              onCreateAgent: onCreateAgent,
             ),
           ),
         ],
