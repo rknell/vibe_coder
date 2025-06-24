@@ -400,6 +400,89 @@ class AgentService extends ChangeNotifier {
     return getConversationStatistics().toJson();
   }
 
+  // DR004 INTEGRATION: Status query methods (eliminates need for separate AgentStatusService)
+
+  /// Get agents by processing status - ARCHITECTURAL: Status filtering
+  ///
+  /// PERF: O(n) where n = number of agents
+  /// ARCHITECTURAL: Single source of truth - queries AgentModel status directly
+  List<AgentModel> getProcessingAgents() {
+    _ensureInitialized();
+    return data
+        .where((agent) =>
+            agent.processingStatus == AgentProcessingStatus.processing)
+        .toList();
+  }
+
+  /// Get idle agents - ARCHITECTURAL: Status filtering
+  ///
+  /// PERF: O(n) where n = number of agents
+  /// ARCHITECTURAL: Single source of truth - queries AgentModel status directly
+  List<AgentModel> getIdleAgents() {
+    _ensureInitialized();
+    return data
+        .where((agent) => agent.processingStatus == AgentProcessingStatus.idle)
+        .toList();
+  }
+
+  /// Get agents with errors - ARCHITECTURAL: Status filtering
+  ///
+  /// PERF: O(n) where n = number of agents
+  /// ARCHITECTURAL: Single source of truth - queries AgentModel status directly
+  List<AgentModel> getErrorAgents() {
+    _ensureInitialized();
+    return data
+        .where((agent) => agent.processingStatus == AgentProcessingStatus.error)
+        .toList();
+  }
+
+  /// Get status summary - ARCHITECTURAL: Business logic aggregation
+  ///
+  /// PERF: O(n) where n = number of agents
+  /// ARCHITECTURAL: Single pass through collection for efficiency
+  Map<String, int> getStatusSummary() {
+    _ensureInitialized();
+
+    int processingCount = 0;
+    int idleCount = 0;
+    int errorCount = 0;
+
+    for (final agent in data) {
+      switch (agent.processingStatus) {
+        case AgentProcessingStatus.processing:
+          processingCount++;
+          break;
+        case AgentProcessingStatus.idle:
+          idleCount++;
+          break;
+        case AgentProcessingStatus.error:
+          errorCount++;
+          break;
+      }
+    }
+
+    return {
+      'total': data.length,
+      'processing': processingCount,
+      'idle': idleCount,
+      'error': errorCount,
+    };
+  }
+
+  /// Get agents with recent status changes - ARCHITECTURAL: Time-based filtering
+  ///
+  /// PERF: O(n) where n = number of agents
+  /// ARCHITECTURAL: Uses AgentModel status timestamps directly
+  List<AgentModel> getRecentStatusChanges({Duration? since}) {
+    _ensureInitialized();
+    final threshold = since ?? const Duration(minutes: 5);
+    final cutoffTime = DateTime.now().subtract(threshold);
+
+    return data
+        .where((agent) => agent.lastStatusChange.isAfter(cutoffTime))
+        .toList();
+  }
+
   /// Add agent directly to collection - ARCHITECTURAL: Direct mutation support
   ///
   /// PERF: O(1) - direct collection addition with index update
@@ -468,107 +551,6 @@ class AgentService extends ChangeNotifier {
     super.dispose();
 
     _logger.info('✅ AGENT SERVICE: Cleanup completed');
-  }
-
-  // ARCHITECTURAL VICTORY: Status management through AgentModel - Single Source of Truth
-
-  /// Get agents by processing status - ARCHITECTURAL: Status filtering
-  ///
-  /// PERF: O(n) where n = number of agents
-  List<AgentModel> getAgentsByProcessingStatus(AgentProcessingStatus status) {
-    return data.where((agent) => agent.status == status).toList();
-  }
-
-  /// Get all processing agents - ARCHITECTURAL: Convenience method
-  ///
-  /// PERF: O(n) where n = number of agents
-  List<AgentModel> getProcessingAgents() {
-    return getAgentsByProcessingStatus(AgentProcessingStatus.processing);
-  }
-
-  /// Get all idle agents - ARCHITECTURAL: Convenience method
-  ///
-  /// PERF: O(n) where n = number of agents
-  List<AgentModel> getIdleAgents() {
-    return getAgentsByProcessingStatus(AgentProcessingStatus.idle);
-  }
-
-  /// Get all error agents - ARCHITECTURAL: Convenience method
-  ///
-  /// PERF: O(n) where n = number of agents
-  List<AgentModel> getErrorAgents() {
-    return getAgentsByProcessingStatus(AgentProcessingStatus.error);
-  }
-
-  /// Update agent status - ARCHITECTURAL: Business logic delegation to model
-  ///
-  /// PERF: O(1) - direct agent method call
-  /// ARCHITECTURAL: Single source of truth - status lives in AgentModel
-  Future<void> updateAgentStatus(String agentId, AgentProcessingStatus status,
-      {String? errorMessage}) async {
-    _ensureInitialized();
-
-    final agent = getById(agentId);
-    if (agent == null) {
-      throw AgentServiceException('Agent not found: $agentId');
-    }
-
-    // Update status using model methods
-    switch (status) {
-      case AgentProcessingStatus.idle:
-        agent.setIdle();
-        break;
-      case AgentProcessingStatus.processing:
-        agent.setProcessing();
-        break;
-      case AgentProcessingStatus.error:
-        agent.setError(errorMessage ?? 'Unknown error');
-        break;
-    }
-
-    // Model handles notifyListeners() - service doesn't need to notify
-  }
-
-  /// Set agent processing status - ARCHITECTURAL: Convenience method
-  ///
-  /// PERF: O(1) - direct agent method call
-  Future<void> setAgentProcessing(String agentId) async {
-    await updateAgentStatus(agentId, AgentProcessingStatus.processing);
-  }
-
-  /// Set agent idle status - ARCHITECTURAL: Convenience method
-  ///
-  /// PERF: O(1) - direct agent method call
-  Future<void> setAgentIdle(String agentId) async {
-    await updateAgentStatus(agentId, AgentProcessingStatus.idle);
-  }
-
-  /// Set agent error status - ARCHITECTURAL: Convenience method
-  ///
-  /// PERF: O(1) - direct agent method call
-  Future<void> setAgentError(String agentId, String errorMessage) async {
-    await updateAgentStatus(agentId, AgentProcessingStatus.error,
-        errorMessage: errorMessage);
-  }
-
-  /// Get status summary for all agents - ARCHITECTURAL: Business logic
-  ///
-  /// PERF: O(n) where n = number of agents
-  /// Returns status counts and agent lists by status
-  Map<String, dynamic> getStatusSummary() {
-    final processingAgents = getProcessingAgents();
-    final idleAgents = getIdleAgents();
-    final errorAgents = getErrorAgents();
-
-    return {
-      'totalAgents': data.length,
-      'processingCount': processingAgents.length,
-      'idleCount': idleAgents.length,
-      'errorCount': errorAgents.length,
-      'processingAgents': processingAgents.map((a) => a.id).toList(),
-      'idleAgents': idleAgents.map((a) => a.id).toList(),
-      'errorAgents': errorAgents.map((a) => a.id).toList(),
-    };
   }
 }
 

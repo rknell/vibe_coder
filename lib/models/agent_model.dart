@@ -34,19 +34,20 @@ library;
 /// - Agent creation: O(1) - direct instantiation
 /// - Persistence: O(n) where n = conversation history size
 /// - State updates: O(1) - direct property updates
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:vibe_coder/ai_agent/models/chat_message_model.dart';
 import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
 import 'package:vibe_coder/ai_agent/agent.dart';
-import 'package:vibe_coder/models/agent_status_model.dart'; // Import for AgentProcessingStatus enum
+import 'package:vibe_coder/models/agent_status_model.dart';
 
-/// Agent Model - Enhanced with single source of truth for conversation management
+/// Agent Model - Enhanced with integrated status management and single source of truth
 ///
-/// WARRIOR PROTOCOL: AgentModel now uses Agent.conversation as single source of truth
-/// ARCHITECTURAL VICTORY: Eliminated conversationHistory field duplication
-/// STATUS INTEGRATION: Direct agent status management without separate service
+/// WARRIOR PROTOCOL: AgentModel now includes AgentStatusModel fields directly (DR004 integration)
+/// ARCHITECTURAL VICTORY: Eliminated separate AgentStatusService - status is part of agent
+/// All status data is integrated into agent model for single source of truth
 /// All conversation data flows through Agent.conversation.getHistory()
 class AgentModel extends ChangeNotifier {
   // Core Agent Identity
@@ -60,8 +61,8 @@ class AgentModel extends ChangeNotifier {
   DateTime createdAt;
   DateTime lastActiveAt;
 
-  // ARCHITECTURAL VICTORY: Direct status integration - Single Source of Truth
-  AgentProcessingStatus _status;
+  // DR004 INTEGRATION: Status management fields from AgentStatusModel
+  AgentProcessingStatus _processingStatus;
   DateTime _lastStatusChange;
   String? _errorMessage;
 
@@ -84,7 +85,6 @@ class AgentModel extends ChangeNotifier {
   Map<String, dynamic> metadata;
 
   // WARRIOR PROTOCOL: Agent instance for conversation management
-  // Single source of truth - conversation data lives in Agent.conversation
   Agent? _agentInstance;
 
   AgentModel({
@@ -95,7 +95,10 @@ class AgentModel extends ChangeNotifier {
     this.isProcessing = false,
     DateTime? createdAt,
     DateTime? lastActiveAt,
-    AgentProcessingStatus? status,
+    // DR004 INTEGRATION: Status fields with defaults
+    AgentProcessingStatus? processingStatus,
+    DateTime? lastStatusChange,
+    String? errorMessage,
     this.temperature = 0.7,
     this.maxTokens = 4000,
     this.useBetaFeatures = false,
@@ -105,22 +108,21 @@ class AgentModel extends ChangeNotifier {
     Map<String, bool>? mcpToolPreferences,
     this.supervisorId,
     List<String>? contextFiles,
-    List<ChatMessage>?
-        conversationHistory, // Accept but don't store - migrate to agent
+    List<ChatMessage>? conversationHistory,
     Map<String, dynamic>? metadata,
   })  : id = id ?? DateTime.now().millisecondsSinceEpoch.toString(),
         createdAt = createdAt ?? DateTime.now(),
         lastActiveAt = lastActiveAt ?? DateTime.now(),
-        _status = status ?? AgentProcessingStatus.idle,
-        _lastStatusChange = DateTime.now(),
-        _errorMessage = null,
+        // DR004 INTEGRATION: Initialize status fields
+        _processingStatus = processingStatus ?? AgentProcessingStatus.idle,
+        _lastStatusChange = lastStatusChange ?? DateTime.now(),
+        _errorMessage = errorMessage,
         contextFiles = contextFiles ?? [],
         metadata = metadata ?? {},
         mcpServerPreferences = mcpServerPreferences ?? {},
         mcpToolPreferences = mcpToolPreferences ?? {} {
     // WARRIOR PROTOCOL: Migrate legacy conversation history to agent if provided
     if (conversationHistory != null && conversationHistory.isNotEmpty) {
-      // Initialize agent and load conversation
       _getAgentInstance();
       for (final message in conversationHistory) {
         _addMessageToAgentConversation(message);
@@ -158,22 +160,31 @@ class AgentModel extends ChangeNotifier {
                 ?.cast<String, bool>() ??
             {};
 
-    // Parse status with fallback to idle
-    AgentProcessingStatus status = AgentProcessingStatus.idle;
-    final statusString = json['status'] as String?;
+    // DR004 INTEGRATION: Parse status fields
+    AgentProcessingStatus processingStatus = AgentProcessingStatus.idle;
+    final statusString = json['processingStatus'] as String?;
     if (statusString != null) {
       try {
-        status = AgentProcessingStatus.values.firstWhere(
+        processingStatus = AgentProcessingStatus.values.firstWhere(
           (e) => e.name == statusString,
           orElse: () => AgentProcessingStatus.idle,
         );
       } catch (e) {
-        // Fallback to idle if parsing fails
-        status = AgentProcessingStatus.idle;
+        processingStatus = AgentProcessingStatus.idle;
       }
     }
 
-    final agent = AgentModel(
+    DateTime? lastStatusChange;
+    try {
+      final statusChangeString = json['lastStatusChange'] as String?;
+      if (statusChangeString != null) {
+        lastStatusChange = DateTime.parse(statusChangeString);
+      }
+    } catch (e) {
+      // Use null to trigger default in constructor
+    }
+
+    return AgentModel(
       id: json['id'] as String?,
       name: json['name'] as String,
       systemPrompt: json['systemPrompt'] as String,
@@ -185,7 +196,10 @@ class AgentModel extends ChangeNotifier {
       lastActiveAt: json['lastActiveAt'] != null
           ? DateTime.parse(json['lastActiveAt'] as String)
           : null,
-      status: status,
+      // DR004 INTEGRATION: Include status fields in deserialization
+      processingStatus: processingStatus,
+      lastStatusChange: lastStatusChange,
+      errorMessage: json['errorMessage'] as String?,
       temperature: (json['temperature'] as num?)?.toDouble() ?? 0.7,
       maxTokens: json['maxTokens'] as int? ?? 4000,
       useBetaFeatures: json['useBetaFeatures'] as bool? ?? false,
@@ -200,20 +214,6 @@ class AgentModel extends ChangeNotifier {
       conversationHistory: conversationHistory, // Will be migrated to agent
       metadata: (json['metadata'] as Map<String, dynamic>?) ?? {},
     );
-
-    // Handle status fields that need special parsing after construction
-    try {
-      final lastStatusChangeString = json['lastStatusChange'] as String?;
-      if (lastStatusChangeString != null) {
-        agent._lastStatusChange = DateTime.parse(lastStatusChangeString);
-      }
-    } catch (e) {
-      // Keep default current time if parsing fails
-    }
-
-    agent._errorMessage = json['errorMessage'] as String?;
-
-    return agent;
   }
 
   /// Convert agent to JSON for persistence
@@ -229,7 +229,8 @@ class AgentModel extends ChangeNotifier {
       'isProcessing': isProcessing,
       'createdAt': createdAt.toIso8601String(),
       'lastActiveAt': lastActiveAt.toIso8601String(),
-      'status': _status.name,
+      // DR004 INTEGRATION: Include status fields in serialization
+      'processingStatus': _processingStatus.name,
       'lastStatusChange': _lastStatusChange.toIso8601String(),
       'errorMessage': _errorMessage,
       'temperature': temperature,
@@ -256,6 +257,10 @@ class AgentModel extends ChangeNotifier {
     bool? isActive,
     bool? isProcessing,
     DateTime? lastActiveAt,
+    // DR004 INTEGRATION: Status fields in copyWith
+    AgentProcessingStatus? processingStatus,
+    DateTime? lastStatusChange,
+    String? errorMessage,
     double? temperature,
     int? maxTokens,
     bool? useBetaFeatures,
@@ -276,6 +281,10 @@ class AgentModel extends ChangeNotifier {
       isProcessing: isProcessing ?? this.isProcessing,
       createdAt: createdAt, // Creation time never changes
       lastActiveAt: lastActiveAt ?? this.lastActiveAt,
+      // DR004 INTEGRATION: Include status fields in copyWith
+      processingStatus: processingStatus ?? _processingStatus,
+      lastStatusChange: lastStatusChange ?? _lastStatusChange,
+      errorMessage: errorMessage ?? _errorMessage,
       temperature: temperature ?? this.temperature,
       maxTokens: maxTokens ?? this.maxTokens,
       useBetaFeatures: useBetaFeatures ?? this.useBetaFeatures,
@@ -346,19 +355,15 @@ class AgentModel extends ChangeNotifier {
     return lastActiveAt; // Use lastActiveAt as proxy for last message time
   }
 
-  /// Update legacy processing state (DEPRECATED - use setProcessing()/setIdle())
+  /// Update processing state
   ///
   /// PERF: O(1) - direct property update with notification
   /// ARCHITECTURAL: Mandatory notifyListeners() after state change
-  void setLegacyProcessing(bool processing) {
+  void setProcessing(bool processing) {
     if (isProcessing != processing) {
       isProcessing = processing;
-      // Update status to match legacy field
-      if (processing) {
-        setProcessing();
-      } else {
-        setIdle();
-      }
+      lastActiveAt = DateTime.now();
+      notifyListeners(); // MANDATORY after any change
     }
   }
 
@@ -437,6 +442,56 @@ class AgentModel extends ChangeNotifier {
       lastActiveAt = DateTime.now();
       notifyListeners(); // MANDATORY after any change
     }
+  }
+
+  // DR004 INTEGRATION: Status management methods from AgentStatusModel
+
+  /// 🚀 PERFORMANCE: Set agent status to processing
+  /// O(1) complexity, < 1ms execution time
+  /// ARCHITECTURAL: Updates status with proper notifications and timestamp management
+  void setProcessingStatus() {
+    if (_processingStatus != AgentProcessingStatus.processing) {
+      _processingStatus = AgentProcessingStatus.processing;
+      _errorMessage = null;
+      isProcessing = true; // Keep legacy field in sync
+      _updateStatusTimestamps();
+      notifyListeners(); // MANDATORY after any change
+    }
+  }
+
+  /// 🚀 PERFORMANCE: Set agent status to idle
+  /// O(1) complexity, < 1ms execution time
+  /// ARCHITECTURAL: Updates status with proper notifications and timestamp management
+  void setIdleStatus() {
+    if (_processingStatus != AgentProcessingStatus.idle) {
+      _processingStatus = AgentProcessingStatus.idle;
+      _errorMessage = null;
+      isProcessing = false; // Keep legacy field in sync
+      _updateStatusTimestamps();
+      notifyListeners(); // MANDATORY after any change
+    }
+  }
+
+  /// 🚀 PERFORMANCE: Set agent status to error with message
+  /// O(1) complexity, < 1ms execution time
+  /// ARCHITECTURAL: Updates status with proper notifications and timestamp management
+  ///
+  /// [message] - Error message describing the error condition
+  void setErrorStatus(String message) {
+    _processingStatus = AgentProcessingStatus.error;
+    _errorMessage = message;
+    isProcessing = false; // Keep legacy field in sync
+    _updateStatusTimestamps();
+    notifyListeners(); // MANDATORY after any change
+  }
+
+  /// 🔧 INTERNAL: Update both activity and status change timestamps
+  /// Called automatically during status transitions
+  /// PERF: O(1) - direct timestamp update
+  void _updateStatusTimestamps() {
+    final now = DateTime.now();
+    lastActiveAt = now;
+    _lastStatusChange = now;
   }
 
   /// Validate agent data
@@ -668,60 +723,15 @@ class AgentModel extends ChangeNotifier {
     }
   }
 
-  // ARCHITECTURAL VICTORY: Direct status management - Single Source of Truth
-
+  // DR004 INTEGRATION: Status management getters
   /// Current processing status of the agent
-  AgentProcessingStatus get status => _status;
+  AgentProcessingStatus get processingStatus => _processingStatus;
 
   /// Timestamp of last status change
   DateTime get lastStatusChange => _lastStatusChange;
 
   /// Error message if status is error, null otherwise
   String? get errorMessage => _errorMessage;
-
-  /// 🚀 PERFORMANCE: Set agent status to processing
-  /// O(1) complexity, < 1ms execution time
-  void setProcessing() {
-    if (_status != AgentProcessingStatus.processing) {
-      _status = AgentProcessingStatus.processing;
-      _errorMessage = null;
-      isProcessing = true; // Sync with legacy field
-      _updateStatusTimestamps();
-      notifyListeners(); // MANDATORY after any change
-    }
-  }
-
-  /// 🚀 PERFORMANCE: Set agent status to idle
-  /// O(1) complexity, < 1ms execution time
-  void setIdle() {
-    if (_status != AgentProcessingStatus.idle) {
-      _status = AgentProcessingStatus.idle;
-      _errorMessage = null;
-      isProcessing = false; // Sync with legacy field
-      _updateStatusTimestamps();
-      notifyListeners(); // MANDATORY after any change
-    }
-  }
-
-  /// 🚀 PERFORMANCE: Set agent status to error with message
-  /// O(1) complexity, < 1ms execution time
-  ///
-  /// [message] - Error message describing the error condition
-  void setError(String message) {
-    _status = AgentProcessingStatus.error;
-    _errorMessage = message;
-    isProcessing = false; // Sync with legacy field
-    _updateStatusTimestamps();
-    notifyListeners(); // MANDATORY after any change
-  }
-
-  /// 🔧 INTERNAL: Update both activity and status change timestamps
-  /// Called automatically during status transitions
-  void _updateStatusTimestamps() {
-    final now = DateTime.now();
-    lastActiveAt = now;
-    _lastStatusChange = now;
-  }
 }
 
 /// Agent status enumeration for UI state management
