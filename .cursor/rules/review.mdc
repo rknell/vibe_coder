@@ -85,6 +85,12 @@ This document defines the mandatory code review protocol for VibeCoder following
    - Dynamic type usage without strong justification
    - Lack of compile-time safety for contracts
 
+8. **MISLEADING COMPLIANCE CLAIMS** (-5000 XP)
+   - Claiming application-wide compliance when only partial scope achieved
+   - False statements about architectural achievements in ticket descriptions
+   - Overstating compliance status to avoid rejection
+   - Misrepresenting the actual scope of implementation
+
 ## 🎯 WARRIOR REVIEW CHECKLIST
 
 ### ⚔️ PHASE 0: FUNDAMENTAL ARCHITECTURE QUESTIONING [MANDATORY FIRST]
@@ -110,6 +116,8 @@ This document defines the mandatory code review protocol for VibeCoder following
 5. **🏗️ SINGLE SOURCE VERIFICATION**: "Will this create multiple sources of truth for the same logical data?"
 
 6. **📊 COLLECTION ANALYSIS**: "Are we creating Map<String, SomeModel> when we already have List<SomeModel> elsewhere?"
+
+7. **🚫 MISLEADING CLAIMS AUDIT**: "Do the ticket claims accurately reflect the actual implementation scope?"
 
 ### ⚔️ PHASE 1: ARCHITECTURAL SUPREMACY [MANDATORY]
 
@@ -205,6 +213,7 @@ This document defines the mandatory code review protocol for VibeCoder following
 #### 💀 ARCHITECTURAL CRIMES
 - **Parallel Data Structure Creation**: -5000 XP
 - **Single Source of Truth Violation**: -5000 XP
+- **Misleading Compliance Claims**: -5000 XP
 - **Unnecessary Service Creation**: -4000 XP
 - **Data Duplication Implementation**: -1500 XP
 - **Functional Widget Builder Usage**: -1000 XP
@@ -250,6 +259,8 @@ This document defines the mandatory code review protocol for VibeCoder following
 11. **📚 MAINTAINABILITY**: "Will future developers understand and be able to modify this code easily?"
 
 12. **🎯 SIMPLIFICATION POTENTIAL**: "Could this be achieved with simple model enhancements instead of service proliferation?"
+
+13. **🚫 MISLEADING CLAIMS VERIFICATION**: "Do the ticket claims accurately reflect the actual implementation scope, or are there false compliance statements?"
 
 ### 🚀 REVIEW VELOCITY TARGETS
 
@@ -318,6 +329,16 @@ suggest architectural violation. When you need complex integration hooks
 to synchronize data, it indicates the data lives in the wrong place. 
 Agent processing status should be a direct property of AgentModel, not 
 managed by a separate service requiring synchronization."
+```
+
+**🚫 MISLEADING CLAIMS REJECTION:**
+```
+"REJECTED - MISLEADING COMPLIANCE CLAIMS: Ticket claims 'Zero functional 
+widget builders application-wide' but grep search reveals 40+ _buildSomething() 
+methods across the codebase. Only DiscordHomeScreen was addressed. This 
+violates review protocol - either reduce scope claims to actual achievement 
+OR implement true application-wide compliance. Approving misleading claims 
+builds technical debt and undermines architecture standards."
 ```
 
 ### 🚫 BANNED WEAK FEEDBACK

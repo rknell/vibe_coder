@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:vibe_coder/models/layout_preferences_model.dart';
 import 'package:vibe_coder/services/services.dart';
+import 'package:vibe_coder/components/discord_layout/left_sidebar_panel.dart';
+import 'package:vibe_coder/components/discord_layout/center_chat_panel.dart';
+import 'package:vibe_coder/components/discord_layout/right_sidebar_panel.dart';
 
 /// DiscordHomeScreen - Three-Panel Layout Foundation
 ///
@@ -95,15 +98,23 @@ class _DiscordHomeScreenState extends State<DiscordHomeScreen> {
           return Row(
             children: [
               // Left Sidebar Panel - Agent Management
-              _buildLeftSidebarPanel(layoutService),
+              LeftSidebarPanel(
+                width: leftSidebarWidth,
+                onCreateAgent: _handleCreateAgent,
+              ),
 
               // Center Chat Panel - Main Content (Flexible)
               Expanded(
-                child: _buildCenterChatPanel(layoutService),
+                child: CenterChatPanel(
+                  currentTheme: layoutService.currentTheme,
+                  onThemeToggle: _handleThemeToggle,
+                ),
               ),
 
               // Right MCP Sidebar Panel - Content Management
-              _buildRightSidebarPanel(layoutService),
+              RightSidebarPanel(
+                width: rightSidebarWidth,
+              ),
             ],
           );
         },
@@ -111,396 +122,25 @@ class _DiscordHomeScreenState extends State<DiscordHomeScreen> {
     );
   }
 
-  /// Build left sidebar panel for agent management
+  /// Handle create agent action
   ///
-  /// PERF: O(1) - container with placeholder component
-  /// INTEGRATION: Ready for DR008 Agent Sidebar Component
-  Widget _buildLeftSidebarPanel(dynamic layoutService) {
-    return Container(
-      width: leftSidebarWidth,
-      color: Theme.of(context).colorScheme.surfaceContainer,
-      child: Column(
-        children: [
-          // Panel header
-          Container(
-            height: 60,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              border: Border(
-                bottom: BorderSide(
-                  color: Theme.of(context).dividerColor.withValues(alpha: 0.2),
-                  width: 1,
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.people_outline,
-                  color: Theme.of(context).colorScheme.onSurface,
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'Agents',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                ),
-              ],
-            ),
-          ),
-
-          // Panel content - Placeholder for agent list
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Placeholder agent list - will be replaced with AgentListComponent
-                  _buildPlaceholderAgentList(),
-
-                  const SizedBox(height: 16),
-
-                  // Create agent button placeholder
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        // TODO: DR008 - Integrate with AgentSettingsDialog
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                                'Agent creation - Integration pending DR008'),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.add),
-                      label: const Text('Create Agent'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+  /// INTEGRATION: Ready for DR008 Agent Settings Dialog integration
+  void _handleCreateAgent() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Agent creation - Integration pending DR008'),
       ),
     );
   }
 
-  /// Build center chat panel for main content
+  /// Handle theme toggle action
   ///
-  /// PERF: O(1) - flexible container with messaging UI
-  /// INTEGRATION: Uses existing MessagingUI component
-  Widget _buildCenterChatPanel(dynamic layoutService) {
-    return Container(
-      color: Theme.of(context).colorScheme.surface,
-      child: Column(
-        children: [
-          // Panel header
-          Container(
-            height: 60,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              border: Border(
-                bottom: BorderSide(
-                  color: Theme.of(context).dividerColor.withValues(alpha: 0.2),
-                  width: 1,
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.chat_outlined,
-                  color: Theme.of(context).colorScheme.onSurface,
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Chat',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const Spacer(),
-
-                // Theme toggle button
-                IconButton(
-                  onPressed: () {
-                    // Cycle through themes
-                    final currentTheme = layoutService.currentTheme;
-                    switch (currentTheme) {
-                      case AppTheme.dark:
-                        layoutService.setTheme(AppTheme.light);
-                        break;
-                      case AppTheme.light:
-                        layoutService.setTheme(AppTheme.system);
-                        break;
-                      case AppTheme.system:
-                        layoutService.setTheme(AppTheme.dark);
-                        break;
-                    }
-                  },
-                  icon: Icon(
-                    _getThemeIcon(layoutService.currentTheme),
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                  tooltip: 'Toggle Theme',
-                ),
-              ],
-            ),
-          ),
-
-          // Chat content - Placeholder for MessagingUI integration
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              color: Theme.of(context).colorScheme.surface,
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.chat_bubble_outline,
-                      size: 64,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.3),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Discord-Style Chat Panel',
-                      style:
-                          Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withValues(alpha: 0.7),
-                              ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Integration with MessagingUI pending',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withValues(alpha: 0.5),
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Build right sidebar panel for MCP content management
-  ///
-  /// PERF: O(1) - container with placeholder components
-  /// INTEGRATION: Ready for DR010 MCP Sidebar Component
-  Widget _buildRightSidebarPanel(dynamic layoutService) {
-    return Container(
-      width: rightSidebarWidth,
-      color: Theme.of(context).colorScheme.surfaceContainer,
-      child: Column(
-        children: [
-          // Panel header
-          Container(
-            height: 60,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              border: Border(
-                bottom: BorderSide(
-                  color: Theme.of(context).dividerColor.withValues(alpha: 0.2),
-                  width: 1,
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.note_outlined,
-                  color: Theme.of(context).colorScheme.onSurface,
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'MCP Content',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                ),
-              ],
-            ),
-          ),
-
-          // Panel content - Placeholder for MCP content
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // MCP content sections
-                  _buildMCPContentSection('Notepad', Icons.note_add_outlined,
-                      'AI notepad content will appear here'),
-
-                  const SizedBox(height: 16),
-
-                  _buildMCPContentSection('Todo', Icons.checklist_outlined,
-                      'AI todo items will appear here'),
-
-                  const SizedBox(height: 16),
-
-                  _buildMCPContentSection('Inbox', Icons.inbox_outlined,
-                      'AI inbox messages will appear here'),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Build placeholder agent list for left sidebar
-  ///
-  /// PERF: O(1) - static placeholder list
-  /// INTEGRATION: Ready for replacement with actual AgentListComponent
-  Widget _buildPlaceholderAgentList() {
-    return Expanded(
-      child: ListView(
-        children: [
-          _buildPlaceholderAgentItem('VibeCoder Assistant', true),
-          _buildPlaceholderAgentItem('Code Reviewer', false),
-          _buildPlaceholderAgentItem('Flutter Expert', false),
-        ],
-      ),
-    );
-  }
-
-  /// Build placeholder agent item
-  ///
-  /// PERF: O(1) - simple list tile
-  Widget _buildPlaceholderAgentItem(String name, bool isActive) {
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: isActive
-            ? Theme.of(context).colorScheme.primary
-            : Theme.of(context).colorScheme.surfaceContainerHighest,
-        child: Icon(
-          Icons.smart_toy_outlined,
-          color: isActive
-              ? Theme.of(context).colorScheme.onPrimary
-              : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-          size: 20,
-        ),
-      ),
-      title: Text(
-        name,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-              color: isActive
-                  ? Theme.of(context).colorScheme.primary
-                  : Theme.of(context).colorScheme.onSurface,
-            ),
-      ),
-      trailing: isActive
-          ? Icon(
-              Icons.circle,
-              size: 8,
-              color: Theme.of(context).colorScheme.primary,
-            )
-          : null,
-      onTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Selected $name - Integration pending DR008'),
-          ),
-        );
-      },
-    );
-  }
-
-  /// Build MCP content section placeholder
-  ///
-  /// PERF: O(1) - simple container with icon and text
-  Widget _buildMCPContentSection(
-      String title, IconData icon, String description) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: Theme.of(context).dividerColor.withValues(alpha: 0.1),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                icon,
-                size: 20,
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withValues(alpha: 0.7),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            description,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: 0.6),
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Get theme icon based on current theme
-  ///
-  /// PERF: O(1) - simple switch statement
-  IconData _getThemeIcon(AppTheme theme) {
-    switch (theme) {
-      case AppTheme.dark:
-        return Icons.dark_mode_outlined;
-      case AppTheme.light:
-        return Icons.light_mode_outlined;
-      case AppTheme.system:
-        return Icons.brightness_auto_outlined;
-    }
+  /// INTEGRATION: Cycles through available themes via LayoutService
+  void _handleThemeToggle() {
+    final layoutService = services.layoutService;
+    const themes = AppTheme.values;
+    final currentIndex = themes.indexOf(layoutService.currentTheme);
+    final nextIndex = (currentIndex + 1) % themes.length;
+    layoutService.setTheme(themes[nextIndex]);
   }
 }
