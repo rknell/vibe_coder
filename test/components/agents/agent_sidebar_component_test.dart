@@ -6,11 +6,6 @@ import 'package:vibe_coder/components/agents/agent_status_indicator.dart';
 import 'package:vibe_coder/models/agent_model.dart';
 import 'package:vibe_coder/services/services.dart';
 import 'package:vibe_coder/services/agent_service.dart';
-import 'package:vibe_coder/services/layout_service.dart';
-import 'package:vibe_coder/services/mcp_service.dart';
-import 'package:vibe_coder/services/mcp_content_service.dart';
-import 'package:vibe_coder/services/debug_logger.dart';
-import 'package:vibe_coder/services/configuration_service.dart';
 
 class MockAgentService extends ChangeNotifier implements AgentService {
   @override
@@ -127,22 +122,6 @@ class MockServices implements Services {
   @override
   final AgentService agentService = MockAgentService();
 
-  // Fix: Return proper service instances instead of dynamic
-  @override
-  LayoutService get layoutService => throw UnimplementedError();
-
-  @override
-  MCPService get mcpService => throw UnimplementedError();
-
-  @override
-  MCPContentService get mcpContentService => throw UnimplementedError();
-
-  @override
-  DebugLogger get debugLogger => throw UnimplementedError();
-
-  @override
-  ConfigurationService get configurationService => throw UnimplementedError();
-
   @override
   void dispose() {
     // Mock dispose - no cleanup needed
@@ -154,7 +133,13 @@ class MockServices implements Services {
   }
 
   @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+  dynamic noSuchMethod(Invocation invocation) => _MockDynamicService();
+}
+
+/// Dynamic mock service that accepts any method call
+class _MockDynamicService {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
 }
 
 void main() {

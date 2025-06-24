@@ -7,50 +7,51 @@ import 'package:vibe_coder/components/discord_layout/center_chat_panel.dart';
 import 'package:vibe_coder/components/discord_layout/right_sidebar_panel.dart';
 import 'package:vibe_coder/components/agents/agent_settings_dialog.dart';
 
-/// DiscordHomeScreen - Three-Panel Layout Foundation
+/// DiscordHomeScreen - Responsive Three-Panel Layout with Animations
 ///
 /// ## 🏆 MISSION ACCOMPLISHED
-/// **ESTABLISHES DISCORD-STYLE THREE-PANEL LAYOUT** with foundational structure
-/// for agent sidebar, chat panel, and MCP content sidebar integration.
+/// **DISCORD-STYLE RESPONSIVE LAYOUT** with smooth sidebar animations,
+/// mobile-friendly behavior, and user-controlled panel resizing.
 ///
 /// ## ⚔️ STRATEGIC DECISIONS
 /// | Option | Power-Ups | Weaknesses | Victory Reason |
 /// |--------|-----------|------------|----------------|
-/// | Three-Panel Row | Discord consistency | Fixed layout | CHOSEN - matches Discord UX |
-/// | Flexible Grid | Responsive design | Complexity | REJECTED - premature optimization |
-/// | Nested Containers | Simple structure | Limited flexibility | CHOSEN - foundation first |
-/// | Custom Layout | Maximum control | High complexity | REJECTED - overengineering |
+/// | AnimatedContainer | Simple to use | Limited control | REJECTED - not smooth enough |
+/// | AnimationController | Full control | More complex | CHOSEN - professional animations |
+/// | Transform.scale | Performance | Layout issues | REJECTED - breaks panel interaction |
+/// | AnimatedSize | Auto-sizing | Clunky behavior | REJECTED - not Discord-style |
+/// | Custom Tween | Perfect control | Implementation effort | CHOSEN - smooth transitions |
 ///
 /// ## 💀 BOSS FIGHTS DEFEATED
-/// 1. **Layout Structure Foundation**
-///    - 🔍 Symptom: Single-panel chat interface limiting Discord-style UX
-///    - 🎯 Root Cause: No three-panel layout foundation for sidebar integration
-///    - 💥 Kill Shot: Row-based three-panel structure with fixed panel widths
+/// 1. **Sidebar Collapse Animations**
+///    - 🔍 Symptom: Static layout with no collapse functionality
+///    - 🎯 Root Cause: Missing animation controllers for sidebar transitions
+///    - 💥 Kill Shot: AnimationController with Transform.translate for smooth animations
 ///
-/// 2. **LayoutService Integration**
-///    - 🔍 Symptom: Hardcoded layout dimensions and theme settings
-///    - 🎯 Root Cause: No reactive layout service integration
-///    - 💥 Kill Shot: ListenableBuilder with LayoutService for reactive updates
+/// 2. **Mobile Responsive Behavior**
+///    - 🔍 Symptom: Fixed layout breaks on mobile devices
+///    - 🎯 Root Cause: No responsive breakpoints or adaptive sidebar behavior
+///    - 💥 Kill Shot: LayoutBuilder with breakpoint detection and auto-hide logic
 ///
-/// 3. **Component Integration Foundation**
-///    - 🔍 Symptom: No structure for specialized sidebar components
-///    - 🎯 Root Cause: Missing placeholder infrastructure for component development
-///    - 💥 Kill Shot: Placeholder components with clear integration points
+/// 3. **State Persistence**
+///    - 🔍 Symptom: Sidebar collapsed state lost on app restart
+///    - 🎯 Root Cause: Animation state not integrated with LayoutService
+///    - 💥 Kill Shot: LayoutService integration for persistent sidebar preferences
 ///
 /// ## PERFORMANCE PROFILE
-/// - Layout rendering: O(1) - three-panel Row structure
-/// - Theme switching: O(1) - ListenableBuilder reactive updates
-/// - Panel sizing: O(1) - fixed width calculations
-/// - Component integration: O(1) - direct widget composition
-/// - Memory usage: O(1) - minimal state tracking
+/// - Animation rendering: O(1) - Transform.translate with GPU acceleration
+/// - Responsive calculations: O(1) - MediaQuery-based breakpoint detection
+/// - State persistence: O(1) - LayoutService reactive updates
+/// - Panel resizing: O(1) - direct width calculations with constraints
+/// - Memory usage: O(1) - properly disposed animation controllers
 ///
 /// ARCHITECTURAL COMPLIANCE:
-/// ✅ StatefulWidget for screen orchestration (mandatory for screens)
-/// ✅ ListenableBuilder for reactive layout updates
-/// ✅ Zero functional widget builders (extracted to proper methods)
-/// ✅ Component composition pattern for panel content
-/// ✅ Object-oriented LayoutService integration
-/// ✅ Single source of truth via LayoutService
+/// ✅ StatefulWidget with TickerProviderStateMixin for animation lifecycle
+/// ✅ AnimationController proper disposal in dispose()
+/// ✅ LayoutService integration for persistent state management
+/// ✅ Mobile-first responsive design with graceful degradation
+/// ✅ Object-oriented callback patterns for toggle actions
+/// ✅ Single source of truth via LayoutService coordination
 class DiscordHomeScreen extends StatefulWidget {
   const DiscordHomeScreen({super.key});
 
@@ -58,19 +59,92 @@ class DiscordHomeScreen extends StatefulWidget {
   State<DiscordHomeScreen> createState() => _DiscordHomeScreenState();
 }
 
-class _DiscordHomeScreenState extends State<DiscordHomeScreen> {
-  // Panel dimension constants - Discord-style fixed layout
+class _DiscordHomeScreenState extends State<DiscordHomeScreen>
+    with TickerProviderStateMixin {
+  // Panel dimension constants - Discord-style adaptive layout
   static const double leftSidebarWidth = 250.0;
   static const double rightSidebarWidth = 300.0;
+  static const double minCenterPanelWidth = 400.0;
+
+  // Responsive breakpoints - Mobile-first design
+  static const double mobileBreakpoint = 768.0;
+  static const double tabletBreakpoint = 1024.0;
+
+  // Animation duration - Discord-style timing
+  static const Duration animationDuration = Duration(milliseconds: 300);
+
+  // WARRIOR PROTOCOL EXCEPTION: AnimationController requires late initialization for TickerProviderStateMixin
+  late AnimationController _leftSidebarController;
+  late AnimationController _rightSidebarController;
+  late Animation<double> _leftSidebarAnimation;
+  late Animation<double> _rightSidebarAnimation;
 
   // Agent selection state
   AgentModel? _selectedAgent;
 
+  // Current panel widths for resizing
+  double _currentLeftWidth = leftSidebarWidth;
+  double _currentRightWidth = rightSidebarWidth;
+
   @override
   void initState() {
     super.initState();
-    // Initialize services if needed (but they should already be initialized)
+    _initializeAnimations();
     _ensureServicesInitialized();
+    _loadPersistedSidebarStates();
+  }
+
+  /// Initialize animation controllers and animations
+  ///
+  /// PERF: O(1) - animation controller setup
+  /// ARCHITECTURAL: Proper animation lifecycle management
+  void _initializeAnimations() {
+    // Left sidebar animation controller
+    _leftSidebarController = AnimationController(
+      duration: animationDuration,
+      vsync: this,
+    );
+
+    // Right sidebar animation controller
+    _rightSidebarController = AnimationController(
+      duration: animationDuration,
+      vsync: this,
+    );
+
+    // Smooth easing animations - Discord-style feel
+    _leftSidebarAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _leftSidebarController,
+      curve: Curves.easeInOut,
+    ));
+
+    _rightSidebarAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _rightSidebarController,
+      curve: Curves.easeInOut,
+    ));
+  }
+
+  /// Load persisted sidebar states from LayoutService
+  ///
+  /// PERF: O(1) - state restoration from preferences
+  /// INTEGRATION: LayoutService coordination for persistence
+  void _loadPersistedSidebarStates() {
+    final layoutService = services.layoutService;
+
+    // Initialize animation controllers based on persisted state
+    // If sidebar is NOT collapsed, it should be visible (animation value = 1.0)
+    if (!layoutService.leftSidebarCollapsed) {
+      _leftSidebarController.value = 1.0;
+    }
+
+    if (!layoutService.rightSidebarCollapsed) {
+      _rightSidebarController.value = 1.0;
+    }
   }
 
   /// Ensure services are initialized for layout coordination
@@ -93,40 +167,206 @@ class _DiscordHomeScreenState extends State<DiscordHomeScreen> {
   }
 
   @override
+  void dispose() {
+    // WARRIOR PROTOCOL: Proper animation controller disposal
+    _leftSidebarController.dispose();
+    _rightSidebarController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: ListenableBuilder(
-        listenable: services.layoutService,
-        builder: (context, child) {
-          final layoutService = services.layoutService;
-
-          return Row(
-            children: [
-              // Left Sidebar Panel - Agent Management
-              LeftSidebarPanel(
-                width: leftSidebarWidth,
-                selectedAgent: _selectedAgent,
-                onAgentSelected: _handleAgentSelected,
-                onCreateAgent: _handleCreateAgent,
-              ),
-
-              // Center Chat Panel - Main Content (Flexible)
-              Expanded(
-                child: CenterChatPanel(
-                  currentTheme: layoutService.currentTheme,
-                  onThemeToggle: _handleThemeToggle,
-                ),
-              ),
-
-              // Right MCP Sidebar Panel - Content Management
-              RightSidebarPanel(
-                width: rightSidebarWidth,
-              ),
-            ],
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return ListenableBuilder(
+            listenable: services.layoutService,
+            builder: (context, child) {
+              return _buildResponsiveLayout(constraints);
+            },
           );
         },
       ),
     );
+  }
+
+  /// Build responsive layout based on screen constraints
+  ///
+  /// PERF: O(1) - responsive layout calculation
+  /// ARCHITECTURAL: Mobile-first responsive design with breakpoints
+  Widget _buildResponsiveLayout(BoxConstraints constraints) {
+    final screenWidth = constraints.maxWidth;
+    final layoutService = services.layoutService;
+
+    // Determine sidebar visibility based on responsive breakpoints
+    final shouldShowLeftSidebar = _shouldShowLeftSidebar(screenWidth);
+    final shouldShowRightSidebar = _shouldShowRightSidebar(screenWidth);
+
+    return Row(
+      children: [
+        // Left Sidebar Panel - Agent Management (Animated)
+        if (shouldShowLeftSidebar) ...[
+          AnimatedBuilder(
+            animation: _leftSidebarAnimation,
+            builder: (context, child) {
+              return Transform.translate(
+                offset: Offset(
+                  -_currentLeftWidth * (1 - _leftSidebarAnimation.value),
+                  0,
+                ),
+                child: SizedBox(
+                  width: _currentLeftWidth,
+                  child: LeftSidebarPanel(
+                    width: _currentLeftWidth,
+                    selectedAgent: _selectedAgent,
+                    onAgentSelected: _handleAgentSelected,
+                    onCreateAgent: _handleCreateAgent,
+                  ),
+                ),
+              );
+            },
+          ),
+
+          // Left panel resize handle
+          _buildPanelDivider(isLeft: true),
+        ],
+
+        // Center Chat Panel - Main Content (Flexible)
+        Expanded(
+          child: Container(
+            constraints: BoxConstraints(
+              minWidth: minCenterPanelWidth,
+            ),
+            child: CenterChatPanel(
+              currentTheme: layoutService.currentTheme,
+              onThemeToggle: _handleThemeToggle,
+              onToggleLeftSidebar: _toggleLeftSidebar,
+              onToggleRightSidebar: _toggleRightSidebar,
+            ),
+          ),
+        ),
+
+        // Right MCP Sidebar Panel - Content Management (Animated)
+        if (shouldShowRightSidebar) ...[
+          // Right panel resize handle
+          _buildPanelDivider(isLeft: false),
+
+          AnimatedBuilder(
+            animation: _rightSidebarAnimation,
+            builder: (context, child) {
+              return Transform.translate(
+                offset: Offset(
+                  _currentRightWidth * (1 - _rightSidebarAnimation.value),
+                  0,
+                ),
+                child: SizedBox(
+                  width: _currentRightWidth,
+                  child: RightSidebarPanel(
+                    width: _currentRightWidth,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// Build resizable panel divider
+  ///
+  /// PERF: O(1) - simple divider widget construction
+  /// INTEGRATION: Draggable divider for user-controlled panel resizing
+  Widget _buildPanelDivider({required bool isLeft}) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeColumn,
+      child: GestureDetector(
+        onPanUpdate: (details) => _handlePanelResize(details.delta.dx, isLeft),
+        child: Container(
+          width: 4,
+          color: Theme.of(context).dividerColor.withValues(alpha: 0.3),
+          child: const SizedBox.expand(),
+        ),
+      ),
+    );
+  }
+
+  /// Determine if left sidebar should be visible
+  ///
+  /// PERF: O(1) - responsive breakpoint calculation
+  /// RESPONSIVE: Mobile-first design with auto-hide on small screens
+  bool _shouldShowLeftSidebar(double screenWidth) {
+    if (screenWidth < mobileBreakpoint) {
+      return false; // Auto-hide on mobile
+    }
+
+    // Check animation state and layout service preferences
+    return _leftSidebarAnimation.value > 0.0 &&
+        !services.layoutService.leftSidebarCollapsed;
+  }
+
+  /// Determine if right sidebar should be visible
+  ///
+  /// PERF: O(1) - responsive breakpoint calculation
+  /// RESPONSIVE: Progressive disclosure based on screen size
+  bool _shouldShowRightSidebar(double screenWidth) {
+    if (screenWidth < tabletBreakpoint) {
+      return false; // Auto-hide on tablet and below
+    }
+
+    // Check animation state and layout service preferences
+    return _rightSidebarAnimation.value > 0.0 &&
+        !services.layoutService.rightSidebarCollapsed;
+  }
+
+  /// Toggle left sidebar with smooth animation
+  ///
+  /// PERF: O(1) - animation state toggle
+  /// INTEGRATION: LayoutService coordination for state persistence
+  void _toggleLeftSidebar() {
+    final layoutService = services.layoutService;
+
+    if (_leftSidebarController.value == 1.0) {
+      // Collapse sidebar
+      _leftSidebarController.reverse();
+      layoutService.setLeftSidebarCollapsed(true);
+    } else {
+      // Expand sidebar
+      _leftSidebarController.forward();
+      layoutService.setLeftSidebarCollapsed(false);
+    }
+  }
+
+  /// Toggle right sidebar with smooth animation
+  ///
+  /// PERF: O(1) - animation state toggle
+  /// INTEGRATION: LayoutService coordination for state persistence
+  void _toggleRightSidebar() {
+    final layoutService = services.layoutService;
+
+    if (_rightSidebarController.value == 1.0) {
+      // Collapse sidebar
+      _rightSidebarController.reverse();
+      layoutService.setRightSidebarCollapsed(true);
+    } else {
+      // Expand sidebar
+      _rightSidebarController.forward();
+      layoutService.setRightSidebarCollapsed(false);
+    }
+  }
+
+  /// Handle panel resize operations
+  ///
+  /// PERF: O(1) - width calculation with constraints
+  /// UX: Smooth resizing with minimum width constraints
+  void _handlePanelResize(double delta, bool isLeft) {
+    setState(() {
+      if (isLeft) {
+        _currentLeftWidth = (_currentLeftWidth + delta).clamp(200.0, 400.0);
+      } else {
+        _currentRightWidth = (_currentRightWidth - delta).clamp(250.0, 500.0);
+      }
+    });
   }
 
   /// Handle agent selection
@@ -145,10 +385,12 @@ class _DiscordHomeScreenState extends State<DiscordHomeScreen> {
   ///
   /// INTEGRATION: Real agent creation dialog integration
   void _handleCreateAgent() async {
+    if (!mounted) return;
+
     try {
       final result = await AgentSettingsDialog.showCreateDialog(context);
 
-      if (result != null) {
+      if (result != null && mounted) {
         // Agent was created successfully
         await services.agentService.createAgent(
           name: result.name,
@@ -159,19 +401,23 @@ class _DiscordHomeScreenState extends State<DiscordHomeScreen> {
           useReasonerModel: result.useReasonerModel,
         );
 
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Agent "${result.name}" created successfully'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Agent "${result.name}" created successfully'),
+            content: Text('Failed to create agent: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to create agent: $e'),
-          backgroundColor: Theme.of(context).colorScheme.error,
-        ),
-      );
     }
   }
 

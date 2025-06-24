@@ -81,6 +81,12 @@ class AgentModel extends ChangeNotifier {
   Map<String, bool> mcpServerPreferences;
   Map<String, bool> mcpToolPreferences;
 
+  // DR005B INTEGRATION: MCP Content Properties (Single Source of Truth)
+  String? _mcpNotepadContent;
+  List<String> _mcpTodoItems = [];
+  List<String> _mcpInboxItems = [];
+  DateTime? _lastContentSync;
+
   // Agent metadata
   Map<String, dynamic> metadata;
 
@@ -106,6 +112,11 @@ class AgentModel extends ChangeNotifier {
     this.mcpConfigPath,
     Map<String, bool>? mcpServerPreferences,
     Map<String, bool>? mcpToolPreferences,
+    // DR005B INTEGRATION: MCP Content constructor parameters
+    String? mcpNotepadContent,
+    List<String>? mcpTodoItems,
+    List<String>? mcpInboxItems,
+    DateTime? lastContentSync,
     this.supervisorId,
     List<String>? contextFiles,
     List<ChatMessage>? conversationHistory,
@@ -120,7 +131,12 @@ class AgentModel extends ChangeNotifier {
         contextFiles = contextFiles ?? [],
         metadata = metadata ?? {},
         mcpServerPreferences = mcpServerPreferences ?? {},
-        mcpToolPreferences = mcpToolPreferences ?? {} {
+        mcpToolPreferences = mcpToolPreferences ?? {},
+        // DR005B INTEGRATION: Initialize MCP content fields
+        _mcpNotepadContent = mcpNotepadContent,
+        _mcpTodoItems = mcpTodoItems ?? [],
+        _mcpInboxItems = mcpInboxItems ?? [],
+        _lastContentSync = lastContentSync {
     // WARRIOR PROTOCOL: Migrate legacy conversation history to agent if provided
     if (conversationHistory != null && conversationHistory.isNotEmpty) {
       _getAgentInstance();
@@ -200,6 +216,15 @@ class AgentModel extends ChangeNotifier {
       processingStatus: processingStatus,
       lastStatusChange: lastStatusChange,
       errorMessage: json['errorMessage'] as String?,
+      // DR005B INTEGRATION: Parse MCP content fields
+      mcpNotepadContent: json['mcpNotepadContent'] as String?,
+      mcpTodoItems:
+          (json['mcpTodoItems'] as List<dynamic>?)?.cast<String>().toList(),
+      mcpInboxItems:
+          (json['mcpInboxItems'] as List<dynamic>?)?.cast<String>().toList(),
+      lastContentSync: json['lastContentSync'] != null
+          ? DateTime.parse(json['lastContentSync'] as String)
+          : null,
       temperature: (json['temperature'] as num?)?.toDouble() ?? 0.7,
       maxTokens: json['maxTokens'] as int? ?? 4000,
       useBetaFeatures: json['useBetaFeatures'] as bool? ?? false,
@@ -233,6 +258,11 @@ class AgentModel extends ChangeNotifier {
       'processingStatus': _processingStatus.name,
       'lastStatusChange': _lastStatusChange.toIso8601String(),
       'errorMessage': _errorMessage,
+      // DR005B INTEGRATION: Include MCP content fields in serialization
+      'mcpNotepadContent': _mcpNotepadContent,
+      'mcpTodoItems': _mcpTodoItems,
+      'mcpInboxItems': _mcpInboxItems,
+      'lastContentSync': _lastContentSync?.toIso8601String(),
       'temperature': temperature,
       'maxTokens': maxTokens,
       'useBetaFeatures': useBetaFeatures,
@@ -492,6 +522,69 @@ class AgentModel extends ChangeNotifier {
     final now = DateTime.now();
     lastActiveAt = now;
     _lastStatusChange = now;
+  }
+
+  // DR005B INTEGRATION: MCP Content Management (Single Source of Truth)
+
+  /// Get MCP notepad content
+  /// PERF: O(1) - direct field access
+  /// ARCHITECTURAL: Single source of truth for agent's notepad content
+  String? get mcpNotepadContent => _mcpNotepadContent;
+
+  /// Get MCP todo items list
+  /// PERF: O(1) - direct field access
+  /// ARCHITECTURAL: Single source of truth for agent's todo items
+  List<String> get mcpTodoItems => List.unmodifiable(_mcpTodoItems);
+
+  /// Get MCP inbox items list
+  /// PERF: O(1) - direct field access
+  /// ARCHITECTURAL: Single source of truth for agent's inbox items
+  List<String> get mcpInboxItems => List.unmodifiable(_mcpInboxItems);
+
+  /// Get last content sync timestamp
+  /// PERF: O(1) - direct field access
+  DateTime? get lastContentSync => _lastContentSync;
+
+  /// Update MCP notepad content
+  /// PERF: O(1) - direct field update
+  /// ARCHITECTURAL: Direct mutation with reactive notification
+  void updateMCPNotepadContent(String? content) {
+    _mcpNotepadContent = content;
+    _lastContentSync = DateTime.now();
+    updateActivity();
+    notifyListeners(); // MANDATORY after any change
+  }
+
+  /// Update MCP todo items
+  /// PERF: O(n) where n = number of items
+  /// ARCHITECTURAL: Direct mutation with reactive notification
+  void updateMCPTodoItems(List<String> items) {
+    _mcpTodoItems = List.from(items);
+    _lastContentSync = DateTime.now();
+    updateActivity();
+    notifyListeners(); // MANDATORY after any change
+  }
+
+  /// Update MCP inbox items
+  /// PERF: O(n) where n = number of items
+  /// ARCHITECTURAL: Direct mutation with reactive notification
+  void updateMCPInboxItems(List<String> items) {
+    _mcpInboxItems = List.from(items);
+    _lastContentSync = DateTime.now();
+    updateActivity();
+    notifyListeners(); // MANDATORY after any change
+  }
+
+  /// Clear all MCP content
+  /// PERF: O(1) - field clearing
+  /// ARCHITECTURAL: Complete content reset with reactive notification
+  void clearMCPContent() {
+    _mcpNotepadContent = null;
+    _mcpTodoItems.clear();
+    _mcpInboxItems.clear();
+    _lastContentSync = null;
+    updateActivity();
+    notifyListeners(); // MANDATORY after any change
   }
 
   /// Validate agent data
