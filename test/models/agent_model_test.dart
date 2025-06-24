@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:test/test.dart';
 import 'package:vibe_coder/models/agent_model.dart';
+import 'package:vibe_coder/models/agent_status_model.dart';
 
 void main() {
   group('AgentModel Persistence Tests', () {
@@ -280,6 +281,154 @@ void main() {
 
       // Clean up
       await reloadedAgent.delete();
+    });
+  });
+
+  group('🎯 STATUS MANAGEMENT INTEGRATION (DR004)', () {
+    test('✅ Default status initialization', () {
+      final agent = AgentModel(
+        name: 'Test Agent',
+        systemPrompt: 'Test prompt',
+      );
+
+      expect(agent.status, equals(AgentProcessingStatus.idle));
+      expect(agent.errorMessage, isNull);
+      expect(agent.lastStatusChange, isNotNull);
+      expect(agent.isProcessing, isFalse);
+    });
+
+    test('✅ Status transitions with notifications', () {
+      final agent = AgentModel(
+        name: 'Test Agent',
+        systemPrompt: 'Test prompt',
+      );
+
+      final notifications = <String>[];
+      agent.addListener(() {
+        notifications.add('status_changed');
+      });
+
+      // Test processing transition
+      agent.setProcessing();
+      expect(agent.status, equals(AgentProcessingStatus.processing));
+      expect(agent.isProcessing, isTrue);
+      expect(agent.errorMessage, isNull);
+      expect(notifications.length, equals(1));
+
+      // Test idle transition
+      agent.setIdle();
+      expect(agent.status, equals(AgentProcessingStatus.idle));
+      expect(agent.isProcessing, isFalse);
+      expect(agent.errorMessage, isNull);
+      expect(notifications.length, equals(2));
+
+      // Test error transition
+      agent.setError('Test error message');
+      expect(agent.status, equals(AgentProcessingStatus.error));
+      expect(agent.isProcessing, isFalse);
+      expect(agent.errorMessage, equals('Test error message'));
+      expect(notifications.length, equals(3));
+    });
+
+    test('✅ Status change only triggers notification when changed', () {
+      final agent = AgentModel(
+        name: 'Test Agent',
+        systemPrompt: 'Test prompt',
+      );
+
+      final notifications = <String>[];
+      agent.addListener(() {
+        notifications.add('changed');
+      });
+
+      // Multiple setIdle calls should only trigger one notification
+      agent.setIdle();
+      agent.setIdle();
+      agent.setIdle();
+      expect(
+          notifications.length, equals(0)); // No change from initial idle state
+
+      // Change to processing
+      agent.setProcessing();
+      expect(notifications.length, equals(1));
+
+      // Multiple setProcessing calls should not retrigger
+      agent.setProcessing();
+      agent.setProcessing();
+      expect(notifications.length, equals(1));
+    });
+
+    test('✅ Legacy setLegacyProcessing integration', () {
+      final agent = AgentModel(
+        name: 'Test Agent',
+        systemPrompt: 'Test prompt',
+      );
+
+      // Legacy method should update both fields consistently
+      agent.setLegacyProcessing(true);
+      expect(agent.isProcessing, isTrue);
+      expect(agent.status, equals(AgentProcessingStatus.processing));
+
+      agent.setLegacyProcessing(false);
+      expect(agent.isProcessing, isFalse);
+      expect(agent.status, equals(AgentProcessingStatus.idle));
+    });
+
+    test('✅ Status JSON serialization and deserialization', () {
+      final agent = AgentModel(
+        name: 'Test Agent',
+        systemPrompt: 'Test prompt',
+        status: AgentProcessingStatus.processing,
+      );
+      agent.setError('Test error');
+
+      final json = agent.toJson();
+      expect(json['status'], equals('error'));
+      expect(json['lastStatusChange'], isNotNull);
+      expect(json['errorMessage'], equals('Test error'));
+
+      final restored = AgentModel.fromJson(json);
+      expect(restored.status, equals(AgentProcessingStatus.error));
+      expect(restored.errorMessage, equals('Test error'));
+      expect(restored.lastStatusChange, isNotNull);
+    });
+
+    test('✅ Status JSON fallback handling', () {
+      final json = {
+        'id': 'test-id',
+        'name': 'Test Agent',
+        'systemPrompt': 'Test prompt',
+        'status': 'invalid_status', // Invalid status should fallback to idle
+        'isActive': true,
+        'isProcessing': false,
+        'createdAt': DateTime.now().toIso8601String(),
+        'lastActiveAt': DateTime.now().toIso8601String(),
+      };
+
+      final agent = AgentModel.fromJson(json);
+      expect(agent.status, equals(AgentProcessingStatus.idle)); // Fallback
+      expect(agent.errorMessage, isNull);
+    });
+
+    test('🚀 PERFORMANCE: Status updates < 1ms', () {
+      final agent = AgentModel(
+        name: 'Test Agent',
+        systemPrompt: 'Test prompt',
+      );
+
+      // Test status update performance
+      final stopwatch = Stopwatch()..start();
+      for (int i = 0; i < 1000; i++) {
+        agent.setProcessing();
+        agent.setIdle();
+        agent.setError('Error $i');
+      }
+      stopwatch.stop();
+
+      final averageTime = stopwatch.elapsedMicroseconds /
+          3000; // 3 operations per iteration * 1000 iterations
+      expect(averageTime, lessThan(1000),
+          reason: 'Status updates should be < 1ms (1000 microseconds)');
     });
   });
 }

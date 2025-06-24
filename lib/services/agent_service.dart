@@ -25,6 +25,7 @@ import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
 import 'package:uuid/uuid.dart';
 import 'package:vibe_coder/models/agent_model.dart';
+import 'package:vibe_coder/models/agent_status_model.dart';
 import 'package:vibe_coder/models/service_statistics.dart';
 import 'package:vibe_coder/ai_agent/models/chat_message_model.dart';
 
@@ -467,6 +468,107 @@ class AgentService extends ChangeNotifier {
     super.dispose();
 
     _logger.info('✅ AGENT SERVICE: Cleanup completed');
+  }
+
+  // ARCHITECTURAL VICTORY: Status management through AgentModel - Single Source of Truth
+
+  /// Get agents by processing status - ARCHITECTURAL: Status filtering
+  ///
+  /// PERF: O(n) where n = number of agents
+  List<AgentModel> getAgentsByProcessingStatus(AgentProcessingStatus status) {
+    return data.where((agent) => agent.status == status).toList();
+  }
+
+  /// Get all processing agents - ARCHITECTURAL: Convenience method
+  ///
+  /// PERF: O(n) where n = number of agents
+  List<AgentModel> getProcessingAgents() {
+    return getAgentsByProcessingStatus(AgentProcessingStatus.processing);
+  }
+
+  /// Get all idle agents - ARCHITECTURAL: Convenience method
+  ///
+  /// PERF: O(n) where n = number of agents
+  List<AgentModel> getIdleAgents() {
+    return getAgentsByProcessingStatus(AgentProcessingStatus.idle);
+  }
+
+  /// Get all error agents - ARCHITECTURAL: Convenience method
+  ///
+  /// PERF: O(n) where n = number of agents
+  List<AgentModel> getErrorAgents() {
+    return getAgentsByProcessingStatus(AgentProcessingStatus.error);
+  }
+
+  /// Update agent status - ARCHITECTURAL: Business logic delegation to model
+  ///
+  /// PERF: O(1) - direct agent method call
+  /// ARCHITECTURAL: Single source of truth - status lives in AgentModel
+  Future<void> updateAgentStatus(String agentId, AgentProcessingStatus status,
+      {String? errorMessage}) async {
+    _ensureInitialized();
+
+    final agent = getById(agentId);
+    if (agent == null) {
+      throw AgentServiceException('Agent not found: $agentId');
+    }
+
+    // Update status using model methods
+    switch (status) {
+      case AgentProcessingStatus.idle:
+        agent.setIdle();
+        break;
+      case AgentProcessingStatus.processing:
+        agent.setProcessing();
+        break;
+      case AgentProcessingStatus.error:
+        agent.setError(errorMessage ?? 'Unknown error');
+        break;
+    }
+
+    // Model handles notifyListeners() - service doesn't need to notify
+  }
+
+  /// Set agent processing status - ARCHITECTURAL: Convenience method
+  ///
+  /// PERF: O(1) - direct agent method call
+  Future<void> setAgentProcessing(String agentId) async {
+    await updateAgentStatus(agentId, AgentProcessingStatus.processing);
+  }
+
+  /// Set agent idle status - ARCHITECTURAL: Convenience method
+  ///
+  /// PERF: O(1) - direct agent method call
+  Future<void> setAgentIdle(String agentId) async {
+    await updateAgentStatus(agentId, AgentProcessingStatus.idle);
+  }
+
+  /// Set agent error status - ARCHITECTURAL: Convenience method
+  ///
+  /// PERF: O(1) - direct agent method call
+  Future<void> setAgentError(String agentId, String errorMessage) async {
+    await updateAgentStatus(agentId, AgentProcessingStatus.error,
+        errorMessage: errorMessage);
+  }
+
+  /// Get status summary for all agents - ARCHITECTURAL: Business logic
+  ///
+  /// PERF: O(n) where n = number of agents
+  /// Returns status counts and agent lists by status
+  Map<String, dynamic> getStatusSummary() {
+    final processingAgents = getProcessingAgents();
+    final idleAgents = getIdleAgents();
+    final errorAgents = getErrorAgents();
+
+    return {
+      'totalAgents': data.length,
+      'processingCount': processingAgents.length,
+      'idleCount': idleAgents.length,
+      'errorCount': errorAgents.length,
+      'processingAgents': processingAgents.map((a) => a.id).toList(),
+      'idleAgents': idleAgents.map((a) => a.id).toList(),
+      'errorAgents': errorAgents.map((a) => a.id).toList(),
+    };
   }
 }
 
