@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:vibe_coder/models/layout_preferences_model.dart';
 import 'package:vibe_coder/models/agent_model.dart';
 import 'package:vibe_coder/services/services.dart';
-import 'package:vibe_coder/components/discord_layout/left_sidebar_panel.dart';
-import 'package:vibe_coder/components/discord_layout/center_chat_panel.dart';
-import 'package:vibe_coder/components/discord_layout/right_sidebar_panel.dart';
+import 'package:vibe_coder/components/discord_layout/discord_layout_widgets.dart';
 import 'package:vibe_coder/components/agents/agent_settings_dialog.dart';
+import 'package:vibe_coder/ai_agent/models/chat_message_model.dart';
+import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
 
 /// DiscordHomeScreen - Responsive Three-Panel Layout with Animations
 ///
@@ -64,11 +64,6 @@ class _DiscordHomeScreenState extends State<DiscordHomeScreen>
   // Panel dimension constants - Discord-style adaptive layout
   static const double leftSidebarWidth = 250.0;
   static const double rightSidebarWidth = 300.0;
-  static const double minCenterPanelWidth = 400.0;
-
-  // Responsive breakpoints - Mobile-first design
-  static const double mobileBreakpoint = 768.0;
-  static const double tabletBreakpoint = 1024.0;
 
   // Animation duration - Discord-style timing
   static const Duration animationDuration = Duration(milliseconds: 300);
@@ -182,141 +177,30 @@ class _DiscordHomeScreenState extends State<DiscordHomeScreen>
           return ListenableBuilder(
             listenable: services.layoutService,
             builder: (context, child) {
-              return _buildResponsiveLayout(constraints);
+              return DiscordResponsiveLayoutWidget(
+                constraints: constraints,
+                leftSidebarController: _leftSidebarController,
+                rightSidebarController: _rightSidebarController,
+                leftSidebarAnimation: _leftSidebarAnimation,
+                rightSidebarAnimation: _rightSidebarAnimation,
+                currentLeftWidth: _currentLeftWidth,
+                currentRightWidth: _currentRightWidth,
+                selectedAgent: _selectedAgent,
+                onAgentSelected: _handleAgentSelected,
+                onCreateAgent: _handleCreateAgent,
+                onThemeToggle: _handleThemeToggle,
+                onToggleLeftSidebar: _toggleLeftSidebar,
+                onToggleRightSidebar: _toggleRightSidebar,
+                onSendMessage: _handleSendMessage,
+                onClearConversation: _handleClearConversation,
+                onAgentEdit: _handleAgentEdit,
+                onPanelResize: _handlePanelResize,
+              );
             },
           );
         },
       ),
     );
-  }
-
-  /// Build responsive layout based on screen constraints
-  ///
-  /// PERF: O(1) - responsive layout calculation
-  /// ARCHITECTURAL: Mobile-first responsive design with breakpoints
-  Widget _buildResponsiveLayout(BoxConstraints constraints) {
-    final screenWidth = constraints.maxWidth;
-    final layoutService = services.layoutService;
-
-    // Determine sidebar visibility based on responsive breakpoints
-    final shouldShowLeftSidebar = _shouldShowLeftSidebar(screenWidth);
-    final shouldShowRightSidebar = _shouldShowRightSidebar(screenWidth);
-
-    return Row(
-      children: [
-        // Left Sidebar Panel - Agent Management (Animated)
-        if (shouldShowLeftSidebar) ...[
-          AnimatedBuilder(
-            animation: _leftSidebarAnimation,
-            builder: (context, child) {
-              return Transform.translate(
-                offset: Offset(
-                  -_currentLeftWidth * (1 - _leftSidebarAnimation.value),
-                  0,
-                ),
-                child: SizedBox(
-                  width: _currentLeftWidth,
-                  child: LeftSidebarPanel(
-                    width: _currentLeftWidth,
-                    selectedAgent: _selectedAgent,
-                    onAgentSelected: _handleAgentSelected,
-                    onCreateAgent: _handleCreateAgent,
-                  ),
-                ),
-              );
-            },
-          ),
-
-          // Left panel resize handle
-          _buildPanelDivider(isLeft: true),
-        ],
-
-        // Center Chat Panel - Main Content (Flexible)
-        Expanded(
-          child: Container(
-            constraints: BoxConstraints(
-              minWidth: minCenterPanelWidth,
-            ),
-            child: CenterChatPanel(
-              currentTheme: layoutService.currentTheme,
-              onThemeToggle: _handleThemeToggle,
-              onToggleLeftSidebar: _toggleLeftSidebar,
-              onToggleRightSidebar: _toggleRightSidebar,
-            ),
-          ),
-        ),
-
-        // Right MCP Sidebar Panel - Content Management (Animated)
-        if (shouldShowRightSidebar) ...[
-          // Right panel resize handle
-          _buildPanelDivider(isLeft: false),
-
-          AnimatedBuilder(
-            animation: _rightSidebarAnimation,
-            builder: (context, child) {
-              return Transform.translate(
-                offset: Offset(
-                  _currentRightWidth * (1 - _rightSidebarAnimation.value),
-                  0,
-                ),
-                child: SizedBox(
-                  width: _currentRightWidth,
-                  child: RightSidebarPanel(
-                    width: _currentRightWidth,
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
-      ],
-    );
-  }
-
-  /// Build resizable panel divider
-  ///
-  /// PERF: O(1) - simple divider widget construction
-  /// INTEGRATION: Draggable divider for user-controlled panel resizing
-  Widget _buildPanelDivider({required bool isLeft}) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.resizeColumn,
-      child: GestureDetector(
-        onPanUpdate: (details) => _handlePanelResize(details.delta.dx, isLeft),
-        child: Container(
-          width: 4,
-          color: Theme.of(context).dividerColor.withValues(alpha: 0.3),
-          child: const SizedBox.expand(),
-        ),
-      ),
-    );
-  }
-
-  /// Determine if left sidebar should be visible
-  ///
-  /// PERF: O(1) - responsive breakpoint calculation
-  /// RESPONSIVE: Mobile-first design with auto-hide on small screens
-  bool _shouldShowLeftSidebar(double screenWidth) {
-    if (screenWidth < mobileBreakpoint) {
-      return false; // Auto-hide on mobile
-    }
-
-    // Check animation state and layout service preferences
-    return _leftSidebarAnimation.value > 0.0 &&
-        !services.layoutService.leftSidebarCollapsed;
-  }
-
-  /// Determine if right sidebar should be visible
-  ///
-  /// PERF: O(1) - responsive breakpoint calculation
-  /// RESPONSIVE: Progressive disclosure based on screen size
-  bool _shouldShowRightSidebar(double screenWidth) {
-    if (screenWidth < tabletBreakpoint) {
-      return false; // Auto-hide on tablet and below
-    }
-
-    // Check animation state and layout service preferences
-    return _rightSidebarAnimation.value > 0.0 &&
-        !services.layoutService.rightSidebarCollapsed;
   }
 
   /// Toggle left sidebar with smooth animation
@@ -430,5 +314,71 @@ class _DiscordHomeScreenState extends State<DiscordHomeScreen>
     final currentIndex = themes.indexOf(layoutService.currentTheme);
     final nextIndex = (currentIndex + 1) % themes.length;
     layoutService.setTheme(themes[nextIndex]);
+  }
+
+  /// Handle message sending to selected agent
+  ///
+  /// INTEGRATION: Agent conversation management with object-oriented pattern
+  void _handleSendMessage(AgentModel agent, String message) {
+    // TODO: Integrate with conversation manager for message processing
+    debugPrint('💬 Sending message to ${agent.name}: $message');
+
+    // Add user message to agent's conversation history
+    // This will be enhanced when conversation manager is integrated
+    final userMessage = ChatMessage(
+      role: MessageRole.user,
+      content: message,
+    );
+    agent.addMessage(userMessage);
+  }
+
+  /// Handle conversation clearing for selected agent
+  ///
+  /// INTEGRATION: Agent conversation management with confirmation
+  void _handleClearConversation(AgentModel agent) {
+    debugPrint('🗑️ Clearing conversation for ${agent.name}');
+
+    // Clear the agent's conversation history
+    agent.clearConversation();
+
+    // Show confirmation snackbar
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Cleared conversation with ${agent.name}'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  /// Handle agent editing action
+  ///
+  /// INTEGRATION: Agent configuration dialog with settings persistence
+  void _handleAgentEdit(AgentModel agent) async {
+    if (!mounted) return;
+
+    try {
+      final result = await AgentSettingsDialog.showEditDialog(context, agent);
+
+      if (result != null && mounted) {
+        // Agent was updated successfully
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Updated ${agent.name} settings'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update agent settings: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
   }
 }

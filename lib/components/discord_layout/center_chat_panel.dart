@@ -1,56 +1,62 @@
 import 'package:flutter/material.dart';
 import 'package:vibe_coder/models/layout_preferences_model.dart';
+import 'package:vibe_coder/models/agent_model.dart';
+import 'package:vibe_coder/components/discord_layout/chat_panel/chat_panel_header.dart';
+import 'package:vibe_coder/components/discord_layout/chat_panel/chat_interface_container.dart';
+import 'package:vibe_coder/components/discord_layout/chat_panel/chat_empty_state.dart';
 
-/// CenterChatPanel - Main Chat Content Panel with Sidebar Controls
+/// CenterChatPanel - Enhanced Discord-Style Chat Interface
 ///
 /// ## 🏆 MISSION ACCOMPLISHED
-/// **IMPLEMENTS DISCORD-STYLE PANEL WITH SIDEBAR TOGGLES** - Creates reusable center chat panel
-/// with integrated sidebar toggle controls for responsive layout management.
+/// **DISCORD-STYLE CHAT PANEL WITH COMPONENT ARCHITECTURE** - Transforms placeholder content
+/// into fully functional chat interface with proper component extraction and Discord UX patterns.
 ///
 /// ## ⚔️ STRATEGIC DECISIONS
 /// | Option | Power-Ups | Weaknesses | Victory Reason |
 /// |--------|-----------|------------|----------------|
-/// | Expanded Container | Flexible sizing, Discord-style | Requires parent Row | CHOSEN - matches original implementation |
-/// | Fixed Width | Predictable sizing | Not responsive | REJECTED - center panel should be flexible |
-/// | Scaffold Body | Full structure | Overkill for panel | REJECTED - panel component not screen |
-/// | MessagingUI Direct | Immediate integration | Tight coupling | REJECTED - placeholder first for foundation |
-/// | Header Toggle Buttons | Discord-style sidebar control | More header complexity | CHOSEN - follows Discord UI patterns |
+/// | Component Extraction | Architectural compliance | Code reorganization | CHOSEN - eliminates functional builders |
+/// | MessagingUI Integration | Full chat functionality | Component coupling | CHOSEN - preserves all features |
+/// | Agent Header Display | Discord-style UX | More complexity | CHOSEN - follows Discord patterns |
+/// | Conversation Switching | Smooth UX | State management | CHOSEN - essential for multi-agent workflow |
+/// | Empty State Handling | User guidance | Additional logic | CHOSEN - professional UX standards |
 ///
 /// ## 💀 BOSS FIGHTS DEFEATED
-/// 1. **Functional Widget Builder Crime**
-///    - 🔍 Symptom: Center chat panel logic embedded in parent screen widget
-///    - 🎯 Root Cause: Widget logic embedded in StatefulWidget build method
-///    - 💥 Kill Shot: Extracted to reusable StatelessWidget component
+/// 1. **Functional Widget Builder Architectural Violation**
+///    - 🔍 Symptom: Three functional builders (_buildChatPanelHeader, _buildChatInterface, _buildEmptyState) violating Flutter architecture protocol
+///    - 🎯 Root Cause: Widget building logic embedded in main component
+///    - 💥 Kill Shot: Complete component extraction to ChatPanelHeader, ChatInterfaceContainer, ChatEmptyState
 ///
-/// 2. **Theme Toggle Integration Challenge**
-///    - 🔍 Symptom: Theme switching logic scattered throughout build method
-///    - 🎯 Root Cause: Theme button embedded in functional builder
-///    - 💥 Kill Shot: Clean theme toggle with callback pattern
+/// 2. **Agent Selection Coordination**
+///    - 🔍 Symptom: Chat panel not responding to agent selection changes
+///    - 🎯 Root Cause: No agent context or conversation switching logic
+///    - 💥 Kill Shot: Agent prop with reactive conversation display and state management
 ///
-/// 3. **Sidebar Toggle Control Missing**
-///    - 🔍 Symptom: Sidebar toggle methods existed but had no UI controls
-///    - 🎯 Root Cause: Missing toggle buttons in panel header
-///    - 💥 Kill Shot: Added Discord-style sidebar toggle buttons with tooltips
+/// 3. **Discord-Style Integration Challenge**
+///    - 🔍 Symptom: Generic header without agent context and MCP integration
+///    - 🎯 Root Cause: Header showing static "Chat" text instead of agent information
+///    - 💥 Kill Shot: Dynamic header with agent name, configuration access, and status indicators
 ///
 /// ## PERFORMANCE PROFILE
 /// - Widget creation: O(1) - Container with Column structure
 /// - Theme application: O(1) - Theme.of(context) lookups
-/// - Layout calculation: O(1) - flexible sizing within parent Row
-/// - Memory usage: O(1) - stateless widget with minimal properties
-/// - Rebuild efficiency: O(1) - rebuilds only when parent triggers rebuild
-/// - Toggle callbacks: O(1) - direct callback invocation with animation triggers
+/// - Agent switching: O(1) - direct agent reference update
+/// - Conversation loading: O(n) where n = message count (delegated to ChatInterfaceContainer)
+/// - Memory usage: O(n) - current conversation messages in memory
+/// - Rebuild efficiency: O(1) - rebuilds only when agent or messages change
 ///
 /// ARCHITECTURAL COMPLIANCE:
 /// ✅ StatelessWidget (mandatory for UI components)
-/// ✅ Zero functional widget builders (pure component)
-/// ✅ Object-oriented callback pattern (onThemeToggle, onToggleLeftSidebar, onToggleRightSidebar props)
-/// ✅ Theme integration (respects app theme)
-/// ✅ Single responsibility (chat panel display with sidebar controls)
-/// ✅ Flexible design (works within Row layout)
-/// ✅ Discord-style UI patterns (sidebar toggle buttons in header)
+/// ✅ Zero functional widget builders (complete elimination achieved)
+/// ✅ Object-oriented callback pattern (onSendMessage, onClearConversation, onAgentEdit props)
+/// ✅ Single source of truth (AgentModel passed as reference)
+/// ✅ Component extraction (ChatPanelHeader, ChatInterfaceContainer, ChatEmptyState)
+/// ✅ Discord-style UI patterns (header with agent info and controls)
 class CenterChatPanel extends StatelessWidget {
   /// Current theme for theme toggle button
   final AppTheme currentTheme;
+
+  /// Selected agent for chat display (null shows empty state)
+  final AgentModel? selectedAgent;
 
   /// Callback for theme toggle button
   final VoidCallback? onThemeToggle;
@@ -61,12 +67,25 @@ class CenterChatPanel extends StatelessWidget {
   /// Callback for right sidebar toggle
   final VoidCallback? onToggleRightSidebar;
 
+  /// Callback for sending messages to selected agent
+  final void Function(AgentModel, String)? onSendMessage;
+
+  /// Callback for clearing agent conversation
+  final void Function(AgentModel)? onClearConversation;
+
+  /// Callback for editing agent configuration
+  final void Function(AgentModel)? onAgentEdit;
+
   const CenterChatPanel({
     super.key,
     required this.currentTheme,
+    this.selectedAgent,
     this.onThemeToggle,
     this.onToggleLeftSidebar,
     this.onToggleRightSidebar,
+    this.onSendMessage,
+    this.onClearConversation,
+    this.onAgentEdit,
   });
 
   @override
@@ -75,122 +94,29 @@ class CenterChatPanel extends StatelessWidget {
       color: Theme.of(context).colorScheme.surface,
       child: Column(
         children: [
-          // Panel header
-          Container(
-            height: 60,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              border: Border(
-                bottom: BorderSide(
-                  color: Theme.of(context).dividerColor.withValues(alpha: 0.2),
-                  width: 1,
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                // Left sidebar toggle button
-                IconButton(
-                  onPressed: onToggleLeftSidebar,
-                  icon: const Icon(Icons.menu),
-                  tooltip: 'Toggle agents sidebar',
-                ),
-
-                Icon(
-                  Icons.chat_outlined,
-                  color: Theme.of(context).colorScheme.onSurface,
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Chat',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const Spacer(),
-
-                // Theme toggle button
-                IconButton(
-                  onPressed: onThemeToggle,
-                  icon: Icon(_getThemeIcon(currentTheme)),
-                  tooltip: 'Toggle theme',
-                ),
-
-                // Right sidebar toggle button
-                IconButton(
-                  onPressed: onToggleRightSidebar,
-                  icon: const Icon(Icons.view_sidebar),
-                  tooltip: 'Toggle MCP content sidebar',
-                ),
-              ],
-            ),
+          // Enhanced Panel Header with Agent Context
+          ChatPanelHeader(
+            currentTheme: currentTheme,
+            selectedAgent: selectedAgent,
+            onThemeToggle: onThemeToggle,
+            onToggleLeftSidebar: onToggleLeftSidebar,
+            onToggleRightSidebar: onToggleRightSidebar,
+            onAgentEdit: onAgentEdit,
+            onClearConversation: onClearConversation,
           ),
 
-          // Panel content - Placeholder for chat interface
+          // Main Chat Content Area
           Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              color: Theme.of(context).colorScheme.surface,
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.chat_bubble_outline,
-                      size: 64,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha: 0.3),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Discord-Style Chat Panel',
-                      style:
-                          Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withValues(alpha: 0.7),
-                              ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Integration with MessagingUI pending',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withValues(alpha: 0.5),
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            child: selectedAgent != null
+                ? ChatInterfaceContainer(
+                    selectedAgent: selectedAgent!,
+                    onSendMessage: onSendMessage,
+                    onClearConversation: onClearConversation,
+                  )
+                : const ChatEmptyState(),
           ),
         ],
       ),
     );
-  }
-
-  /// Get theme icon based on current theme
-  ///
-  /// PERF: O(1) - simple switch statement
-  IconData _getThemeIcon(AppTheme theme) {
-    switch (theme) {
-      case AppTheme.dark:
-        return Icons.dark_mode_outlined;
-      case AppTheme.light:
-        return Icons.light_mode_outlined;
-      case AppTheme.system:
-        return Icons.brightness_auto_outlined;
-    }
   }
 }

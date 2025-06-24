@@ -409,20 +409,15 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Verify MCP content sections
-      expect(find.text('Notepad'), findsOneWidget);
-      expect(find.text('Todo'), findsOneWidget);
-      expect(find.text('Inbox'), findsOneWidget);
+      // Initially, should show empty state when no agent is selected
+      expect(find.text('Select an Agent'), findsOneWidget);
+      expect(
+          find.text(
+              'Choose an agent from the sidebar to view\ntheir MCP content and workspace'),
+          findsOneWidget);
 
-      // Verify section descriptions
-      expect(find.text('AI notepad content will appear here'), findsOneWidget);
-      expect(find.text('AI todo items will appear here'), findsOneWidget);
-      expect(find.text('AI inbox messages will appear here'), findsOneWidget);
-
-      // Verify section icons
-      expect(find.byIcon(Icons.note_add_outlined), findsOneWidget);
-      expect(find.byIcon(Icons.checklist_outlined), findsOneWidget);
-      expect(find.byIcon(Icons.inbox_outlined), findsOneWidget);
+      // Verify empty state uses lightbulb icon (not note_outlined to avoid duplication)
+      expect(find.byIcon(Icons.lightbulb_outline), findsOneWidget);
     });
 
     testWidgets('🚀 VICTORY: Create agent button functionality works',
@@ -478,7 +473,7 @@ void main() {
       expect(find.text('Create Agent'), findsOneWidget);
     });
 
-    testWidgets('💥 VICTORY: Chat panel placeholder displays correctly',
+    testWidgets('💥 VICTORY: Chat panel empty state displays correctly',
         (tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -488,9 +483,11 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Verify chat panel placeholder content
-      expect(find.text('Discord-Style Chat Panel'), findsOneWidget);
-      expect(find.text('Integration with MessagingUI pending'), findsOneWidget);
+      // Verify chat panel empty state content (ChatEmptyState component)
+      expect(find.text('Select an Agent to Start Chatting'), findsOneWidget);
+      expect(
+          find.text('Choose an agent from the sidebar to begin a conversation'),
+          findsOneWidget);
       expect(find.byIcon(Icons.chat_bubble_outline), findsOneWidget);
     });
 
