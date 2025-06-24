@@ -5,7 +5,7 @@ import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
 /// MessageHeader - Selectable Message Participant Name Display
 ///
 /// ## MISSION ACCOMPLISHED
-/// Eliminates _buildHeader functional widget builder by creating reusable header component.
+/// Creates reusable header component with role display and action integration.
 /// Provides consistent message participant name styling across all message types.
 /// DESKTOP OPTIMIZATION: Full text selection and copy functionality for participant names.
 ///
@@ -25,8 +25,8 @@ import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
 /// - Desktop Optimization: Full text selection with context menu support
 ///
 /// ## BOSS FIGHTS DEFEATED
-/// 1. **Functional Widget Builder Elimination**
-///    - 🔍 Symptom: `_buildHeader()` method in MessageBubble
+/// 1. **Component Architecture Excellence**
+///    - 🔍 Symptom: Header rendering logic embedded in parent widgets
 ///    - 🎯 Root Cause: Header logic embedded in parent widget
 ///    - 💥 Kill Shot: Extracted to dedicated StatelessWidget
 ///

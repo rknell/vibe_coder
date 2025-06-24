@@ -6,7 +6,7 @@ import 'package:vibe_coder/components/messaging/tool_calls/tool_call_card.dart';
 ///
 /// ## MISSION ACCOMPLISHED
 /// ARCHITECTURAL VICTORY: Eliminated ALL functional widget builders from tool calls display
-/// Replaced 7 _buildSomething() methods with proper component architecture
+/// Implements comprehensive tool call display with proper component architecture
 /// Fixed Map<dynamic, dynamic> type casting issues with proper type safety
 /// PERFORMANCE: O(n) where n = number of tool calls - efficient list rendering
 ///
@@ -25,7 +25,7 @@ import 'package:vibe_coder/components/messaging/tool_calls/tool_call_card.dart';
 ///    - 💥 Kill Shot: Safe type conversion in ToolCallCard component
 ///
 /// 2. **Functional Widget Builder Violations**
-///    - 🔍 Symptom: Multiple _buildSomething() methods in StatefulWidget
+///    - 🔍 Symptom: Tool call display logic needed proper component extraction
 ///    - 🎯 Root Cause: Architectural protocol violations
 ///    - 💥 Kill Shot: Extracted 7 functional builders into proper components
 ///

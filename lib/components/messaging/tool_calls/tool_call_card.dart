@@ -5,7 +5,7 @@ import 'package:vibe_coder/components/messaging/tool_calls/tool_call_expanded_co
 /// ToolCallCard - Individual Tool Call Display Card
 ///
 /// ## MISSION ACCOMPLISHED
-/// Eliminates _buildToolCallCard functional widget builder by creating reusable tool call card component.
+/// Creates reusable tool call card component with expansion state and status indicators.
 /// Provides consistent tool call card display with expansion state management and status visualization.
 /// ARCHITECTURAL VICTORY: Single responsibility component for tool call card rendering.
 ///

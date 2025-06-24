@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:vibe_coder/models/mcp_server_info.dart';
+import '../../../models/mcp_server_info.dart';
 
 /// MCPServerManagementDialog - Comprehensive MCP Server Management Interface
 ///
@@ -196,6 +196,7 @@ class _MCPServerManagementDialogState extends State<MCPServerManagementDialog> {
     final totalTools = _mcpInfo.toolCount;
     final connectedServers = _mcpInfo.connectedCount;
     final configuredServers = _mcpInfo.totalCount;
+    final supportedServers = servers.where((s) => s.supported).length;
 
     return AlertDialog(
       title: Row(
@@ -273,35 +274,31 @@ class _MCPServerManagementDialogState extends State<MCPServerManagementDialog> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      _buildStatChip(
-                        'Total Tools',
-                        totalTools.toString(),
-                        Colors.blue,
-                        Icons.build,
+                      MCPServerStatChip(
+                        label: 'Total Servers',
+                        value: configuredServers.toString(),
+                        color: Colors.blue,
+                        icon: Icons.dns,
                       ),
-                      _buildStatChip(
-                        'Servers',
-                        '$connectedServers/$configuredServers',
-                        connectedServers == configuredServers
-                            ? Colors.green
-                            : connectedServers > 0
-                                ? Colors.orange
-                                : Colors.red,
-                        Icons.dns,
+                      MCPServerStatChip(
+                        label: 'Connected',
+                        value: connectedServers.toString(),
+                        color: connectedServers > 0 ? Colors.green : Colors.red,
+                        icon: Icons.cloud_done,
                       ),
-                      _buildStatChip(
-                        'Status',
-                        connectedServers == configuredServers
-                            ? 'All Connected'
-                            : connectedServers > 0
-                                ? 'Partial'
-                                : 'Offline',
-                        connectedServers == configuredServers
+                      MCPServerStatChip(
+                        label: 'Tools',
+                        value: totalTools.toString(),
+                        color: Colors.purple,
+                        icon: Icons.build,
+                      ),
+                      MCPServerStatChip(
+                        label: 'Supported',
+                        value: supportedServers.toString(),
+                        color: supportedServers == configuredServers
                             ? Colors.green
-                            : connectedServers > 0
-                                ? Colors.orange
-                                : Colors.red,
-                        Icons.cloud,
+                            : Colors.orange,
+                        icon: Icons.verified,
                       ),
                     ],
                   ),
@@ -362,7 +359,12 @@ class _MCPServerManagementDialogState extends State<MCPServerManagementDialog> {
                       itemCount: servers.length,
                       itemBuilder: (context, index) {
                         final server = servers[index];
-                        return _buildServerManagementCard(context, server);
+                        return MCPServerManagementCard(
+                          server: server,
+                          isRefreshing:
+                              _refreshingServers.contains(server.name),
+                          onRefresh: () => _refreshServer(server.name),
+                        );
                       },
                     ),
             ),
@@ -377,11 +379,33 @@ class _MCPServerManagementDialogState extends State<MCPServerManagementDialog> {
       ],
     );
   }
+}
 
-  /// Build enhanced statistics chip with icon
-  /// PERF: O(1) - immediate widget construction
-  Widget _buildStatChip(
-      String label, String value, Color color, IconData icon) {
+/// MCP Server Stat Chip Component
+///
+/// ## MISSION ACCOMPLISHED
+/// Extracted from functional widget builder to proper component
+///
+/// ## PERFORMANCE PROFILE
+/// - Time Complexity: O(1) - Static chip rendering
+/// - Space Complexity: O(1) - Fixed chip layout
+/// - Rebuild Frequency: On value changes
+class MCPServerStatChip extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+  final IconData icon;
+
+  const MCPServerStatChip({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -419,11 +443,31 @@ class _MCPServerManagementDialogState extends State<MCPServerManagementDialog> {
       ),
     );
   }
+}
 
-  /// Build enhanced server management card with refresh capabilities
-  /// PERF: O(m) where m = tools per server - optimized for typical tool counts
-  Widget _buildServerManagementCard(
-      BuildContext context, MCPServerInfo server) {
+/// MCP Server Management Card Component
+///
+/// ## MISSION ACCOMPLISHED
+/// Extracted from functional widget builder to proper component
+///
+/// ## PERFORMANCE PROFILE
+/// - Time Complexity: O(m) where m = tools per server
+/// - Space Complexity: O(m) for tool data
+/// - Rebuild Frequency: On server status changes
+class MCPServerManagementCard extends StatelessWidget {
+  final MCPServerInfo server;
+  final bool isRefreshing;
+  final VoidCallback onRefresh;
+
+  const MCPServerManagementCard({
+    super.key,
+    required this.server,
+    required this.isRefreshing,
+    required this.onRefresh,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final serverName = server.name;
     final status = server.status;
     final type = server.type;
@@ -438,7 +482,6 @@ class _MCPServerManagementDialogState extends State<MCPServerManagementDialog> {
     final args = server.args;
 
     final isConnected = status == 'connected';
-    final isRefreshing = _refreshingServers.contains(serverName);
     final statusColor = isConnected ? Colors.green : Colors.red;
 
     return Card(
@@ -482,7 +525,7 @@ class _MCPServerManagementDialogState extends State<MCPServerManagementDialog> {
             ),
             // Individual refresh button
             IconButton(
-              onPressed: isRefreshing ? null : () => _refreshServer(serverName),
+              onPressed: isRefreshing ? null : onRefresh,
               icon: const Icon(Icons.refresh, size: 20),
               tooltip: 'Refresh $serverName',
               padding: EdgeInsets.zero,
@@ -554,20 +597,26 @@ class _MCPServerManagementDialogState extends State<MCPServerManagementDialog> {
                       ),
                       const SizedBox(height: 8),
                       if (url != null) ...[
-                        _buildConfigRow('URL', url, copyable: true),
+                        MCPConfigRow(label: 'URL', value: url, copyable: true),
                       ],
                       if (command != null) ...[
-                        _buildConfigRow('Command', command, copyable: true),
+                        MCPConfigRow(
+                            label: 'Command', value: command, copyable: true),
                         if (args != null && args.isNotEmpty)
-                          _buildConfigRow('Arguments', args.join(' '),
+                          MCPConfigRow(
+                              label: 'Arguments',
+                              value: args.join(' '),
                               copyable: true),
                       ],
-                      _buildConfigRow('Type', type.toUpperCase()),
-                      _buildConfigRow('Tools', toolCount.toString()),
+                      MCPConfigRow(label: 'Type', value: type.toUpperCase()),
+                      MCPConfigRow(label: 'Tools', value: toolCount.toString()),
                       if (resourceCount > 0)
-                        _buildConfigRow('Resources', resourceCount.toString()),
+                        MCPConfigRow(
+                            label: 'Resources',
+                            value: resourceCount.toString()),
                       if (promptCount > 0)
-                        _buildConfigRow('Prompts', promptCount.toString()),
+                        MCPConfigRow(
+                            label: 'Prompts', value: promptCount.toString()),
                     ],
                   ),
                 ),
@@ -591,8 +640,8 @@ class _MCPServerManagementDialogState extends State<MCPServerManagementDialog> {
                       children: tools.asMap().entries.map((entry) {
                         final index = entry.key;
                         final tool = entry.value;
-                        return _buildToolCard(tool,
-                            isLast: index == tools.length - 1);
+                        return MCPToolCard(
+                            tool: tool, isLast: index == tools.length - 1);
                       }).toList(),
                     ),
                   ),
@@ -621,10 +670,31 @@ class _MCPServerManagementDialogState extends State<MCPServerManagementDialog> {
       ),
     );
   }
+}
 
-  /// Build configuration row with optional copy functionality
-  /// PERF: O(1) - immediate row construction
-  Widget _buildConfigRow(String label, String value, {bool copyable = false}) {
+/// MCP Config Row Component
+///
+/// ## MISSION ACCOMPLISHED
+/// Extracted from functional widget builder to proper component
+///
+/// ## PERFORMANCE PROFILE
+/// - Time Complexity: O(1) - Single row rendering
+/// - Space Complexity: O(1) - Fixed row layout
+/// - Rebuild Frequency: On value changes
+class MCPConfigRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool copyable;
+
+  const MCPConfigRow({
+    super.key,
+    required this.label,
+    required this.value,
+    this.copyable = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
@@ -669,10 +739,29 @@ class _MCPServerManagementDialogState extends State<MCPServerManagementDialog> {
       ),
     );
   }
+}
 
-  /// Build individual tool card with enhanced information
-  /// PERF: O(1) - single tool display with lazy rendering
-  Widget _buildToolCard(MCPToolInfo tool, {bool isLast = false}) {
+/// MCP Tool Card Component
+///
+/// ## MISSION ACCOMPLISHED
+/// Extracted from functional widget builder to proper component
+///
+/// ## PERFORMANCE PROFILE
+/// - Time Complexity: O(1) - Single tool rendering
+/// - Space Complexity: O(1) - Fixed tool layout
+/// - Rebuild Frequency: On tool data changes
+class MCPToolCard extends StatelessWidget {
+  final MCPToolInfo tool;
+  final bool isLast;
+
+  const MCPToolCard({
+    super.key,
+    required this.tool,
+    this.isLast = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final name = tool.name;
     final description = tool.description.isNotEmpty
         ? tool.description

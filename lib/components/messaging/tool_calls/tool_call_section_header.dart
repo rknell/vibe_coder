@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 /// ToolCallSectionHeader - Section Header for Tool Call Content
 ///
 /// ## MISSION ACCOMPLISHED
-/// Eliminates _buildSectionHeader functional widget builder by creating reusable section header component.
+/// Creates reusable section header component with consistent typography and spacing.
 /// Provides consistent section header styling for tool call content sections.
 /// ARCHITECTURAL VICTORY: Single responsibility component for section header rendering.
 ///

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:vibe_coder/models/mcp_server_info.dart';
+import '../../../models/mcp_server_info.dart';
 
 /// ToolsInfoDialog - Available MCP Servers and Tools Display
 ///
@@ -29,6 +29,21 @@ import 'package:vibe_coder/models/mcp_server_info.dart';
 ///    - 🔍 Symptom: Cannot diagnose MCP connection issues
 ///    - 🎯 Root Cause: No visibility into server states
 ///    - 💥 Kill Shot: Connection status + failure reasons display
+///
+/// ## MISSION ACCOMPLISHED
+/// Eliminated functional widget builders and extracted them into proper components
+/// following flutter_architecture.mdc warrior protocols
+///
+/// ## STRATEGIC DECISIONS
+/// | Option | Power-Ups | Weaknesses | Victory Reason |
+/// |-----|-----|---|----|
+/// | Component Extraction | Reusable, maintainable, testable | More files | Architectural compliance |
+/// | Functional Builders | Quick to write | Maintenance nightmare | BANNED by warrior protocols |
+///
+/// ## PERFORMANCE PROFILE
+/// - Time Complexity: O(n) where n = number of servers
+/// - Space Complexity: O(n) for server data
+/// - Rebuild Frequency: On server status changes
 class ToolsInfoDialog extends StatelessWidget {
   /// Creates a tools info dialog with MCP server information
   ///
@@ -54,6 +69,7 @@ class ToolsInfoDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Get MCP server info data from your service
     final servers = mcpInfo.servers.values.toList();
     final totalTools = mcpInfo.toolCount;
     final connectedServers = mcpInfo.connectedCount;
@@ -76,13 +92,17 @@ class ToolsInfoDialog extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  _buildStatChip(
-                      'Total Tools', totalTools.toString(), Colors.blue),
+                  ToolsInfoStatChip(
+                    label: 'Total Tools',
+                    value: totalTools.toString(),
+                    color: Colors.blue,
+                  ),
                   const SizedBox(width: 8),
-                  _buildStatChip(
-                      'Connected',
-                      '$connectedServers/$configuredServers',
-                      connectedServers > 0 ? Colors.green : Colors.orange),
+                  ToolsInfoStatChip(
+                    label: 'Connected',
+                    value: '$connectedServers/$configuredServers',
+                    color: connectedServers > 0 ? Colors.green : Colors.orange,
+                  ),
                 ],
               ),
             ),
@@ -102,7 +122,7 @@ class ToolsInfoDialog extends StatelessWidget {
                       itemCount: servers.length,
                       itemBuilder: (context, index) {
                         final server = servers[index];
-                        return _buildServerCard(context, server);
+                        return ToolsInfoServerCard(server: server);
                       },
                     ),
             ),
@@ -117,9 +137,31 @@ class ToolsInfoDialog extends StatelessWidget {
       ],
     );
   }
+}
 
-  /// Build a statistics chip
-  Widget _buildStatChip(String label, String value, Color color) {
+/// Tools Info Stat Chip Component
+///
+/// ## MISSION ACCOMPLISHED
+/// Extracted from functional widget builder to proper component
+///
+/// ## PERFORMANCE PROFILE
+/// - Time Complexity: O(1) - Static chip rendering
+/// - Space Complexity: O(1) - Fixed chip layout
+/// - Rebuild Frequency: On value changes
+class ToolsInfoStatChip extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const ToolsInfoStatChip({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -133,9 +175,27 @@ class ToolsInfoDialog extends StatelessWidget {
       ),
     );
   }
+}
 
-  /// Build a server information card
-  Widget _buildServerCard(BuildContext context, MCPServerInfo server) {
+/// Tools Info Server Card Component
+///
+/// ## MISSION ACCOMPLISHED
+/// Extracted from functional widget builder to proper component
+///
+/// ## PERFORMANCE PROFILE
+/// - Time Complexity: O(n) where n = number of tools per server
+/// - Space Complexity: O(n) for tool data
+/// - Rebuild Frequency: On server status changes
+class ToolsInfoServerCard extends StatelessWidget {
+  final MCPServerInfo server;
+
+  const ToolsInfoServerCard({
+    super.key,
+    required this.server,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final serverName = server.name;
     final status = server.status;
     final type = server.type;

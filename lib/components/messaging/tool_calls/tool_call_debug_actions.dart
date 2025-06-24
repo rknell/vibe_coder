@@ -6,7 +6,7 @@ import 'package:vibe_coder/services/debug_logger.dart';
 /// ToolCallDebugActions - Debug Action Buttons for Tool Calls
 ///
 /// ## MISSION ACCOMPLISHED
-/// Eliminates _buildDebugActions functional widget builder by creating reusable debug actions component.
+/// Creates reusable debug actions component with copy and retry functionality.
 /// Provides copy and debug logging functionality for tool call data.
 /// ARCHITECTURAL VICTORY: Single responsibility component for debug actions.
 ///

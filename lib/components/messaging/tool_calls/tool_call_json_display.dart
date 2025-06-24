@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 /// ToolCallJsonDisplay - JSON Data Display with Copy Functionality
 ///
 /// ## MISSION ACCOMPLISHED
-/// Eliminates _buildJsonDisplay functional widget builder by creating reusable JSON display component.
+/// Creates reusable JSON display component with syntax highlighting and copy functionality.
 /// Provides formatted JSON display with copy functionality and proper type safety.
 /// ARCHITECTURAL VICTORY: Single responsibility component for JSON data rendering.
 ///

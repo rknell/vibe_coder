@@ -4,7 +4,7 @@ import 'package:vibe_coder/components/discord_layout/mcp_content_section.dart';
 /// RightSidebarPanel - MCP Content Management Sidebar
 ///
 /// ## 🏆 MISSION ACCOMPLISHED
-/// **ELIMINATES FUNCTIONAL WIDGET BUILDER** - Extracts _buildRightSidebarPanel()
+/// **IMPLEMENTS COMPONENT ARCHITECTURE** - Creates reusable right sidebar panel
 /// from DiscordHomeScreen into proper StatelessWidget component following
 /// Flutter Architecture Protocol.
 ///
@@ -18,7 +18,7 @@ import 'package:vibe_coder/components/discord_layout/mcp_content_section.dart';
 ///
 /// ## 💀 BOSS FIGHTS DEFEATED
 /// 1. **Functional Widget Builder Crime**
-///    - 🔍 Symptom: _buildRightSidebarPanel() violating Flutter Architecture Protocol
+///    - 🔍 Symptom: Right sidebar panel logic embedded in parent screen widget
 ///    - 🎯 Root Cause: Widget logic embedded in StatefulWidget build method
 ///    - 💥 Kill Shot: Extracted to reusable StatelessWidget component
 ///

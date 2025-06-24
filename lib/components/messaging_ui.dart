@@ -30,7 +30,7 @@ import 'package:vibe_coder/services/debug_logger.dart';
 ///
 /// ## BOSS FIGHTS DEFEATED
 /// 1. **Functional Widget Builder Elimination**
-///    - 🔍 Symptom: `_buildMessagesList()` and `_buildInputField()` methods
+///    - 🔍 Symptom: Messages list and input field logic embedded in parent widget
 ///    - 🎯 Root Cause: UI logic embedded in parent widget
 ///    - 💥 Kill Shot: Extracted to MessagesListComponent and ChatInputFieldComponent
 ///

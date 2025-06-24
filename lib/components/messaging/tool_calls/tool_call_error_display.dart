@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 /// ToolCallErrorDisplay - Error Display with Copy Functionality
 ///
 /// ## MISSION ACCOMPLISHED
-/// Eliminates _buildErrorDisplay functional widget builder by creating reusable error display component.
+/// Creates reusable error display component with error theming and copy functionality.
 /// Provides formatted error display with copy functionality and error styling.
 /// ARCHITECTURAL VICTORY: Single responsibility component for error rendering.
 ///

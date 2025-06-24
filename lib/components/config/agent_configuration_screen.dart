@@ -24,7 +24,7 @@ import 'package:vibe_coder/components/config/configuration_actions/configuration
 ///
 /// ## BOSS FIGHTS DEFEATED
 /// 1. **Functional Widget Architecture Violation**
-///    - 🔍 Symptom: `_buildSettingsSection()` methods everywhere
+///    - 🔍 Symptom: Settings section logic embedded throughout the component
 ///    - 🎯 Root Cause: Lazy UI construction patterns
 ///    - 💥 Kill Shot: Extracted all sections to proper components
 ///

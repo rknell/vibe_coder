@@ -4,7 +4,7 @@ import 'package:vibe_coder/components/discord_layout/placeholder_agent_list.dart
 /// LeftSidebarPanel - Agent Management Sidebar
 ///
 /// ## 🏆 MISSION ACCOMPLISHED
-/// **ELIMINATES FUNCTIONAL WIDGET BUILDER** - Extracts _buildLeftSidebarPanel()
+/// **IMPLEMENTS COMPONENT ARCHITECTURE** - Creates reusable left sidebar panel
 /// from DiscordHomeScreen into proper StatelessWidget component following
 /// Flutter Architecture Protocol.
 ///
@@ -18,7 +18,7 @@ import 'package:vibe_coder/components/discord_layout/placeholder_agent_list.dart
 ///
 /// ## 💀 BOSS FIGHTS DEFEATED
 /// 1. **Functional Widget Builder Crime**
-///    - 🔍 Symptom: _buildLeftSidebarPanel() violating Flutter Architecture Protocol
+///    - 🔍 Symptom: Left sidebar logic embedded in parent screen widget
 ///    - 🎯 Root Cause: Widget logic embedded in StatefulWidget build method
 ///    - 💥 Kill Shot: Extracted to reusable StatelessWidget component
 ///

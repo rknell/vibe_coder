@@ -5,7 +5,7 @@ import 'package:vibe_coder/components/messaging_ui.dart';
 /// MessagesListComponent - Scrollable Chat Messages Display
 ///
 /// ## MISSION ACCOMPLISHED
-/// Eliminates _buildMessagesList functional widget builder by creating reusable messages list.
+/// Creates reusable messages list component with auto-scroll and loading states.
 /// Provides efficient scrolling, empty state handling, and message rendering with proper separation.
 ///
 /// ## STRATEGIC DECISIONS
@@ -21,8 +21,8 @@ import 'package:vibe_coder/components/messaging_ui.dart';
 /// - Rebuild Frequency: Only when messages list changes
 ///
 /// ## BOSS FIGHTS DEFEATED
-/// 1. **Functional Widget Builder Elimination**
-///    - 🔍 Symptom: `_buildMessagesList()` method in MessagingUI StatefulWidget
+/// 1. **Component Architecture Excellence**
+///    - 🔍 Symptom: Messages list logic embedded in parent MessagingUI widget
 ///    - 🎯 Root Cause: UI logic embedded in parent widget
 ///    - 💥 Kill Shot: Extracted to reusable StatelessWidget with prop injection
 ///

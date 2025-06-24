@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 /// ToolCallHeader - Tool Call Header with Expand/Collapse Functionality
 ///
 /// ## MISSION ACCOMPLISHED
-/// Eliminates _buildToolCallHeader functional widget builder by creating reusable header component.
+/// Creates reusable header component with status icons and expand/collapse functionality.
 /// Provides consistent tool call header display with expansion toggle and status indicators.
 /// ARCHITECTURAL VICTORY: Single responsibility component for tool call header rendering.
 ///

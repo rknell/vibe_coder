@@ -4,7 +4,7 @@ import 'package:vibe_coder/models/layout_preferences_model.dart';
 /// CenterChatPanel - Main Chat Content Panel
 ///
 /// ## 🏆 MISSION ACCOMPLISHED
-/// **ELIMINATES FUNCTIONAL WIDGET BUILDER** - Extracts _buildCenterChatPanel()
+/// **IMPLEMENTS COMPONENT ARCHITECTURE** - Creates reusable center chat panel
 /// from DiscordHomeScreen into proper StatelessWidget component following
 /// Flutter Architecture Protocol.
 ///
@@ -18,7 +18,7 @@ import 'package:vibe_coder/models/layout_preferences_model.dart';
 ///
 /// ## 💀 BOSS FIGHTS DEFEATED
 /// 1. **Functional Widget Builder Crime**
-///    - 🔍 Symptom: _buildCenterChatPanel() violating Flutter Architecture Protocol
+///    - 🔍 Symptom: Center chat panel logic embedded in parent screen widget
 ///    - 🎯 Root Cause: Widget logic embedded in StatefulWidget build method
 ///    - 💥 Kill Shot: Extracted to reusable StatelessWidget component
 ///

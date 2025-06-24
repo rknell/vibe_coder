@@ -4,7 +4,7 @@ import 'package:vibe_coder/ai_agent/models/chat_message_model.dart';
 /// MessageToolCalls - Selectable Tool Calls Section Display
 ///
 /// ## MISSION ACCOMPLISHED
-/// Eliminates _buildToolCalls functional widget builder by creating reusable tool calls component.
+/// Creates reusable tool calls component with expandable cards and JSON display.
 /// Provides consistent tool call information display with proper styling and formatting.
 /// DESKTOP OPTIMIZATION: Full text selection and copy functionality for tool call names and details.
 ///
@@ -24,8 +24,8 @@ import 'package:vibe_coder/ai_agent/models/chat_message_model.dart';
 /// - Desktop Optimization: Full text selection with context menu support
 ///
 /// ## BOSS FIGHTS DEFEATED
-/// 1. **Functional Widget Builder Elimination**
-///    - 🔍 Symptom: `_buildToolCalls()` method in MessageBubble
+/// 1. **Component Architecture Excellence**
+///    - 🔍 Symptom: Tool call rendering logic embedded in parent widgets
 ///    - 🎯 Root Cause: Tool calls rendering logic embedded in parent widget
 ///    - 💥 Kill Shot: Extracted to dedicated StatelessWidget with proper theming
 ///

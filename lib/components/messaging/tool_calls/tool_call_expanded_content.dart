@@ -7,7 +7,7 @@ import 'package:vibe_coder/components/messaging/tool_calls/tool_call_debug_actio
 /// ToolCallExpandedContent - Expanded Tool Call Content Display
 ///
 /// ## MISSION ACCOMPLISHED
-/// Eliminates _buildExpandedContent functional widget builder by creating reusable expanded content component.
+/// Creates reusable expanded content component with structured display of arguments and results.
 /// Provides structured display of tool call arguments, results, errors, and debug actions.
 /// ARCHITECTURAL VICTORY: Single responsibility component for expanded tool call details.
 ///
