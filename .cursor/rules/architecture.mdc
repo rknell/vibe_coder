@@ -712,6 +712,71 @@ class DeepSeekApiClient {
 - Strict typing (allow flexible Map<String, dynamic>)
 - Per-request authentication (manage at client level)
 
+## 🚀 SERVICE INITIALIZATION PROTOCOL 🚀
+**🎯 MISSION: GUARANTEE ATOMIC, RACE-FREE SERVICE STARTUP**
+
+### 💀 ENEMY IDENTIFIED: INITIALIZATION RACE CONDITIONS
+The `AgentServiceException: AgentService not initialized` bug was a direct result of a service being made available to the UI before it had completed its asynchronous initialization (i.e., loading data from disk). This is a critical architectural failure that leads to unpredictable crashes and a fragile user experience.
+
+### 🛡️ MANDATORY INITIALIZATION CONTRACT
+
+#### 1. ⚔️ THE `initialize()` MANDATE
+**RULE**: Any service that requires asynchronous setup (e.g., file I/O, network calls, database connections) MUST expose a public `Future<void> initialize()` method.
+
+- **`main.dart` is the ONLY permitted caller** of the global `services.initialize()` method.
+- This method is the **single entry point** for preparing a service for use.
+
+#### 2. 🎯 ATOMIC INITIALIZATION SUPREMACY
+**RULE**: The `initialize()` method MUST NOT complete until the service is **100% operational**. This includes loading all necessary data from persistence.
+
+- **✅ WARRIOR APPROVED**:
+    ```dart
+    class AgentService extends ChangeNotifier {
+      bool _isInitialized = false;
+      List<AgentModel> data = [];
+
+      Future<void> initialize() async {
+        if (_isInitialized) return;
+        
+        // Perform ALL async setup here
+        data = await _loadAgentsFromDisk(); 
+        
+        // Mark as initialized ONLY after all setup is complete
+        _isInitialized = true;
+        notifyListeners();
+      }
+    }
+    ```
+- **❌ BANNED**: Marking a service as "initialized" before asynchronous operations have finished.
+
+#### 3. 🚨 THE `_ensureInitialized()` GUARD CLAUSE
+**RULE**: All public methods (except `initialize()`) on a service that depends on initialization MUST begin with a guard clause that throws an exception if the service is not ready.
+
+- **✅ WARRIOR APPROVED**:
+    ```dart
+    class AgentService extends ChangeNotifier {
+      // ...
+      void _ensureInitialized() {
+        if (!_isInitialized) {
+          throw Exception('AgentService not initialized. Call initialize() first.');
+        }
+      }
+
+      Future<void> createAgent(AgentModel agent) async {
+        _ensureInitialized(); // MANDATORY GUARD CLAUSE
+        // ... proceed with logic
+      }
+    }
+    ```
+
+### 🏆 VICTORY CONDITION
+- [ ] All services with async setup have an `initialize()` method.
+- [ ] `initialize()` methods are **atomic** and complete only when the service is fully ready.
+- [ ] All other public methods are protected by an `_ensureInitialized()` guard clause.
+- [ ] The application is **incapable** of entering a state where a service can be used before it's ready.
+
+**⚰️ INITIALIZE COMPLETELY OR DIE TRYING! ⚰️**
+
 ## 🔗 DEPENDENCY INJECTION WITH GETIT
 
 ### 🎯 SERVICES PATTERN

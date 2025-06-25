@@ -1,0 +1,121 @@
+---
+description: When a bug is reported, follow these steps in order to resolve it
+globs: 
+alwaysApply: false
+---
+# ⚔️ ELITE BUG FIXING WARRIOR PROTOCOL ⚔️
+
+## 🎯 ULTIMATE MISSION
+**🏆 DOMINATE BUGS. CRUSH REGRESSIONS. ACHIEVE LEGENDARY STATUS. 🏆**
+
+This document defines the mandatory bug-fixing protocol for VibeCoder following **Elite Warrior Standards** with zero tolerance for failing tests or linter errors.
+
+## 💀 MANDATORY BUG FIXING STEPS [NO EXCEPTIONS]
+
+### 1. ⚔️ REPRODUCE THE BUG [MANDATORY FIRST]
+**RULE**: Every bug MUST be reproduced before any code changes.
+
+#### 🎯 REPRODUCTION REQUIREMENTS:
+- Follow exact steps from bug report
+- Use same data/environment conditions
+- Document all reproduction steps
+- Verify bug behavior matches report
+
+#### 🚫 BANNED PRACTICES:
+- Blind fixes without reproduction
+- Assumptions about bug behavior
+- Skipping steps in reproduction
+
+### 2. 🧪 CREATE FAILING TEST [CRITICAL]
+**RULE**: Write test BEFORE fixing the bug.
+
+#### 🎯 TEST REQUIREMENTS:
+- Test MUST fail initially
+- Test MUST be focused on ONLY this bug
+- Test MUST be minimal and precise
+- Test MUST follow user's reproduction steps
+- Test MUST NOT modify existing tests unless flawed logic proven
+
+#### 💻 TEST IMPLEMENTATION:
+```dart
+// ✅ WARRIOR APPROVED: Focused bug test
+test('🛡️ REGRESSION: Widget fails when data is null', () {
+  final widget = MyWidget(data: null);
+  expect(() => widget.build(context), throwsException);
+});
+
+// ❌ BANNED: Modifying existing tests without reason
+test('existing test modified without justification', () {
+  // CRIME: Changing working tests
+});
+```
+
+### 3. 🔧 IMPLEMENT FIX [SURGICAL PRECISION]
+**RULE**: Write minimal code to make test pass.
+
+#### 🎯 FIX REQUIREMENTS:
+- Follow architecture.mdc and flutter_architecture.mdc
+- Implement cleanest solution
+- Focus ONLY on this specific bug
+- No unrelated changes
+
+#### 💻 FIX IMPLEMENTATION:
+```dart
+// ✅ WARRIOR APPROVED: Clean focused fix
+class MyWidget extends StatelessWidget {
+  final Data? data;
+  
+  @override
+  Widget build(BuildContext context) {
+    if (data == null) return Container(); // Clean null check
+    return buildContent();
+  }
+}
+
+// ❌ BANNED: Unfocused fixes
+class MyWidget extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    try {
+      // CRIME: Hiding errors instead of fixing root cause
+      return buildContent();
+    } catch (e) {
+      return Container();
+    }
+  }
+}
+```
+
+### 4. ✅ VERIFY FIX [ZERO TOLERANCE]
+**RULE**: All tests MUST pass. No exceptions.
+
+#### 🎯 VERIFICATION REQUIREMENTS:
+- New test passes
+- All existing tests pass
+- No linter errors
+- No warnings
+- Bug fix verified in same environment as reproduction
+
+#### 🚫 BANNED PRACTICES:
+- Ignoring failing tests
+- Suppressing linter errors
+- Skipping test suite runs
+
+## 🏆 VICTORY CONDITIONS
+
+### ✅ MANDATORY COMPLIANCE:
+- [ ] Bug reproduced and documented
+- [ ] Failing test written
+- [ ] Fix implemented following architecture standards
+- [ ] All tests passing
+- [ ] Zero linter errors
+- [ ] Zero warnings
+
+### 💀 INSTANT FAILURE CONDITIONS:
+- Failing tests in codebase
+- Linter errors present
+- Warnings present
+- Modified tests without justification
+- Blind fixes without reproduction
+
+**⚰️ PERFECT TESTS OR DEATH! ⚰️**

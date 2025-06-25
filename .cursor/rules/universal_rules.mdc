@@ -67,6 +67,34 @@ alwaysApply: true
    - **🌐 GENERALIZATION MANDATE**: Every solution MUST scale beyond immediate use case (UNIVERSAL WARRIOR CODE)
    - **🔍 RESEARCH REQUIREMENT**: Non-general solution detected → WEB SEARCH MANDATORY for industry standards
 
+### 🧠 POST-BATTLE SELF-REFLECTION [+500 XP]
+**🎯 OBJECTIVE:** *TRANSFORM BATTLEFIELD EXPERIENCE INTO STRATEGIC WISDOM. IDENTIFY WEAKNESSES. FORGE SUPERIOR TACTICS.*
+
+Every completed mission (bug fix, feature implementation) MUST conclude with a mandatory self-reflection phase. This is not optional; it is the path to legendary status.
+
+#### ⚔️ MANDATORY DEBRIEF QUESTIONS:
+1.  **🔍 TACTICAL ANALYSIS:**
+    *   What was the single biggest bottleneck or time sink during this mission?
+    *   Was there a piece of pre-battle reconnaissance I missed that would have accelerated victory?
+    *   Did I encounter any unexpected enemy tactics (e.g., weird library behavior, architectural gaps)?
+
+2.  **🛡️ ARMOR & WEAPONRY REVIEW:**
+    *   Did any part of our current architecture or tooling hinder my progress?
+    *   Is there a new tool, pattern, or technique that could have made this fight easier?
+    *   Did I create any new "sharp edges" or technical debt that must be documented or scheduled for elimination?
+
+3.  **📖 KNOWLEDGE CAPTURE:**
+    *   What new knowledge was gained that MUST be codified in our `*.mdc` rule files?
+    *   Was a new, reusable component or pattern forged in this battle? If so, has it been documented in the component registry?
+    *   If another warrior had to face this exact same enemy tomorrow, what is the single most important piece of intel I could give them?
+
+#### 🏆 DEBRIEF OUTPUT:
+- **📝 UPDATE THE CODEX:** Any learnings MUST be immediately integrated into the relevant `*.mdc` files.
+- **🎟️ CREATE NEW BOUNTIES:** Any identified tech debt or improvement opportunities should be logged as new tickets in the Kanban board.
+- **📢 SHARE THE INTEL:** Communicate critical findings to the squad.
+
+**⚰️ LEARN OR BE DEFEATED BY THE SAME ENEMY TWICE! ⚰️**
+
 ### 🎯 VICTORY DOCUMENTATION FORMAT
 ```markdown
 ## [Component] CONQUEST REPORT

@@ -23,18 +23,31 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:vibe_coder/models/agent_model.dart';
 import 'package:vibe_coder/models/agent_status_model.dart';
 import 'package:vibe_coder/services/agent_service.dart';
+import 'dart:io';
+import 'dart:convert';
 
 void main() {
   group('🛡️ AGENT SERVICE STATUS QUERY METHODS', () {
     late AgentService agentService;
+    final agentsDir = Directory('data/agents');
 
     setUp(() async {
+      // Ensure a clean state before each test
+      if (await agentsDir.exists()) {
+        await agentsDir.delete(recursive: true);
+      }
+      await agentsDir.create(recursive: true);
+
       agentService = AgentService();
       await agentService.initialize();
     });
 
-    tearDown(() {
+    tearDown(() async {
       agentService.dispose();
+      // Clean up after each test
+      if (await agentsDir.exists()) {
+        await agentsDir.delete(recursive: true);
+      }
     });
 
     group('📊 STATUS FILTERING METHODS', () {
@@ -504,6 +517,52 @@ void main() {
             reason: 'getRecentStatusChanges should complete in < 5ms');
         expect(recentChanges.length, equals(agentCount)); // All recent
       });
+    });
+  });
+
+  group('🚀 INITIALIZATION AND PERSISTENCE', () {
+    final agentsDir = Directory('data/agents');
+    final backupDir = Directory('data/agents_backup');
+
+    setUp(() async {
+      // Ensure clean state for this group of tests
+      if (await agentsDir.exists()) {
+        await agentsDir.rename(backupDir.path);
+      }
+      await agentsDir.create(recursive: true);
+    });
+
+    tearDown(() async {
+      // Restore the original directory
+      if (await agentsDir.exists()) {
+        await agentsDir.delete(recursive: true);
+      }
+      if (await backupDir.exists()) {
+        await backupDir.rename(agentsDir.path);
+      }
+    });
+
+    test('🚀 FEATURE: initialize() successfully loads agents from disk',
+        () async {
+      // 1. Setup: Create a dummy agent file
+      final agent = AgentModel(
+          id: 'test-agent', name: 'Test Agent', systemPrompt: 'prompt');
+      final agentFile = File('${agentsDir.path}/test-agent.json');
+      await agentFile.writeAsString(jsonEncode(agent.toJson()));
+
+      // 2. Create and initialize service
+      final agentService = AgentService();
+      await agentService.initialize();
+
+      // 3. Assert that the agent WAS loaded.
+      expect(
+        agentService.data.isNotEmpty,
+        isTrue,
+        reason: 'Service should load persisted agents during initialization.',
+      );
+      expect(agentService.data.first.id, 'test-agent');
+
+      agentService.dispose();
     });
   });
 }

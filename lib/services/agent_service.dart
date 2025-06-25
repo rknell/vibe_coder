@@ -66,24 +66,13 @@ class AgentService extends ChangeNotifier {
   Future<void> initialize() async {
     if (_isInitialized) return;
 
-    _logger.info('🚀 AGENT SERVICE: Initializing agent collection management');
-
-    try {
-      // Initialize with empty collection - no persistence for simplified model
-      data = [];
-      _rebuildIndex();
-
-      _isInitialized = true;
-
-      _logger.info('✅ AGENT SERVICE: Initialized with empty collection');
-
-      // Notify UI of initial agent collection
-      notifyListeners(); // MANDATORY after data changes
-    } catch (e, stackTrace) {
-      _logger.severe(
-          '💥 AGENT SERVICE: Initialization failed: $e', e, stackTrace);
-      rethrow;
-    }
+    _logger.info('🚀 AGENT SERVICE: Initializing and loading agents...');
+    // Call loadAll to perform the actual loading from persistence.
+    // This ensures the service is fully populated before being marked as initialized.
+    await loadAll();
+    _isInitialized = true;
+    _logger.info('✅ AGENT SERVICE: Initialization complete.');
+    // No need to call notifyListeners() here, as loadAll() already does it.
   }
 
   /// Load all agents - ARCHITECTURAL: Collection management
@@ -91,7 +80,8 @@ class AgentService extends ChangeNotifier {
   /// PERF: O(n) where n = number of persisted agents
   /// ARCHITECTURAL: Loads agents from /data directory following protocol
   Future<void> loadAll() async {
-    _ensureInitialized();
+    // This check is removed to prevent a circular dependency when called from initialize().
+    // _ensureInitialized();
 
     _logger.info('📋 AGENT SERVICE: Loading agents from persistence');
 

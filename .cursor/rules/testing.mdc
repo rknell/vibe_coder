@@ -10,3 +10,89 @@ It includes the name and file of the failing tests in order to quickly determine
 Tests where performance fails, consider if the sudden drop in performance is expected and adjust the test, otherwise diagnose the root cause of the test.
 
 If you have broken an unexpected feature you weren't working on, see if you can adjust your work to fix the regression.
+
+## ⚔️ TEST ISOLATION PROTOCOL ⚔️
+**🎯 MISSION: ANNIHILATE TEST STATE LEAKAGE. FORGE INDEPENDENT, RELIABLE TESTS.**
+
+### 💀 ENEMY IDENTIFIED: CROSS-TEST CONTAMINATION
+Our recent battle revealed a critical vulnerability: **state leakage between tests**. One test that modified the file system (`agent_service_test.dart`) directly caused failures in an unrelated widget test (`discord_home_screen_responsive_test.dart`). This is a critical failure of test isolation.
+
+### 🛡️ MANDATORY DEFENSIVE MEASURES
+
+#### 1. 🚫 ZERO FILE SYSTEM DEPENDENCY IN UNIT & WIDGET TESTS
+**RULE**: Unit and widget tests MUST NOT interact with the real file system. The file system is a shared, global state that creates flaky, interdependent tests.
+
+- **❌ BANNED**: `Directory('data/agents')` or any direct file I/O in tests that are not explicitly marked as `integration` tests.
+- **✅ REQUIRED**:
+    - For services requiring file access, use a mocking framework (like `mockito`) to create a fake implementation.
+    - For simpler cases, inject a mock data provider or repository that returns in-memory data.
+    - If file system interaction is absolutely necessary, those tests MUST be separated and flagged as integration tests.
+
+#### 2. 注入 MOCK SERVICES FOR ALL WIDGET TESTS [NON-NEGOTIABLE]
+**RULE**: ALL widget tests (`testWidgets`) MUST inject mock services using `GetIt`. Never use real services that have external dependencies (file system, network, etc.).
+
+- **⚔️ VICTORY PATTERN**: Use `setUp` and `tearDown` to manage the lifecycle of mock services.
+
+```dart
+// ✅ WARRIOR APPROVED: Widget test with mock service injection
+void main() {
+  group('MyWidget Tests', () {
+    late MockServices mockServices;
+
+    setUp(() {
+      // 1. Reset GetIt to ensure a clean slate
+      if (GetIt.instance.isRegistered<Services>()) {
+        GetIt.instance.unregister<Services>();
+      }
+      // 2. Create and register fresh mocks for each test
+      mockServices = MockServices();
+      GetIt.instance.registerSingleton<Services>(mockServices);
+    });
+
+    tearDown(() {
+      // 3. Properly dispose mocks and reset GetIt
+      mockServices.dispose();
+      GetIt.instance.reset();
+    });
+
+    testWidgets('should display correctly with mock data', (tester) async {
+      // Arrange: (optional) configure your mock service for this specific test
+      when(mockServices.agentService.allAgents).thenReturn([AgentModel.create()]);
+      
+      // Act
+      await tester.pumpWidget(MaterialApp(home: MyWidget()));
+
+      // Assert
+      expect(find.text('Agent Name'), findsOneWidget);
+    });
+  });
+}
+```
+
+#### 3. 🎯 CREATE COMPREHENSIVE MOCKS
+**RULE**: Mocks must be complete. An incomplete mock can cause unexpected type errors.
+
+- **💀 THE `noSuchMethod` TRAP**: A common failure occurs when a mock doesn't implement a specific getter or method. The default `noSuchMethod` may return a `Future<dynamic>` or `null` when the code expects a `List` or another concrete type, leading to `_TypeError` exceptions at runtime.
+- **✅ REQUIRED**: Ensure your mock classes fully implement the interface of the real service. Pay close attention to getters and properties, not just methods.
+
+```dart
+// ❌ BANNED: Incomplete mock causing type errors
+class IncompleteMock extends Mock implements MyService {
+  // Missing the 'data' getter. noSuchMethod will be called, returning null/Future.
+}
+
+// ✅ WARRIOR APPROVED: Complete mock
+class CompleteMock extends Mock implements MyService {
+  // Properly implement all members of the interface.
+  @override
+  List<MyData> get data => []; // Returns correct type
+}
+```
+
+### 🏆 VICTORY CONDITION
+- [ ] No unit or widget test touches the live file system.
+- [ ] All widget tests use `setUp`/`tearDown` with `GetIt` to inject mock services.
+- [ ] All mocks are comprehensive and match their real service's interface.
+- [ ] Test suites run reliably and independently, free from state contamination.
+
+**⚰️ ISOLATE OR DIE! ⚰️**

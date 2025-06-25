@@ -3,6 +3,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:vibe_coder/screens/discord_home_screen.dart';
 import 'package:vibe_coder/services/services.dart';
 import 'package:vibe_coder/models/layout_preferences_model.dart';
+import 'package:logging/logging.dart';
 
 /// Main entry point - DISCORD-STYLE INITIALIZATION PROTOCOL
 ///
@@ -31,34 +32,89 @@ import 'package:vibe_coder/models/layout_preferences_model.dart';
 /// 3. **Service Initialization**
 ///    - 🔍 Symptom: Services not available for Discord layout
 ///    - 🎯 Root Cause: Services initialization not coordinated with app startup
-///    - 💥 Kill Shot: Services initialization before DiscordHomeScreen creation
+///    - 💥 Kill Shot: Full service initialization chain with proper error handling
 ///
 /// PERF: O(1) initialization - async services and dotenv loading
 /// SECURITY: Environment variables loaded from secure .env file
-/// ARCHITECTURAL: LayoutService integration for theme persistence
+/// ARCHITECTURAL: Complete service initialization before app startup
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Set up logging
+  Logger.root.level = Level.INFO;
+  Logger.root.onRecord.listen((record) {
+    debugPrint('${record.level.name}: ${record.time}: ${record.message}');
+  });
+
+  final logger = Logger('Main');
+  logger.info('🚀 VIBE CODER: Starting application initialization');
 
   try {
     // Load environment variables from .env file
     await dotenv.load(fileName: ".env");
+    logger.info('✅ ENVIRONMENT: Loaded configuration from .env file');
   } catch (e) {
     // Handle missing .env file gracefully - fall back to system environment
-    debugPrint('Warning: Could not load .env file: $e');
-    debugPrint('Falling back to system environment variables');
+    logger.warning('⚠️ ENVIRONMENT: Could not load .env file: $e');
+    logger.info('🔄 ENVIRONMENT: Falling back to system environment variables');
   }
 
-  // Initialize services for Discord layout coordination
-  // This ensures LayoutService is available for theme management
   try {
-    final layoutService = services.layoutService;
-    debugPrint(
-        '🎨 Main: LayoutService initialized - Theme: ${layoutService.currentTheme}');
-  } catch (e) {
-    debugPrint('⚠️ Main: Services initialization issue: $e');
-  }
+    // Initialize all services in proper sequence
+    logger.info('🔄 SERVICES: Starting service initialization chain');
+    await services.initialize();
+    logger.info('✅ SERVICES: All services initialized successfully');
 
-  runApp(const MyApp());
+    // Verify critical services
+    if (!services.configurationService.isInitialized) {
+      throw Exception('Configuration service failed to initialize');
+    }
+    if (!services.mcpService.isInitialized) {
+      logger.warning(
+          '⚠️ MCP SERVICE: Not initialized - some features may be limited');
+    }
+    if (!services.agentService.isInitialized) {
+      throw Exception('Agent service failed to initialize');
+    }
+
+    logger.info('🎯 INITIALIZATION: Complete - starting application');
+    runApp(const MyApp());
+  } catch (e, stackTrace) {
+    logger.severe(
+        '💥 FATAL ERROR: Service initialization failed', e, stackTrace);
+    // Show error screen instead of crashing
+    runApp(MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              const Text(
+                'Failed to Start VibeCoder',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Error: $e',
+                style: const TextStyle(color: Colors.red),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  // Retry initialization
+                  main();
+                },
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ));
+  }
 }
 
 class MyApp extends StatelessWidget {
