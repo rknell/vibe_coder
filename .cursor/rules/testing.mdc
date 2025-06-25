@@ -1,0 +1,12 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+To get failing tests run [get_failing_tests.sh](mdc:tool/get_failing_tests.sh)
+It includes the name and file of the failing tests in order to quickly determine which tests are failing.
+`./tools/get_failing_tests.sh`
+
+Tests where performance fails, consider if the sudden drop in performance is expected and adjust the test, otherwise diagnose the root cause of the test.
+
+If you have broken an unexpected feature you weren't working on, see if you can adjust your work to fix the regression.

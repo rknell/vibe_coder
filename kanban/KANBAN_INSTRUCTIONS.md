@@ -165,3 +165,7 @@ DR007B + DR008 + DR009 + DR010 → Complete Discord UI
 - Performance targets met (<100ms layout, 5s content sync)
 
 **⚰️ GRANULAR EXECUTION WITH WARRIOR PRECISION OR ARCHITECTURAL DEATH! ⚰️** 
+
+For testings avoid using flutter commands - use `./tool/get_failed_tests.sh` to get the failed tests. This will give you the list of tests that failed and you can run them individually instead of having to dig through hundreds of tests.
+
+You have full permission to run any testing commands you need to.

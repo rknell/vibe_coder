@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 🏆 **VIBE CODER TEST RUNNER**
-# Provides fast and thorough test execution options
+# Provides fast and thorough test execution options with enhanced failure reporting
 
 set -e
 
@@ -41,20 +41,46 @@ done
 echo "🧪 VibeCoder Test Runner"
 echo "========================"
 
+# Prepare flutter test arguments
+FLUTTER_ARGS=(
+  "--dart-define=IS_TEST_MODE=$TEST_MODE"
+)
+
 if [ "$INTEGRATION_TESTS" = true ]; then
   echo "🐌 Mode: THOROUGH (includes integration tests)"
   echo "📁 File Operations: ENABLED (for MCP server loading)"
   echo "⚠️  Warning: This will take 2+ minutes and may fail if MCP servers aren't running"
-  flutter test --dart-define=MCP_INTEGRATION_TESTS=true --dart-define=IS_TEST_MODE=$TEST_MODE
+  FLUTTER_ARGS+=("--dart-define=MCP_INTEGRATION_TESTS=true")
 else
   echo "⚡ Mode: FAST (unit tests only)"
   echo "📁 File Operations: DISABLED (for speed)"
   echo "✅ Integration tests skipped for speed"
-  flutter test --dart-define=MCP_INTEGRATION_TESTS=false --dart-define=IS_TEST_MODE=$TEST_MODE
+  FLUTTER_ARGS+=("--dart-define=MCP_INTEGRATION_TESTS=false")
+fi
+
+# Add verbose debug flag if requested
+DEBUG_FLAG=""
+if [ "$VERBOSE" = true ]; then
+  DEBUG_FLAG="--debug"
 fi
 
 echo ""
-echo "🏆 VICTORY! All enabled tests passed"
+echo "🔍 Running tests with enhanced failure reporting..."
 echo ""
-echo "💡 To run integration tests: $0 --integration"
-echo "💡 To run fast tests only: $0 --fast" 
+
+# Run tests using the enhanced failing tests script
+if ./tool/get_failing_tests.sh $DEBUG_FLAG -- "${FLUTTER_ARGS[@]}"; then
+  echo ""
+  echo "🏆 VICTORY! All enabled tests passed"
+  echo ""
+  echo "💡 To run integration tests: $0 --integration"
+  echo "💡 To run fast tests only: $0 --fast"
+  echo "💡 To see verbose output: $0 --verbose"
+else
+  echo ""
+  echo "💥 DEFEAT! Some tests failed"
+  echo ""
+  echo "🔧 Use the commands above to run specific failing tests"
+  echo "💡 Add --verbose for more debug information"
+  exit 1
+fi 

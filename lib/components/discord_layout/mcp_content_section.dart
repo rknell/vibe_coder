@@ -39,6 +39,7 @@ library mcp_content_section;
 
 import 'package:flutter/material.dart';
 import 'package:vibe_coder/models/agent_model.dart';
+import 'package:vibe_coder/components/discord_layout/mcp_content_editors.dart';
 import 'mcp_content_widgets.dart';
 
 /// Discord-style inbox section with collapsible content display
@@ -54,6 +55,16 @@ class MCPInboxSection extends StatelessWidget {
     this.selectedAgent,
     this.initiallyExpanded = false,
   });
+
+  /// Create new inbox item
+  void _createInboxItem(BuildContext context) {
+    if (selectedAgent != null) {
+      MCPContentEditors.showInboxCreateDialog(
+        context,
+        agent: selectedAgent!,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -78,20 +89,38 @@ class MCPInboxSection extends StatelessWidget {
                   ),
             ),
           ),
+          // Constrained trailing widgets with micro button
           if (hasContent) ...[
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.primary,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
                 '${inboxItems.length}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onPrimary,
-                      fontWeight: FontWeight.w600,
-                    ),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onPrimary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 9,
+                ),
+              ),
+            ),
+          ],
+          if (selectedAgent != null) ...[
+            const SizedBox(width: 2),
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: IconButton(
+                onPressed: () => _createInboxItem(context),
+                icon: const Icon(Icons.add, size: 12),
+                tooltip: 'Add',
+                padding: EdgeInsets.zero,
+                style: IconButton.styleFrom(
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
               ),
             ),
           ],
@@ -292,6 +321,16 @@ class MCPTodoSection extends StatelessWidget {
     this.initiallyExpanded = false,
   });
 
+  /// Create new todo item
+  void _createTodoItem(BuildContext context) {
+    if (selectedAgent != null) {
+      MCPContentEditors.showTodoCreateDialog(
+        context,
+        agent: selectedAgent!,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final todoItems = selectedAgent?.mcpTodoItems ?? [];
@@ -315,20 +354,39 @@ class MCPTodoSection extends StatelessWidget {
                   ),
             ),
           ),
+
+          // Constrained trailing widgets with micro button
           if (hasContent) ...[
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.secondary,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
                 '${todoItems.length}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSecondary,
-                      fontWeight: FontWeight.w600,
-                    ),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSecondary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 9,
+                ),
+              ),
+            ),
+          ],
+          if (selectedAgent != null) ...[
+            const SizedBox(width: 2),
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: IconButton(
+                onPressed: () => _createTodoItem(context),
+                icon: const Icon(Icons.add, size: 12),
+                tooltip: 'Add',
+                padding: EdgeInsets.zero,
+                style: IconButton.styleFrom(
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
               ),
             ),
           ],
@@ -366,6 +424,16 @@ class MCPNotepadSection extends StatelessWidget {
     this.initiallyExpanded = false,
   });
 
+  /// Edit notepad content
+  void _editNotepad(BuildContext context) {
+    if (selectedAgent != null) {
+      MCPContentEditors.showNotepadEditorDialog(
+        context,
+        agent: selectedAgent!,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final notepadContent = selectedAgent?.mcpNotepadContent;
@@ -390,20 +458,38 @@ class MCPNotepadSection extends StatelessWidget {
                   ),
             ),
           ),
+          // Constrained trailing widgets with micro button
           if (hasContent) ...[
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.tertiary,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
-                '${_getWordCount(notepadContent)} words',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onTertiary,
-                      fontWeight: FontWeight.w600,
-                    ),
+                '${_getWordCount(notepadContent)}w',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onTertiary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 9,
+                ),
+              ),
+            ),
+          ],
+          if (selectedAgent != null) ...[
+            const SizedBox(width: 2),
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: IconButton(
+                onPressed: () => _editNotepad(context),
+                icon: const Icon(Icons.edit, size: 12),
+                tooltip: 'Edit',
+                padding: EdgeInsets.zero,
+                style: IconButton.styleFrom(
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
               ),
             ),
           ],

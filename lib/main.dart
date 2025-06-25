@@ -1,17 +1,41 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:vibe_coder/screens/home_screen.dart';
+import 'package:vibe_coder/screens/discord_home_screen.dart';
+import 'package:vibe_coder/services/services.dart';
+import 'package:vibe_coder/models/layout_preferences_model.dart';
 
-/// Main entry point - ELITE INITIALIZATION PROTOCOL
+/// Main entry point - DISCORD-STYLE INITIALIZATION PROTOCOL
 ///
-/// ## BOSS FIGHTS DEFEATED
-/// 1. **Environment Configuration**
-///    - 🔍 Symptom: Hardcoded API keys and configuration scattered
-///    - 🎯 Root Cause: No centralized environment management
-///    - 💥 Kill Shot: DotEnv initialization with .env file loading
+/// ## 🏆 MISSION ACCOMPLISHED
+/// **DISCORD-STYLE THREE-PANEL LAYOUT** with real-time MCP integration,
+/// agent-centric workflow, and professional theme system.
 ///
-/// PERF: O(1) initialization - async dotenv loading doesn't block app startup
+/// ## ⚔️ STRATEGIC DECISIONS
+/// | Option | Power-Ups | Weaknesses | Victory Reason |
+/// |--------|-----------|------------|----------------|
+/// | DiscordHomeScreen | Complete Discord UI | Migration effort | CHOSEN - epic completion |
+/// | LayoutService Integration | Theme persistence | Service dependency | CHOSEN - professional UX |
+/// | Environment Loading | Secure config | File dependency | CHOSEN - production ready |
+///
+/// ## 💀 BOSS FIGHTS DEFEATED
+/// 1. **Discord Redesign Integration**
+///    - 🔍 Symptom: Old HomeScreen still in use after epic completion
+///    - 🎯 Root Cause: Main.dart not updated to use new DiscordHomeScreen
+///    - 💥 Kill Shot: Switch to DiscordHomeScreen with LayoutService integration
+///
+/// 2. **Theme System Integration**
+///    - 🔍 Symptom: Static theme without user preferences
+///    - 🎯 Root Cause: No LayoutService integration for theme management
+///    - 💥 Kill Shot: LayoutService initialization with theme coordination
+///
+/// 3. **Service Initialization**
+///    - 🔍 Symptom: Services not available for Discord layout
+///    - 🎯 Root Cause: Services initialization not coordinated with app startup
+///    - 💥 Kill Shot: Services initialization before DiscordHomeScreen creation
+///
+/// PERF: O(1) initialization - async services and dotenv loading
 /// SECURITY: Environment variables loaded from secure .env file
+/// ARCHITECTURAL: LayoutService integration for theme persistence
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -24,38 +48,43 @@ Future<void> main() async {
     debugPrint('Falling back to system environment variables');
   }
 
+  // Initialize services for Discord layout coordination
+  // This ensures LayoutService is available for theme management
+  try {
+    final layoutService = services.layoutService;
+    debugPrint(
+        '🎨 Main: LayoutService initialized - Theme: ${layoutService.currentTheme}');
+  } catch (e) {
+    debugPrint('⚠️ Main: Services initialization issue: $e');
+  }
+
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'AI Agent',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
-      ),
-      home: const HomeScreen(),
+    return ListenableBuilder(
+      listenable: services.layoutService,
+      builder: (context, child) {
+        final layoutService = services.layoutService;
+        final isDarkTheme = layoutService.currentTheme == AppTheme.dark;
+
+        return MaterialApp(
+          title: 'VibeCoder - Discord-Style AI Agent',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: Colors.blue,
+              brightness: isDarkTheme ? Brightness.dark : Brightness.light,
+            ),
+            useMaterial3: true,
+          ),
+          home: const DiscordHomeScreen(),
+        );
+      },
     );
   }
 }

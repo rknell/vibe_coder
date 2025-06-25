@@ -118,7 +118,7 @@ void main() {
 
         // Verify notepad section shows content
         expect(find.text('Notepad'), findsOneWidget);
-        expect(find.text('10 words'), findsOneWidget); // Word count badge
+        expect(find.text('10w'), findsOneWidget); // Word count badge
 
         // Expand notepad section to see content (notepad starts expanded by default)
         // await tester.tap(find.text('Notepad'));
@@ -295,7 +295,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // Initially no content - should show no badges
-        expect(find.textContaining('words'), findsNothing);
+        expect(find.textContaining('w'), findsNothing);
         expect(find.textContaining('3'), findsNothing);
 
         // Update agent content
@@ -307,7 +307,7 @@ void main() {
         await tester.pump();
 
         // Verify badges appear after content update
-        expect(find.text('3 words'), findsOneWidget); // Notepad word count
+        expect(find.text('3w'), findsOneWidget); // Notepad word count
         expect(find.text('3'), findsOneWidget); // Todo item count
       });
 
@@ -343,7 +343,7 @@ void main() {
 
         // Verify agent 1 content
         expect(find.text('Agent One'), findsOneWidget);
-        expect(find.text('4 words'), findsOneWidget); // Agent 1 notepad
+        expect(find.text('4w'), findsOneWidget); // Agent 1 notepad
 
         // Switch to agent 2
         await tester.pumpWidget(
@@ -427,7 +427,7 @@ void main() {
         // Verify content counts are correct
         expect(find.text('50'), findsOneWidget); // Todo count
         expect(find.text('30'), findsOneWidget); // Inbox count
-        expect(find.text('600 words'),
+        expect(find.text('600w'),
             findsOneWidget); // Notepad word count (100 repetitions * 6 words each)
       });
     });
