@@ -6,6 +6,10 @@ import 'package:vibe_coder/components/discord_layout/discord_layout_widgets.dart
 import 'package:vibe_coder/components/agents/agent_settings_dialog.dart';
 import 'package:vibe_coder/ai_agent/models/chat_message_model.dart';
 import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
+import 'package:vibe_coder/components/common/dialogs/mcp_server_management_dialog.dart';
+import 'package:vibe_coder/components/common/dialogs/tools_info_dialog.dart';
+import 'package:vibe_coder/components/common/indicators/mcp_status_icon.dart';
+import 'package:vibe_coder/models/mcp_server_info.dart';
 
 /// DiscordHomeScreen - Responsive Three-Panel Layout with Animations
 ///
@@ -172,6 +176,28 @@ class _DiscordHomeScreenState extends State<DiscordHomeScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('VibeCoder'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              // Navigate to settings or configuration screen
+            },
+            tooltip: 'Settings',
+          ),
+          MCPStatusIcon(
+            isServiceInitialized: services.mcpService.isInitialized,
+            onTap: _showMCPServerManager,
+          ),
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            onPressed:
+                services.mcpService.isInitialized ? _showToolsInfo : null,
+            tooltip: 'MCP Tools Info',
+          ),
+        ],
+      ),
       body: LayoutBuilder(
         builder: (context, constraints) {
           return ListenableBuilder(
@@ -265,35 +291,40 @@ class _DiscordHomeScreenState extends State<DiscordHomeScreen>
     debugPrint('🤖 Agent selected: ${agent.name} (${agent.id})');
   }
 
-  /// Handle create agent action
-  ///
-  /// INTEGRATION: Real agent creation dialog integration
+  /// Handle agent creation with proper error handling
   void _handleCreateAgent() async {
     if (!mounted) return;
 
     try {
-      final result = await AgentSettingsDialog.showCreateDialog(context);
+      final mcpServerInfo = services.mcpService.getMCPServerInfoLegacy();
+      final result = await AgentSettingsDialog.showCreateDialog(
+        context,
+        mcpServerInfo: mcpServerInfo,
+      );
 
       if (result != null && mounted) {
-        // Agent was created successfully
-        await services.agentService.createAgent(
+        final newAgent = await services.agentService.createAgent(
           name: result.name,
           systemPrompt: result.systemPrompt,
           temperature: result.temperature,
           maxTokens: result.maxTokens,
           useBetaFeatures: result.useBetaFeatures,
           useReasonerModel: result.useReasonerModel,
+          isActive: true,
         );
 
         if (mounted) {
+          setState(() {
+            _selectedAgent = services.agentService.getById(newAgent.id);
+          });
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Agent "${result.name}" created successfully'),
-            ),
+                content: Text('Agent "${newAgent.name}" created successfully')),
           );
         }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('💥 AGENT CREATION FAILED: $e\n$stackTrace');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -352,25 +383,41 @@ class _DiscordHomeScreenState extends State<DiscordHomeScreen>
     }
   }
 
-  /// Handle agent editing action
-  ///
-  /// INTEGRATION: Agent configuration dialog with settings persistence
+  /// Handle agent edit with proper error handling
   void _handleAgentEdit(AgentModel agent) async {
     if (!mounted) return;
 
     try {
-      final result = await AgentSettingsDialog.showEditDialog(context, agent);
+      final mcpServerInfo = services.mcpService.getMCPServerInfoLegacy();
+      final updatedAgent = await AgentSettingsDialog.showEditDialog(
+        context,
+        agent,
+        mcpServerInfo: mcpServerInfo,
+      );
 
-      if (result != null && mounted) {
-        // Agent was updated successfully
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Updated ${agent.name} settings'),
-            duration: const Duration(seconds: 2),
-          ),
+      if (updatedAgent != null && mounted) {
+        await services.agentService.updateAgent(
+          agent.id,
+          name: updatedAgent.name,
+          systemPrompt: updatedAgent.systemPrompt,
+          temperature: updatedAgent.temperature,
+          maxTokens: updatedAgent.maxTokens,
+          useBetaFeatures: updatedAgent.useBetaFeatures,
+          useReasonerModel: updatedAgent.useReasonerModel,
+          mcpConfigPath: updatedAgent.mcpConfigPath,
         );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Updated ${updatedAgent.name} settings'),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('💥 AGENT UPDATE FAILED: $e\n$stackTrace');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -380,5 +427,50 @@ class _DiscordHomeScreenState extends State<DiscordHomeScreen>
         );
       }
     }
+  }
+
+  /// Show MCP Server Manager dialog for comprehensive management
+  void _showMCPServerManager() {
+    if (!services.mcpService.isInitialized) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('MCP Service is still initializing...')),
+      );
+      return;
+    }
+
+    final mcpInfo = services.mcpService.getMCPServerInfo();
+    MCPServerManagementDialog.show(
+      context,
+      mcpInfo,
+      onRefreshAll: _refreshAllMCPServers,
+      onRefreshServer: _refreshMCPServer,
+    );
+  }
+
+  /// Show Tools Info dialog
+  void _showToolsInfo() {
+    if (!services.mcpService.isInitialized) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('MCP Service is still initializing...')),
+      );
+      return;
+    }
+
+    ToolsInfoDialog.show(context, services.mcpService.getMCPServerInfo());
+  }
+
+  /// Refresh all MCP servers
+  Future<MCPServerInfoResponse> _refreshAllMCPServers() async {
+    await services.mcpService.refreshAll();
+    return services.mcpService.getMCPServerInfo();
+  }
+
+  /// Refresh a specific MCP server
+  Future<MCPServerInfoResponse> _refreshMCPServer(String serverName) async {
+    final server = services.mcpService.getByName(serverName);
+    if (server != null) {
+      await services.mcpService.refreshServer(server.id);
+    }
+    return services.mcpService.getMCPServerInfo();
   }
 }

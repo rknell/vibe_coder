@@ -403,7 +403,8 @@ You are direct, professional, and solution-focused.''';
       // If disabling server, also disable all its tools
       if (!enabled) {
         final mcpInfo = _getAgentMCPInfo();
-        final servers = (mcpInfo['servers'] as List<dynamic>?) ?? [];
+        final serverInfo = mcpInfo['servers'] as Map<String, dynamic>? ?? {};
+        final servers = serverInfo.values.toList();
 
         for (final serverData in servers) {
           final serverMap = serverData as Map<String, dynamic>;
@@ -430,7 +431,8 @@ You are direct, professional, and solution-focused.''';
   void _toggleAllServerTools(String serverName, bool enabled) {
     setState(() {
       final mcpInfo = _getAgentMCPInfo();
-      final servers = (mcpInfo['servers'] as List<dynamic>?) ?? [];
+      final serverInfo = mcpInfo['servers'] as Map<String, dynamic>? ?? {};
+      final servers = serverInfo.values.toList();
 
       for (final serverData in servers) {
         final serverMap = serverData as Map<String, dynamic>;
@@ -482,12 +484,11 @@ You are direct, professional, and solution-focused.''';
     final mcpServerInfo = widget.mcpServerInfo;
     if (mcpServerInfo != null) {
       // Handle legacy Map format from toJson()
-      final serversMap =
+      final serverInfo =
           mcpServerInfo['servers'] as Map<String, dynamic>? ?? {};
-      final serversList = serversMap.values.toList();
 
       return {
-        'servers': serversList,
+        'servers': serverInfo,
         'totalTools': mcpServerInfo['toolCount'] ?? 0,
         'connectedServers': mcpServerInfo['connectedCount'] ?? 0,
         'configuredServers': mcpServerInfo['totalCount'] ?? 0,
@@ -496,7 +497,7 @@ You are direct, professional, and solution-focused.''';
 
     // Fallback for cases where no MCP info is provided
     return {
-      'servers': <Map<String, dynamic>>[],
+      'servers': <String, Map<String, dynamic>>{},
       'totalTools': 0,
       'connectedServers': 0,
       'configuredServers': 0,
@@ -1393,8 +1394,8 @@ class AgentSettingsAdvancedTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final List<dynamic> servers =
-        mcpServerInfo?['servers'] as List<dynamic>? ?? [];
+    final serverInfo = mcpServerInfo?['servers'] as Map<String, dynamic>? ?? {};
+    final servers = serverInfo.values.toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
