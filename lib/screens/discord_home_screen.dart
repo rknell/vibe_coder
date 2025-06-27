@@ -1,15 +1,14 @@
+
 import 'package:flutter/material.dart';
-import 'package:vibe_coder/models/layout_preferences_model.dart';
-import 'package:vibe_coder/models/agent_model.dart';
-import 'package:vibe_coder/services/services.dart';
-import 'package:vibe_coder/components/discord_layout/discord_layout_widgets.dart';
 import 'package:vibe_coder/components/agents/agent_settings_dialog.dart';
-import 'package:vibe_coder/ai_agent/models/chat_message_model.dart';
-import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
 import 'package:vibe_coder/components/common/dialogs/mcp_server_management_dialog.dart';
 import 'package:vibe_coder/components/common/dialogs/tools_info_dialog.dart';
 import 'package:vibe_coder/components/common/indicators/mcp_status_icon.dart';
+import 'package:vibe_coder/components/discord_layout/discord_layout_widgets.dart';
+import 'package:vibe_coder/models/agent_model.dart';
+import 'package:vibe_coder/models/layout_preferences_model.dart';
 import 'package:vibe_coder/models/mcp_server_info.dart';
+import 'package:vibe_coder/services/services.dart';
 
 /// DiscordHomeScreen - Responsive Three-Panel Layout with Animations
 ///
@@ -350,17 +349,8 @@ class _DiscordHomeScreenState extends State<DiscordHomeScreen>
   /// Handle message sending to selected agent
   ///
   /// INTEGRATION: Agent conversation management with object-oriented pattern
-  void _handleSendMessage(AgentModel agent, String message) {
-    // TODO: Integrate with conversation manager for message processing
-    debugPrint('💬 Sending message to ${agent.name}: $message');
-
-    // Add user message to agent's conversation history
-    // This will be enhanced when conversation manager is integrated
-    final userMessage = ChatMessage(
-      role: MessageRole.user,
-      content: message,
-    );
-    agent.addMessage(userMessage);
+  void _handleSendMessage(AgentModel agent, String message) async {
+    await agent.sendMessage(message);
   }
 
   /// Handle conversation clearing for selected agent
