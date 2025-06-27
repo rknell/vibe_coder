@@ -101,6 +101,14 @@ class MyWidget extends StatelessWidget {
 - Suppressing linter errors
 - Skipping test suite runs
 
+### 5. 🏰 SECURE THE FORTRESS [PERMANENT PROTECTION]
+**RULE**: The regression test MUST be permanent.
+
+#### 🎯 PERMANENCE REQUIREMENTS:
+- The new test created in Step 2 is committed to the codebase.
+- The test is not a temporary diagnostic and provides permanent regression protection.
+- Deleting regression tests is a critical violation of the **PERMANENT TEST FORTRESS PROTOCOL**.
+
 ## 🏆 VICTORY CONDITIONS
 
 ### ✅ MANDATORY COMPLIANCE:
@@ -110,6 +118,7 @@ class MyWidget extends StatelessWidget {
 - [ ] All tests passing
 - [ ] Zero linter errors
 - [ ] Zero warnings
+- [ ] Regression test is permanent and committed
 
 ### 💀 INSTANT FAILURE CONDITIONS:
 - Failing tests in codebase
