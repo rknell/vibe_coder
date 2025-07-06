@@ -13,13 +13,13 @@ import 'base_mcp.dart';
 /// | JSON Format | Structured data, extensible | Parse overhead | Standard interchange |
 ///
 /// **BOSS FIGHTS DEFEATED**:
-/// 1. **Multi-Agent Isolation**: Each agent's notepad is completely separate
+/// 1. **Multi-Agent Isolation**: Each agent's notepad is completely separate using a unique persistent agent ID.
 /// 2. **Concurrent Access**: Thread-safe operations for simultaneous agents
 /// 3. **Rich Operations**: Full CRUD + append, prepend, search capabilities
-/// 4. **Persistence Options**: Memory + optional file persistence
+/// 4. **Persistence Options**: Memory + optional file persistence, loaded at startup.
 /// 5. **Schema Validation**: Proper input validation and error handling
 class NotepadMCPServer extends BaseMCPServer {
-  /// In-memory storage for agent notepads (agent_name -> notepad_content)
+  /// In-memory storage for agent notepads (agent_id -> notepad_content)
   final Map<String, String> _notepads = {};
 
   /// Optional file persistence directory
@@ -48,7 +48,7 @@ class NotepadMCPServer extends BaseMCPServer {
 
   /// 🛠️ **TOOL DEFINITIONS**: Notepad operations available to agents
   @override
-  Future<List<MCPTool>> getAvailableTools(MCPSession session) async {
+  Future<List<MCPTool>> getAvailableTools() async {
     return [
       // 📝 READ NOTEPAD
       MCPTool(
@@ -56,8 +56,13 @@ class NotepadMCPServer extends BaseMCPServer {
         description: 'Read the current contents of your notepad',
         inputSchema: {
           'type': 'object',
-          'properties': {},
-          'required': [],
+          'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'The name of the agent accessing the notepad',
+            },
+          },
+          'required': ['agentName'],
         },
       ),
 
@@ -69,13 +74,17 @@ class NotepadMCPServer extends BaseMCPServer {
         inputSchema: {
           'type': 'object',
           'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'The name of the agent accessing the notepad',
+            },
             'content': {
               'type': 'string',
               'description': 'The content to write to the notepad',
               'maxLength': maxNotepadSize,
             },
           },
-          'required': ['content'],
+          'required': ['agentName', 'content'],
         },
       ),
 
@@ -86,6 +95,10 @@ class NotepadMCPServer extends BaseMCPServer {
         inputSchema: {
           'type': 'object',
           'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'The name of the agent accessing the notepad',
+            },
             'content': {
               'type': 'string',
               'description': 'The content to append to the notepad',
@@ -97,7 +110,7 @@ class NotepadMCPServer extends BaseMCPServer {
               'default': '\n',
             },
           },
-          'required': ['content'],
+          'required': ['agentName', 'content'],
         },
       ),
 
@@ -108,6 +121,10 @@ class NotepadMCPServer extends BaseMCPServer {
         inputSchema: {
           'type': 'object',
           'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'The name of the agent accessing the notepad',
+            },
             'content': {
               'type': 'string',
               'description': 'The content to prepend to the notepad',
@@ -119,7 +136,7 @@ class NotepadMCPServer extends BaseMCPServer {
               'default': '\n',
             },
           },
-          'required': ['content'],
+          'required': ['agentName', 'content'],
         },
       ),
 
@@ -129,8 +146,13 @@ class NotepadMCPServer extends BaseMCPServer {
         description: 'Clear all content from your notepad',
         inputSchema: {
           'type': 'object',
-          'properties': {},
-          'required': [],
+          'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'The name of the agent accessing the notepad',
+            },
+          },
+          'required': ['agentName'],
         },
       ),
 
@@ -141,6 +163,10 @@ class NotepadMCPServer extends BaseMCPServer {
         inputSchema: {
           'type': 'object',
           'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'The name of the agent accessing the notepad',
+            },
             'query': {
               'type': 'string',
               'description': 'The text to search for',
@@ -151,7 +177,7 @@ class NotepadMCPServer extends BaseMCPServer {
               'default': false,
             },
           },
-          'required': ['query'],
+          'required': ['agentName', 'query'],
         },
       ),
 
@@ -162,8 +188,13 @@ class NotepadMCPServer extends BaseMCPServer {
             'Get information about your notepad (size, line count, etc.)',
         inputSchema: {
           'type': 'object',
-          'properties': {},
-          'required': [],
+          'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'The name of the agent accessing the notepad',
+            },
+          },
+          'required': ['agentName'],
         },
       ),
     ];
@@ -172,39 +203,39 @@ class NotepadMCPServer extends BaseMCPServer {
   /// ⚔️ **TOOL EXECUTION**: Handle notepad operations with bulletproof error handling
   @override
   Future<MCPToolResult> callTool(
-    MCPSession session,
     String name,
     Map<String, dynamic> arguments,
   ) async {
     try {
+      final agentName = arguments['agentName'] as String;
       switch (name) {
         case 'notepad_read':
-          return await _readNotepad(session);
+          return await _readNotepad(agentName);
 
         case 'notepad_write':
           final content = arguments['content'] as String;
-          return await _writeNotepad(session, content);
+          return await _writeNotepad(agentName, content);
 
         case 'notepad_append':
           final content = arguments['content'] as String;
           final separator = arguments['separator'] as String? ?? '\n';
-          return await _appendNotepad(session, content, separator);
+          return await _appendNotepad(agentName, content, separator);
 
         case 'notepad_prepend':
           final content = arguments['content'] as String;
           final separator = arguments['separator'] as String? ?? '\n';
-          return await _prependNotepad(session, content, separator);
+          return await _prependNotepad(agentName, content, separator);
 
         case 'notepad_clear':
-          return await _clearNotepad(session);
+          return await _clearNotepad(agentName);
 
         case 'notepad_search':
           final query = arguments['query'] as String;
           final caseSensitive = arguments['case_sensitive'] as bool? ?? false;
-          return await _searchNotepad(session, query, caseSensitive);
+          return await _searchNotepad(agentName, query, caseSensitive);
 
         case 'notepad_info':
-          return await _getNotepadInfo(session);
+          return await _getNotepadInfo(agentName);
 
         default:
           throw MCPServerException('Unknown tool: $name', code: -32601);
@@ -218,9 +249,8 @@ class NotepadMCPServer extends BaseMCPServer {
   }
 
   /// 📖 **READ OPERATION**: Get current notepad content
-  Future<MCPToolResult> _readNotepad(MCPSession session) async {
-    final agentName = getAgentNameFromSession(session);
-    final content = _getAgentNotepad(agentName);
+  Future<MCPToolResult> _readNotepad(String agentName) async {
+    final content = await _getAgentNotepad(agentName);
 
     if (content.isEmpty) {
       return MCPToolResult(
@@ -234,11 +264,9 @@ class NotepadMCPServer extends BaseMCPServer {
   }
 
   /// ✍️ **WRITE OPERATION**: Replace notepad content
-  Future<MCPToolResult> _writeNotepad(
-      MCPSession session, String content) async {
+  Future<MCPToolResult> _writeNotepad(String agentName, String content) async {
     _validateContentSize(content);
 
-    final agentName = getAgentNameFromSession(session);
     _notepads[agentName] = content;
     await _persistNotepad(agentName, content);
 
@@ -256,12 +284,11 @@ class NotepadMCPServer extends BaseMCPServer {
 
   /// ➕ **APPEND OPERATION**: Add content to end
   Future<MCPToolResult> _appendNotepad(
-    MCPSession session,
+    String agentName,
     String content,
     String separator,
   ) async {
-    final agentName = getAgentNameFromSession(session);
-    final existing = _getAgentNotepad(agentName);
+    final existing = await _getAgentNotepad(agentName);
     final newContent =
         existing.isEmpty ? content : existing + separator + content;
 
@@ -280,12 +307,11 @@ class NotepadMCPServer extends BaseMCPServer {
 
   /// ⬆️ **PREPEND OPERATION**: Add content to beginning
   Future<MCPToolResult> _prependNotepad(
-    MCPSession session,
+    String agentName,
     String content,
     String separator,
   ) async {
-    final agentName = getAgentNameFromSession(session);
-    final existing = _getAgentNotepad(agentName);
+    final existing = await _getAgentNotepad(agentName);
     final newContent =
         existing.isEmpty ? content : content + separator + existing;
 
@@ -303,9 +329,8 @@ class NotepadMCPServer extends BaseMCPServer {
   }
 
   /// 🗑️ **CLEAR OPERATION**: Remove all content
-  Future<MCPToolResult> _clearNotepad(MCPSession session) async {
-    final agentName = getAgentNameFromSession(session);
-    final previousSize = _getAgentNotepad(agentName).length;
+  Future<MCPToolResult> _clearNotepad(String agentName) async {
+    final previousSize = (await _getAgentNotepad(agentName)).length;
 
     _notepads[agentName] = '';
     await _persistNotepad(agentName, '');
@@ -320,12 +345,11 @@ class NotepadMCPServer extends BaseMCPServer {
 
   /// 🔍 **SEARCH OPERATION**: Find text in notepad
   Future<MCPToolResult> _searchNotepad(
-    MCPSession session,
+    String agentName,
     String query,
     bool caseSensitive,
   ) async {
-    final agentName = getAgentNameFromSession(session);
-    final content = _getAgentNotepad(agentName);
+    final content = await _getAgentNotepad(agentName);
 
     if (content.isEmpty) {
       return MCPToolResult(
@@ -364,9 +388,8 @@ class NotepadMCPServer extends BaseMCPServer {
   }
 
   /// 📊 **INFO OPERATION**: Get notepad statistics
-  Future<MCPToolResult> _getNotepadInfo(MCPSession session) async {
-    final agentName = getAgentNameFromSession(session);
-    final content = _getAgentNotepad(agentName);
+  Future<MCPToolResult> _getNotepadInfo(String agentName) async {
+    final content = await _getAgentNotepad(agentName);
 
     if (content.isEmpty) {
       return MCPToolResult(
@@ -391,7 +414,7 @@ class NotepadMCPServer extends BaseMCPServer {
         '- Size: $characters characters\n'
         '- Words: $words\n'
         '- Lines: ${lines.length} ($nonEmptyLines non-empty)\n'
-        '- Agent: $agentName\n'
+        '- Agent ID: $agentName\n'
         '- Last modified: ${DateTime.now().toIso8601String()}';
 
     return MCPToolResult(
@@ -409,13 +432,20 @@ class NotepadMCPServer extends BaseMCPServer {
     }
   }
 
-  /// 🎯 **AGENT ISOLATION**: Get notepad for specific agent
-  String _getAgentNotepad(String agentName) {
-    return _notepads[agentName] ?? '';
+  /// 🎯 **AGENT ISOLATION**: Get notepad for specific agent (loads from disk if needed)
+  Future<String> _getAgentNotepad(String agentId) async {
+    // Check if already loaded in memory
+    if (_notepads.containsKey(agentId)) {
+      return _notepads[agentId]!;
+    }
+
+    // Load from persistence if available
+    await _loadPersistedNotepad(agentId);
+    return _notepads[agentId] ?? '';
   }
 
-  /// 💾 **PERSISTENCE**: Save notepad to file (agent-based)
-  Future<void> _persistNotepad(String agentName, String content) async {
+  /// 💾 **PERSISTENCE**: Save notepad to file (agent-ID-based)
+  Future<void> _persistNotepad(String agentId, String content) async {
     if (persistenceDirectory == null) return;
 
     try {
@@ -424,45 +454,37 @@ class NotepadMCPServer extends BaseMCPServer {
         await dir.create(recursive: true);
       }
 
-      final file = File('${persistenceDirectory!}/notepad_$agentName.txt');
+      final file = File('${persistenceDirectory!}/notepad_$agentId.txt');
       await file.writeAsString(content);
     } catch (e) {
       // Log error but don't fail the operation
-      stderr.writeln(
-          'Warning: Failed to persist notepad for agent $agentName: $e');
+      stderr
+          .writeln('Warning: Failed to persist notepad for agent $agentId: $e');
     }
   }
 
   /// 🔄 **RESTORE**: Load notepad from file for agent
-  Future<void> _loadPersistedNotepad(String agentName) async {
+  Future<void> _loadPersistedNotepad(String agentId) async {
     if (persistenceDirectory == null) return;
 
     try {
-      final file = File('${persistenceDirectory!}/notepad_$agentName.txt');
+      final file = File('${persistenceDirectory!}/notepad_$agentId.txt');
       if (await file.exists()) {
         final content = await file.readAsString();
-        _notepads[agentName] = content;
+        _notepads[agentId] = content;
       }
     } catch (e) {
       stderr.writeln(
-          'Warning: Failed to load persisted notepad for agent $agentName: $e');
+          'Warning: Failed to load persisted notepad for agent $agentId: $e');
     }
-  }
-
-  /// 🔄 **AGENT DATA LOADING**: Override base class method
-  @override
-  Future<void> loadAgentData(String agentName) async {
-    await super.loadAgentData(agentName);
-    await _loadPersistedNotepad(agentName);
   }
 
   /// 📚 **RESOURCES**: Expose notepad as a resource for reading
   @override
-  Future<List<MCPResource>> getAvailableResources(MCPSession session) async {
-    final agentName = getAgentNameFromSession(session);
+  Future<List<MCPResource>> getAvailableResources() async {
     return [
       MCPResource(
-        uri: 'notepad://$agentName',
+        uri: 'notepad://notepad?agentName=<agentName>',
         name: 'Agent Notepad',
         description: 'Your personal notepad content',
         mimeType: 'text/plain',
@@ -471,94 +493,62 @@ class NotepadMCPServer extends BaseMCPServer {
   }
 
   @override
-  Future<MCPContent> readResource(MCPSession session, String uri) async {
-    final agentName = getAgentNameFromSession(session);
-    if (uri == 'notepad://$agentName') {
-      final content = _getAgentNotepad(agentName);
-      return MCPContent.text(content.isEmpty ? 'Empty notepad' : content);
-    }
+  Future<MCPContent> readResource(String uri) async {
+    final agentName = Uri.parse(uri).queryParameters['agentName'];
 
-    throw MCPServerException('Resource not found: $uri', code: -32602);
+    if (agentName == null) {
+      throw MCPServerException('Agent name is required', code: -32602);
+    }
+    final content = await _getAgentNotepad(agentName);
+    return MCPContent.text(content.isEmpty ? 'Empty notepad' : content);
   }
 
   /// 💬 **PROMPTS**: Provide notepad-related prompt templates
   @override
-  Future<List<MCPPrompt>> getAvailablePrompts(MCPSession session) async {
-    return [
-      MCPPrompt(
-        name: 'organize_notepad',
-        description: 'Help organize and structure notepad content',
-        arguments: [
-          MCPPromptArgument(
-            name: 'style',
-            description:
-                'Organization style (bullet_points, numbered_list, categories)',
-            required: false,
-          ),
-        ],
-      ),
-      MCPPrompt(
-        name: 'summarize_notepad',
-        description: 'Create a summary of notepad content',
-        arguments: [
-          MCPPromptArgument(
-            name: 'max_length',
-            description: 'Maximum length of summary in words',
-            required: false,
-          ),
-        ],
-      ),
-    ];
+  Future<List<MCPPrompt>> getAvailablePrompts() async {
+    return [];
   }
 
   @override
   Future<List<MCPMessage>> getPrompt(
-    MCPSession session,
     String name,
     Map<String, dynamic> arguments,
   ) async {
-    final agentName = getAgentNameFromSession(session);
-    final content = _getAgentNotepad(agentName);
-
-    switch (name) {
-      case 'organize_notepad':
-        final style = arguments['style'] as String? ?? 'bullet_points';
-        return [
-          MCPMessage(
-            method: 'user',
-            params: {
-              'content':
-                  'Please organize the following notepad content using $style format:\n\n$content'
-            },
-          ),
-        ];
-
-      case 'summarize_notepad':
-        final maxLength = arguments['max_length'] as int? ?? 100;
-        return [
-          MCPMessage(
-            method: 'user',
-            params: {
-              'content':
-                  'Please create a summary of the following notepad content in $maxLength words or less:\n\n$content'
-            },
-          ),
-        ];
-
-      default:
-        throw MCPServerException('Unknown prompt: $name', code: -32601);
-    }
+    return [];
   }
 
-  /// 🚀 **LIFECYCLE**: Load persisted data on startup
+  /// 🚀 **LIFECYCLE**: Load all persisted data on startup for resilience.
   @override
   Future<void> onInitialized() async {
     await super.onInitialized();
-
-    // Load any persisted notepads for existing agents
-    for (final agentName in _notepads.keys) {
-      await _loadPersistedNotepad(agentName);
+    if (persistenceDirectory == null) {
+      logger?.call('info', 'Notepad persistence is disabled.');
+      return;
     }
+
+    final dir = Directory(persistenceDirectory!);
+    if (!await dir.exists()) {
+      logger?.call('info',
+          'Persistence directory not found, starting with empty notepads.');
+      return;
+    }
+
+    int loadedCount = 0;
+    final files = dir.list();
+    await for (final fileEntity in files) {
+      if (fileEntity is File && fileEntity.path.endsWith('.txt')) {
+        final filename = fileEntity.path.split(Platform.pathSeparator).last;
+        if (filename.startsWith('notepad_')) {
+          final agentId = filename.substring(
+              'notepad_'.length, filename.length - '.txt'.length);
+          if (agentId.isNotEmpty) {
+            await _loadPersistedNotepad(agentId);
+            loadedCount++;
+          }
+        }
+      }
+    }
+    logger?.call('info', 'Loaded $loadedCount persisted notepad(s).');
   }
 }
 

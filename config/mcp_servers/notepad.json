@@ -1,0 +1,11 @@
+{
+    "command": "dart",
+    "args": [
+        "mcp/notepad_server.dart",
+        "--persist-dir",
+        "./data/notepads"
+    ],
+    "env": {
+        "DEBUG": "false"
+    }
+}

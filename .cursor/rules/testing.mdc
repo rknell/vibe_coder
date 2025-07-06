@@ -3,6 +3,43 @@ description:
 globs: 
 alwaysApply: true
 ---
+## 💀 LINTER-FIRST SUPREMACY [CRITICAL]
+**🎯 MISSION: ESTABLISH COMPILABLE CODE BEFORE TEST EXECUTION**
+
+### ⚔️ MANDATORY PRE-TEST SEQUENCE
+**RULE**: `flutter analyze` MUST be clean before ANY test execution. NO EXCEPTIONS.
+
+#### 🔍 COMPILATION REALITY CHECK:
+- **💀 FUNDAMENTAL TRUTH**: Linter errors = Compilation failures = Tests CANNOT run
+- **⚔️ MANDATORY ORDER**: 
+  1. `flutter analyze` → Fix ALL errors and warnings
+  2. Confirm "No issues found!" message  
+  3. ONLY THEN execute `flutter test`
+- **🚫 BANNED SEQUENCE**: Running tests with active linter violations
+- **💀 CRITICAL UNDERSTANDING**: If code doesn't compile, tests are meaningless
+
+#### 🛠️ SYSTEMATIC ERROR ELIMINATION:
+```bash
+# ✅ WARRIOR APPROVED: Correct sequence
+flutter analyze                    # FIRST: Check compilation
+# Fix all errors and warnings until "No issues found!"
+flutter test                      # SECOND: Execute tests
+
+# ❌ BANNED: Wrong sequence  
+flutter test                      # WRONG: Tests before linting
+flutter analyze                   # USELESS: After test failures
+
+# ❌ BANNED: Ignoring linter output
+flutter test --ignore-errors      # FORBIDDEN: Bypassing compilation check
+```
+
+#### 🚨 LINTER-FIRST ENFORCEMENT:
+- **💀 PENALTY**: -5000 XP for any test execution with active linter errors
+- **🛡️ GATE KEEPING**: Tests are BLOCKED until linter clean
+- **⚔️ DISCIPLINE**: Every warrior must internalize this sequence
+
+---
+
 To get failing tests run [get_failing_tests.sh](mdc:tool/get_failing_tests.sh)
 It includes the name and file of the failing tests in order to quickly determine which tests are failing.
 `./tools/get_failing_tests.sh`
@@ -22,7 +59,7 @@ Our recent battle revealed a critical vulnerability: **state leakage between tes
 #### 1. 🚫 ZERO FILE SYSTEM DEPENDENCY IN UNIT & WIDGET TESTS
 **RULE**: Unit and widget tests MUST NOT interact with the real file system. The file system is a shared, global state that creates flaky, interdependent tests.
 
-- **❌ BANNED**: `Directory('data/agents')` or any direct file I/O in tests that are not explicitly marked as `integration` tests.
+- **❌ BANNED**: `Directory('config/agents')` or any direct file I/O in tests that are not explicitly marked as `integration` tests.
 - **✅ REQUIRED**:
     - For services requiring file access, use a mocking framework (like `mockito`) to create a fake implementation.
     - For simpler cases, inject a mock data provider or repository that returns in-memory data.

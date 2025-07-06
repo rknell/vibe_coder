@@ -1,0 +1,13 @@
+{
+    "name": "agent-task-list",
+    "type": "stdio",
+    "command": "dart",
+    "args": [
+        "mcp/task_list_server.dart",
+        "--persist-dir",
+        "./data/task_lists"
+    ],
+    "env": {
+        "DEBUG": "false"
+    }
+}

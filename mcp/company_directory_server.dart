@@ -51,7 +51,7 @@ class CompanyDirectoryMCPServer extends BaseMCPServer {
 
   /// 🛠️ **TOOL DEFINITIONS**: Company directory operations available to agents
   @override
-  Future<List<MCPTool>> getAvailableTools(MCPSession session) async {
+  Future<List<MCPTool>> getAvailableTools() async {
     return [
       // 📝 REGISTER AGENT
       MCPTool(
@@ -60,6 +60,10 @@ class CompanyDirectoryMCPServer extends BaseMCPServer {
         inputSchema: {
           'type': 'object',
           'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent making this request',
+            },
             'name': {
               'type': 'string',
               'description': 'Agent display name',
@@ -87,7 +91,7 @@ class CompanyDirectoryMCPServer extends BaseMCPServer {
               'maxLength': 500,
             },
           },
-          'required': ['name', 'role'],
+          'required': ['agentName', 'name', 'role'],
         },
       ),
 
@@ -98,6 +102,10 @@ class CompanyDirectoryMCPServer extends BaseMCPServer {
         inputSchema: {
           'type': 'object',
           'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent making this request',
+            },
             'status_filter': {
               'type': 'string',
               'enum': ['active', 'busy', 'idle', 'offline', 'all'],
@@ -113,7 +121,7 @@ class CompanyDirectoryMCPServer extends BaseMCPServer {
               'description': 'Filter agents by capability (partial match)',
             },
           },
-          'required': [],
+          'required': ['agentName'],
         },
       ),
 
@@ -124,6 +132,10 @@ class CompanyDirectoryMCPServer extends BaseMCPServer {
         inputSchema: {
           'type': 'object',
           'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent making this request',
+            },
             'agent_id': {
               'type': 'string',
               'description': 'Unique agent identifier',
@@ -133,7 +145,7 @@ class CompanyDirectoryMCPServer extends BaseMCPServer {
               'description': 'Agent display name',
             },
           },
-          'required': [],
+          'required': ['agentName'],
         },
       ),
 
@@ -144,6 +156,10 @@ class CompanyDirectoryMCPServer extends BaseMCPServer {
         inputSchema: {
           'type': 'object',
           'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent making this request',
+            },
             'status': {
               'type': 'string',
               'enum': ['active', 'busy', 'idle', 'offline'],
@@ -155,7 +171,7 @@ class CompanyDirectoryMCPServer extends BaseMCPServer {
               'maxLength': 200,
             },
           },
-          'required': ['status'],
+          'required': ['agentName', 'status'],
         },
       ),
 
@@ -166,6 +182,10 @@ class CompanyDirectoryMCPServer extends BaseMCPServer {
         inputSchema: {
           'type': 'object',
           'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent making this request',
+            },
             'recipient_id': {
               'type': 'string',
               'description': 'Target agent ID',
@@ -192,7 +212,7 @@ class CompanyDirectoryMCPServer extends BaseMCPServer {
               'default': 'info',
             },
           },
-          'required': ['message'],
+          'required': ['agentName', 'message'],
         },
       ),
 
@@ -203,6 +223,10 @@ class CompanyDirectoryMCPServer extends BaseMCPServer {
         inputSchema: {
           'type': 'object',
           'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent making this request',
+            },
             'status_filter': {
               'type': 'string',
               'enum': ['unread', 'read', 'all'],
@@ -222,7 +246,7 @@ class CompanyDirectoryMCPServer extends BaseMCPServer {
               'default': 50,
             },
           },
-          'required': [],
+          'required': ['agentName'],
         },
       ),
 
@@ -233,12 +257,16 @@ class CompanyDirectoryMCPServer extends BaseMCPServer {
         inputSchema: {
           'type': 'object',
           'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent making this request',
+            },
             'message_id': {
               'type': 'string',
               'description': 'Message ID to mark as read',
             },
           },
-          'required': ['message_id'],
+          'required': ['agentName', 'message_id'],
         },
       ),
 
@@ -249,13 +277,17 @@ class CompanyDirectoryMCPServer extends BaseMCPServer {
         inputSchema: {
           'type': 'object',
           'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent making this request',
+            },
             'reason': {
               'type': 'string',
               'description': 'Reason for unregistering',
               'maxLength': 200,
             },
           },
-          'required': [],
+          'required': ['agentName'],
         },
       ),
     ];
@@ -264,11 +296,13 @@ class CompanyDirectoryMCPServer extends BaseMCPServer {
   /// 🎯 **TOOL EXECUTION**: Handle directory tool calls
   @override
   Future<MCPToolResult> callTool(
-    MCPSession session,
     String toolName,
     Map<String, dynamic> arguments,
   ) async {
-    final agentName = getAgentNameFromSession(session);
+    final agentName = arguments['agentName'] as String?;
+    if (agentName == null) {
+      throw MCPServerException('agentName parameter is required', code: -32602);
+    }
 
     switch (toolName) {
       case 'directory_register_agent':
@@ -777,16 +811,16 @@ class CompanyDirectoryMCPServer extends BaseMCPServer {
     }
   }
 
-  /// Load agent data on session start
+  /// 🚀 **LIFECYCLE**: Load directory data on startup
   @override
-  Future<void> loadAgentData(String agentName) async {
-    await super.loadAgentData(agentName);
+  Future<void> onInitialized() async {
+    await super.onInitialized();
     await _loadDirectory();
   }
 
   /// Resources - Expose directory as resources
   @override
-  Future<List<MCPResource>> getAvailableResources(MCPSession session) async {
+  Future<List<MCPResource>> getAvailableResources() async {
     return [
       MCPResource(
         uri: 'directory://company/agents',
@@ -804,7 +838,7 @@ class CompanyDirectoryMCPServer extends BaseMCPServer {
   }
 
   @override
-  Future<MCPContent> readResource(MCPSession session, String uri) async {
+  Future<MCPContent> readResource(String uri) async {
     switch (uri) {
       case 'directory://company/agents':
         final data = jsonEncode({
@@ -833,7 +867,7 @@ class CompanyDirectoryMCPServer extends BaseMCPServer {
 
   /// Prompts - Required implementation
   @override
-  Future<List<MCPPrompt>> getAvailablePrompts(MCPSession session) async {
+  Future<List<MCPPrompt>> getAvailablePrompts() async {
     return [
       MCPPrompt(
         name: 'agent_status_report',
@@ -851,7 +885,6 @@ class CompanyDirectoryMCPServer extends BaseMCPServer {
 
   @override
   Future<List<MCPMessage>> getPrompt(
-    MCPSession session,
     String name,
     Map<String, dynamic> arguments,
   ) async {
@@ -1059,5 +1092,99 @@ class DirectoryMessage {
           ? DateTime.parse(json['read_at'] as String)
           : null,
     );
+  }
+}
+
+/// 🎯 **MAIN ENTRY POINT**: Standalone executable for the company directory server
+///
+/// Usage: dart mcp/company_directory_server.dart [--persist-dir /path/to/persistence]
+Future<void> main(List<String> arguments) async {
+  // Parse command line arguments
+  String? persistenceDir;
+  bool verbose = false;
+
+  for (int i = 0; i < arguments.length; i++) {
+    switch (arguments[i]) {
+      case '--persist-dir':
+        if (i + 1 < arguments.length) {
+          persistenceDir = arguments[i + 1];
+          i++; // Skip next argument
+        }
+        break;
+      case '--verbose':
+        verbose = true;
+        break;
+      case '--help':
+        // ignore: avoid_print
+        print('''
+Company Directory MCP Server
+
+A Model Context Protocol server providing agent discovery and inter-agent communication.
+Enables agents to register, find each other, and exchange messages through a central directory.
+
+Usage: dart company_directory_server.dart [options]
+
+Options:
+  --persist-dir <path>  Directory to persist agent registry (optional)
+  --verbose            Enable verbose logging
+  --help               Show this help message
+
+Features:
+  ✅ Agent registration and discovery
+  ✅ Status monitoring and updates
+  ✅ Inter-agent messaging system
+  ✅ Capability discovery and filtering
+  ✅ Agent lifecycle management
+  ✅ Message priority and type support
+  ✅ Optional file persistence
+  ✅ Resource and prompt interfaces
+  ✅ JSON-RPC 2.0 compliant MCP protocol
+
+Available Tools:
+  📝 directory_register_agent - Register agent in directory
+  📋 directory_list_agents - List all registered agents
+  🔍 directory_find_agent - Find specific agent by ID or name
+  🔄 directory_update_status - Update agent status
+  💬 directory_send_message - Send message to another agent
+  📬 directory_get_messages - Get messages for this agent
+  ✅ directory_mark_message_read - Mark message as read
+  🗑️ directory_unregister_agent - Remove agent from directory
+
+Examples:
+  dart company_directory_server.dart
+  dart company_directory_server.dart --persist-dir ./data/company_directory
+  dart company_directory_server.dart --persist-dir ./data/company_directory --verbose
+''');
+        return;
+    }
+  }
+
+  // Create logger if verbose mode
+  void Function(String, String, [Object?])? logger;
+  if (verbose) {
+    logger = (level, message, [data]) {
+      final timestamp = DateTime.now().toIso8601String();
+      stderr.writeln(
+          '[$timestamp] [$level] $message${data != null ? ' | $data' : ''}');
+    };
+  }
+
+  // Create and start the server
+  final server = CompanyDirectoryMCPServer(
+    persistenceDirectory: persistenceDir,
+    logger: logger,
+  );
+
+  try {
+    stderr.writeln('🏢 Starting Company Directory MCP Server v1.0.0');
+    if (persistenceDir != null) {
+      stderr.writeln('📁 Persistence directory: $persistenceDir');
+    }
+    stderr.writeln('🎯 Ready for agent connections...');
+
+    await server.start();
+  } catch (e) {
+    stderr.writeln('💥 Server failed to start: $e');
+    exit(1);
   }
 }

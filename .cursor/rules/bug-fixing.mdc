@@ -87,19 +87,26 @@ class MyWidget extends StatelessWidget {
 ```
 
 ### 4. ✅ VERIFY FIX [ZERO TOLERANCE]
-**RULE**: All tests MUST pass. No exceptions.
+**RULE**: Systematic verification with linter-first approach. No exceptions.
 
-#### 🎯 VERIFICATION REQUIREMENTS:
-- New test passes
-- All existing tests pass
-- No linter errors
-- No warnings
-- Bug fix verified in same environment as reproduction
+#### 🎯 MANDATORY VERIFICATION SEQUENCE:
+1. **🔍 LINTER SCAN FIRST**: `flutter analyze` → MUST show "No issues found!"
+   - **💀 COMPILATION REALITY**: Linter errors prevent test execution
+   - **⚔️ FIX ORDER**: Errors first → Warnings second → Tests last
+   - **🛡️ GATE KEEPER**: Code must compile before any functionality testing
+2. **🧪 TEST EXECUTION**: `flutter test` → ONLY after perfect linting
+   - New regression test passes
+   - All existing tests pass
+   - Zero test failures or errors
+3. **🎯 FUNCTIONAL VERIFICATION**: Bug fix verified in same environment as reproduction
 
 #### 🚫 BANNED PRACTICES:
+- **💀 PREMATURE TEST EXECUTION**: Running tests with active linter errors (INSTANT FAILURE)
+- **🚫 COMPILATION BYPASS**: Attempting to test non-compiling code
 - Ignoring failing tests
-- Suppressing linter errors
-- Skipping test suite runs
+- Suppressing linter errors instead of fixing them
+- Skipping linter analysis before test runs
+- **💀 SEQUENCE VIOLATION**: Any attempt to run tests before "No issues found!" message
 
 ### 5. 🏰 SECURE THE FORTRESS [PERMANENT PROTECTION]
 **RULE**: The regression test MUST be permanent.
@@ -115,16 +122,17 @@ class MyWidget extends StatelessWidget {
 - [ ] Bug reproduced and documented
 - [ ] Failing test written
 - [ ] Fix implemented following architecture standards
-- [ ] All tests passing
-- [ ] Zero linter errors
-- [ ] Zero warnings
+- [ ] **LINTER PERFECT**: `flutter analyze` shows "No issues found!" (PREREQUISITE)
+- [ ] **TESTS PERFECT**: All tests passing (executed AFTER linter clean)
 - [ ] Regression test is permanent and committed
 
 ### 💀 INSTANT FAILURE CONDITIONS:
+- **LINTER VIOLATIONS**: Any errors or warnings in `flutter analyze`
+- **PREMATURE TEST EXECUTION**: Running tests before fixing linter errors (CRITICAL VIOLATION)
+- **COMPILATION FAILURE**: Attempting to test code that won't compile
 - Failing tests in codebase
-- Linter errors present
-- Warnings present
 - Modified tests without justification
 - Blind fixes without reproduction
+- **SEQUENCE VIOLATION**: Any deviation from linter → test order
 
 **⚰️ PERFECT TESTS OR DEATH! ⚰️**

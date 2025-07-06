@@ -227,13 +227,13 @@ class MCPService extends ChangeNotifier {
 
   /// 📋 COLLECTION LOADING: Load all servers from data directory
   ///
-  /// PERF: O(n) where n = number of server files
+  /// PERF: O(n) where n = number  of server files
   /// ARCHITECTURAL: Service manages loading, models handle their own deserialization
   Future<void> loadAll() async {
     try {
       _logger.info('📋 LOADING: All MCP servers from persistence');
 
-      final dataDir = Directory('data/mcp_servers');
+      final dataDir = Directory('config/mcp_servers');
       if (!await dataDir.exists()) {
         _logger.info('📁 NO DATA: MCP servers directory does not exist');
         data = [];
@@ -300,10 +300,12 @@ class MCPService extends ChangeNotifier {
   /// ARCHITECTURAL: Converts simple config files to full MCPServerModel objects
   MCPServerModel _createServerFromConfigFile(
       String filePath, Map<String, dynamic> config) {
-    // Extract server name from filename (remove .json extension)
+    // Use name from config if provided, otherwise extract from filename
+    final configName = config['name'] as String?;
     final fileName = filePath.split('/').last;
-    final serverName =
+    final fallbackName =
         fileName.substring(0, fileName.length - 5); // Remove '.json'
+    final serverName = configName ?? fallbackName;
 
     final type = config['type'] as String?;
 

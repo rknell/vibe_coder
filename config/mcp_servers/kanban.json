@@ -1,0 +1,11 @@
+{
+    "command": "dart",
+    "args": [
+        "mcp/kanban_server.dart",
+        "--kanban-dir",
+        "./data/kanban"
+    ],
+    "env": {
+        "DEBUG": "false"
+    }
+}

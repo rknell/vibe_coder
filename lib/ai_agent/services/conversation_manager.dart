@@ -196,7 +196,7 @@ $content
   void addSystemMessage(String content) {
     _logger.fine('Adding system message');
     final message = ChatMessage(
-        role: MessageRole.user, content: content, contextId: "system");
+        role: MessageRole.assistant, content: content, contextId: "system");
     _messages.add(message);
   }
 

@@ -112,10 +112,6 @@ class AgentModel extends ChangeNotifier {
     this.mcpConfigPath,
     Map<String, bool>? mcpServerPreferences,
     Map<String, bool>? mcpToolPreferences,
-    // DR005B INTEGRATION: MCP Content constructor parameters
-    String? mcpNotepadContent,
-    List<String>? mcpTodoItems,
-    List<String>? mcpInboxItems,
     DateTime? lastContentSync,
     this.supervisorId,
     List<String>? contextFiles,
@@ -132,10 +128,6 @@ class AgentModel extends ChangeNotifier {
         metadata = metadata ?? {},
         mcpServerPreferences = mcpServerPreferences ?? {},
         mcpToolPreferences = mcpToolPreferences ?? {},
-        // DR005B INTEGRATION: Initialize MCP content fields
-        _mcpNotepadContent = mcpNotepadContent,
-        _mcpTodoItems = mcpTodoItems ?? [],
-        _mcpInboxItems = mcpInboxItems ?? [],
         _lastContentSync = lastContentSync {
     // WARRIOR PROTOCOL: Migrate legacy conversation history to agent if provided
     if (conversationHistory != null && conversationHistory.isNotEmpty) {
@@ -216,12 +208,6 @@ class AgentModel extends ChangeNotifier {
       processingStatus: processingStatus,
       lastStatusChange: lastStatusChange,
       errorMessage: json['errorMessage'] as String?,
-      // DR005B INTEGRATION: Parse MCP content fields
-      mcpNotepadContent: json['mcpNotepadContent'] as String?,
-      mcpTodoItems:
-          (json['mcpTodoItems'] as List<dynamic>?)?.cast<String>().toList(),
-      mcpInboxItems:
-          (json['mcpInboxItems'] as List<dynamic>?)?.cast<String>().toList(),
       lastContentSync: json['lastContentSync'] != null
           ? DateTime.parse(json['lastContentSync'] as String)
           : null,
@@ -631,13 +617,13 @@ class AgentModel extends ChangeNotifier {
       }
 
       // Create data directory if it doesn't exist
-      final dataDir = Directory('data/agents');
+      final dataDir = Directory('config/agents');
       if (!await dataDir.exists()) {
         await dataDir.create(recursive: true);
       }
 
       // Save to file
-      final file = File('data/agents/$id.json');
+      final file = File('config/agents/$id.json');
       final jsonStr = const JsonEncoder.withIndent('  ').convert(toJson());
       await file.writeAsString(jsonStr);
 
@@ -656,7 +642,7 @@ class AgentModel extends ChangeNotifier {
   /// ARCHITECTURAL: Model handles its own deletion
   Future<void> delete() async {
     try {
-      final file = File('data/agents/$id.json');
+      final file = File('config/agents/$id.json');
       if (await file.exists()) {
         await file.delete();
       }

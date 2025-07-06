@@ -86,7 +86,7 @@ class AgentService extends ChangeNotifier {
     _logger.info('📋 AGENT SERVICE: Loading agents from persistence');
 
     try {
-      final dataDir = Directory('data/agents');
+      final dataDir = Directory('config/agents');
       if (!await dataDir.exists()) {
         _logger.info('📁 NO DATA: Agents directory does not exist');
         data = [];

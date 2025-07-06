@@ -50,7 +50,7 @@ class TaskListServer extends BaseMCPServer {
 
   /// 🛠️ **TOOL DEFINITIONS**: Task list operations available to agents
   @override
-  Future<List<MCPTool>> getAvailableTools(MCPSession session) async {
+  Future<List<MCPTool>> getAvailableTools() async {
     return [
       // ➕ ADD TASK
       MCPTool(
@@ -59,6 +59,10 @@ class TaskListServer extends BaseMCPServer {
         inputSchema: {
           'type': 'object',
           'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent adding the task',
+            },
             'title': {
               'type': 'string',
               'description': 'Task title/description',
@@ -86,7 +90,7 @@ class TaskListServer extends BaseMCPServer {
               'maxLength': 1000,
             },
           },
-          'required': ['title'],
+          'required': ['agentName', 'title'],
         },
       ),
 
@@ -97,6 +101,10 @@ class TaskListServer extends BaseMCPServer {
         inputSchema: {
           'type': 'object',
           'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent requesting tasks',
+            },
             'status': {
               'type': 'string',
               'enum': [
@@ -129,7 +137,7 @@ class TaskListServer extends BaseMCPServer {
               'default': false,
             },
           },
-          'required': [],
+          'required': ['agentName'],
         },
       ),
 
@@ -140,12 +148,16 @@ class TaskListServer extends BaseMCPServer {
         inputSchema: {
           'type': 'object',
           'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent completing the task',
+            },
             'task_id': {
               'type': 'integer',
               'description': 'ID of the task to complete',
             },
           },
-          'required': ['task_id'],
+          'required': ['agentName', 'task_id'],
         },
       ),
 
@@ -156,6 +168,10 @@ class TaskListServer extends BaseMCPServer {
         inputSchema: {
           'type': 'object',
           'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent updating the task',
+            },
             'task_id': {
               'type': 'integer',
               'description': 'ID of the task to update',
@@ -166,7 +182,7 @@ class TaskListServer extends BaseMCPServer {
               'description': 'New status for the task',
             },
           },
-          'required': ['task_id', 'status'],
+          'required': ['agentName', 'task_id', 'status'],
         },
       ),
 
@@ -177,6 +193,10 @@ class TaskListServer extends BaseMCPServer {
         inputSchema: {
           'type': 'object',
           'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent editing the task',
+            },
             'task_id': {
               'type': 'integer',
               'description': 'ID of the task to edit',
@@ -206,36 +226,45 @@ class TaskListServer extends BaseMCPServer {
               'maxLength': 1000,
             },
           },
-          'required': ['task_id'],
+          'required': ['agentName', 'task_id'],
         },
       ),
 
       // 🗑️ DELETE TASK
       MCPTool(
         name: 'todo_delete',
-        description: 'Delete a task from your task list',
+        description: 'Delete a task from the list',
         inputSchema: {
           'type': 'object',
           'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent deleting the task',
+            },
             'task_id': {
               'type': 'integer',
               'description': 'ID of the task to delete',
             },
           },
-          'required': ['task_id'],
+          'required': ['agentName', 'task_id'],
         },
       ),
 
       // 🔍 SEARCH TASKS
       MCPTool(
         name: 'todo_search',
-        description: 'Search tasks by title, notes, or tags',
+        description: 'Search tasks by text in title, notes, or tags',
         inputSchema: {
           'type': 'object',
           'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent searching tasks',
+            },
             'query': {
               'type': 'string',
-              'description': 'Search query',
+              'description': 'Search query text',
+              'maxLength': 100,
             },
             'case_sensitive': {
               'type': 'boolean',
@@ -243,110 +272,113 @@ class TaskListServer extends BaseMCPServer {
               'default': false,
             },
           },
-          'required': ['query'],
+          'required': ['agentName', 'query'],
         },
       ),
 
       // 🧹 CLEAR COMPLETED
       MCPTool(
         name: 'todo_clear_completed',
-        description: 'Remove all completed tasks from your task list',
+        description: 'Remove all completed tasks',
         inputSchema: {
           'type': 'object',
-          'properties': {},
-          'required': [],
+          'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent clearing completed tasks',
+            },
+          },
+          'required': ['agentName'],
         },
       ),
 
-      // 📊 TASK LIST STATISTICS
+      // 📊 GET STATISTICS
       MCPTool(
-        name: 'task_list_stats',
-        description: 'Get statistics about your task list',
+        name: 'todo_stats',
+        description: 'Get task statistics and summary',
         inputSchema: {
           'type': 'object',
-          'properties': {},
-          'required': [],
+          'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent requesting statistics',
+            },
+          },
+          'required': ['agentName'],
         },
       ),
     ];
   }
 
-  /// ⚔️ **TOOL EXECUTION**: Handle task list operations with comprehensive error handling
+  /// 🎯 **TOOL EXECUTION**: Route tool calls to appropriate handlers (stateless)
   @override
   Future<MCPToolResult> callTool(
-    MCPSession session,
-    String name,
-    Map<String, dynamic> arguments,
-  ) async {
-    try {
-      switch (name) {
-        case 'task_list_add':
-          return await _addTask(session, arguments);
+      String name, Map<String, dynamic> arguments) async {
+    // Extract and validate agentName from arguments
+    final agentName = arguments['agentName'] as String?;
+    if (agentName == null || agentName.isEmpty) {
+      throw MCPServerException('agentName parameter is required');
+    }
 
-        case 'task_list_list':
-          return await _listTasks(session, arguments);
+    switch (name) {
+      case 'task_list_add':
+        return _addTask(agentName, arguments);
 
-        case 'task_list_complete':
-          final taskId = arguments['task_id'] as int;
-          return await _updateTaskStatus(session, taskId, TaskStatus.completed);
+      case 'task_list_list':
+        return _listTasks(agentName, arguments);
 
-        case 'task_list_update_status':
-          final taskId = arguments['task_id'] as int;
-          final statusStr = arguments['status'] as String;
-          final status = TaskStatus.values.firstWhere(
-            (s) => s.name == statusStr,
-            orElse: () =>
-                throw MCPServerException('Invalid status: $statusStr'),
-          );
-          return await _updateTaskStatus(session, taskId, status);
+      case 'task_list_complete':
+        final taskId = arguments['task_id'] as int;
+        return _updateTaskStatus(agentName, taskId, TaskStatus.completed);
 
-        case 'task_list_edit':
-          return await _editTask(session, arguments);
+      case 'todo_update_status':
+        final taskId = arguments['task_id'] as int;
+        final statusStr = arguments['status'] as String;
+        final status = TaskStatus.values.firstWhere(
+          (s) => s.name == statusStr,
+          orElse: () => throw MCPServerException('Invalid status: $statusStr'),
+        );
+        return _updateTaskStatus(agentName, taskId, status);
 
-        case 'task_list_delete':
-          final taskId = arguments['task_id'] as int;
-          return await _deleteTask(session, taskId);
+      case 'todo_edit':
+        return _editTask(agentName, arguments);
 
-        case 'task_list_search':
-          final query = arguments['query'] as String;
-          final caseSensitive = arguments['case_sensitive'] as bool? ?? false;
-          return await _searchTasks(session, query, caseSensitive);
+      case 'todo_delete':
+        final taskId = arguments['task_id'] as int;
+        return _deleteTask(agentName, taskId);
 
-        case 'task_list_clear_completed':
-          return await _clearCompleted(session);
+      case 'todo_search':
+        final query = arguments['query'] as String;
+        final caseSensitive = arguments['case_sensitive'] as bool? ?? false;
+        return _searchTasks(agentName, query, caseSensitive);
 
-        case 'task_list_stats':
-          return await _getStatistics(session);
+      case 'todo_clear_completed':
+        return _clearCompleted(agentName);
 
-        default:
-          throw MCPServerException('Unknown tool: $name', code: -32601);
-      }
-    } catch (e) {
-      return MCPToolResult(
-        content: [MCPContent.text('Error: ${e.toString()}')],
-        isError: true,
-      );
+      case 'todo_stats':
+        return _getStatistics(agentName);
+
+      default:
+        throw MCPServerException('Unknown tool: $name');
     }
   }
 
   /// ➕ **ADD TASK**: Create new task with metadata
   Future<MCPToolResult> _addTask(
-      MCPSession session, Map<String, dynamic> args) async {
-    final agentName = getAgentNameFromSession(session);
+      String agentName, Map<String, dynamic> args) async {
     final todoList = _getAgentTaskList(agentName);
 
+    // Validate task limit
     if (todoList.length >= maxTasksPerAgent) {
       throw MCPServerException(
-        'Maximum number of tasks ($maxTasksPerAgent) reached',
-        code: -32602,
-      );
+          'Maximum tasks per agent ($maxTasksPerAgent) exceeded');
     }
 
     final title = args['title'] as String;
     final priorityStr = args['priority'] as String? ?? 'medium';
     final priority = TaskPriority.values.firstWhere(
       (p) => p.name == priorityStr,
-      orElse: () => TaskPriority.medium,
+      orElse: () => throw MCPServerException('Invalid priority: $priorityStr'),
     );
 
     DateTime? dueDate;
@@ -358,13 +390,19 @@ class TaskListServer extends BaseMCPServer {
       }
     }
 
-    final tags = (args['tags'] as List<dynamic>?)?.cast<String>() ?? [];
+    final tags = (args['tags'] as List<dynamic>?)?.cast<String>() ?? <String>[];
     final notes = args['notes'] as String?;
 
+    // Generate unique ID
+    final id = todoList.isEmpty
+        ? 1
+        : todoList.map((t) => t.id).reduce((a, b) => a > b ? a : b) + 1;
+
     final task = TodoTask(
-      id: _getNextTaskId(todoList),
+      id: id,
       title: title,
       priority: priority,
+      status: TaskStatus.pending,
       dueDate: dueDate,
       tags: tags,
       notes: notes,
@@ -372,7 +410,7 @@ class TaskListServer extends BaseMCPServer {
     );
 
     todoList.add(task);
-    await _persistTaskList(session.id, todoList);
+    await _persistTaskList(agentName, todoList);
 
     return MCPToolResult(
       content: [
@@ -381,9 +419,9 @@ class TaskListServer extends BaseMCPServer {
             'Title: ${task.title}\n'
             'Priority: ${task.priority.name}\n'
             '${(() {
-          final dueDate = task.dueDate;
-          if (dueDate != null) {
-            return 'Due: ${dueDate.toIso8601String().split('T')[0]}\n';
+          final taskDueDate = task.dueDate;
+          if (taskDueDate != null) {
+            return 'Due: ${taskDueDate.toIso8601String().split('T')[0]}\n';
           }
           return '';
         })()}'
@@ -395,8 +433,8 @@ class TaskListServer extends BaseMCPServer {
 
   /// 📋 **LIST TASKS**: Show filtered task list
   Future<MCPToolResult> _listTasks(
-      MCPSession session, Map<String, dynamic> args) async {
-    final todoList = _getSessionTaskList(session);
+      String agentName, Map<String, dynamic> args) async {
+    final todoList = _getAgentTaskList(agentName);
 
     if (todoList.isEmpty) {
       return MCPToolResult(
@@ -405,19 +443,25 @@ class TaskListServer extends BaseMCPServer {
     }
 
     // Apply filters
-    List<TodoTask> filteredTasks = todoList;
+    var filteredTasks = todoList.toList();
 
     final statusFilter = args['status'] as String? ?? 'all';
     if (statusFilter != 'all') {
-      final status =
-          TaskStatus.values.firstWhere((s) => s.name == statusFilter);
+      final status = TaskStatus.values.firstWhere(
+        (s) => s.name == statusFilter,
+        orElse: () =>
+            throw MCPServerException('Invalid status filter: $statusFilter'),
+      );
       filteredTasks = filteredTasks.where((t) => t.status == status).toList();
     }
 
     final priorityFilter = args['priority'] as String?;
     if (priorityFilter != null) {
-      final priority =
-          TaskPriority.values.firstWhere((p) => p.name == priorityFilter);
+      final priority = TaskPriority.values.firstWhere(
+        (p) => p.name == priorityFilter,
+        orElse: () => throw MCPServerException(
+            'Invalid priority filter: $priorityFilter'),
+      );
       filteredTasks =
           filteredTasks.where((t) => t.priority == priority).toList();
     }
@@ -432,11 +476,11 @@ class TaskListServer extends BaseMCPServer {
     if (dueToday) {
       final today = DateTime.now();
       filteredTasks = filteredTasks.where((t) {
-        final dueDate = t.dueDate;
-        return dueDate != null &&
-            dueDate.year == today.year &&
-            dueDate.month == today.month &&
-            dueDate.day == today.day;
+        final taskDueDate = t.dueDate;
+        if (taskDueDate == null) return false;
+        return taskDueDate.year == today.year &&
+            taskDueDate.month == today.month &&
+            taskDueDate.day == today.day;
       }).toList();
     }
 
@@ -444,55 +488,32 @@ class TaskListServer extends BaseMCPServer {
     if (overdue) {
       final now = DateTime.now();
       filteredTasks = filteredTasks.where((t) {
-        final dueDate = t.dueDate;
-        return dueDate != null &&
-            dueDate.isBefore(now) &&
-            t.status != TaskStatus.completed;
+        final taskDueDate = t.dueDate;
+        return taskDueDate != null && taskDueDate.isBefore(now);
       }).toList();
     }
 
     if (filteredTasks.isEmpty) {
       return MCPToolResult(
-        content: [MCPContent.text('No tasks match your filter criteria.')],
+        content: [MCPContent.text('No tasks match the specified filters.')],
       );
     }
 
-    // Sort by priority and due date
+    // Sort by priority (urgent first) then by due date
     filteredTasks.sort((a, b) {
-      // First sort by status (pending/in_progress first)
-      if (a.status != b.status) {
-        if (a.status == TaskStatus.completed) return 1;
-        if (b.status == TaskStatus.completed) return -1;
-      }
+      final priorityComparison = b.priority.index.compareTo(a.priority.index);
+      if (priorityComparison != 0) return priorityComparison;
 
-      // Then by priority
-      final priorityOrder = [
-        TaskPriority.urgent,
-        TaskPriority.high,
-        TaskPriority.medium,
-        TaskPriority.low
-      ];
-      final aPriorityIndex = priorityOrder.indexOf(a.priority);
-      final bPriorityIndex = priorityOrder.indexOf(b.priority);
-      if (aPriorityIndex != bPriorityIndex) {
-        return aPriorityIndex.compareTo(bPriorityIndex);
-      }
-
-      // Finally by due date
       final aDueDate = a.dueDate;
       final bDueDate = b.dueDate;
-      if (aDueDate != null && bDueDate != null) {
-        return aDueDate.compareTo(bDueDate);
-      }
-      if (a.dueDate != null) return -1;
-      if (b.dueDate != null) return 1;
-
-      return a.id.compareTo(b.id);
+      if (aDueDate == null && bDueDate == null) return 0;
+      if (aDueDate == null) return 1;
+      if (bDueDate == null) return -1;
+      return aDueDate.compareTo(bDueDate);
     });
 
     final buffer = StringBuffer();
-    buffer.writeln(
-        '📋 Task List (${filteredTasks.length} task${filteredTasks.length != 1 ? 's' : ''}):\n');
+    buffer.writeln('📋 Task List (${filteredTasks.length} tasks):\n');
 
     for (final task in filteredTasks) {
       final statusIcon = _getStatusIcon(task.status);
@@ -502,14 +523,14 @@ class TaskListServer extends BaseMCPServer {
 
       final taskDueDate = task.dueDate;
       if (taskDueDate != null) {
-        final dueStr = taskDueDate.toIso8601String().split('T')[0];
-        final isOverdue = taskDueDate.isBefore(DateTime.now()) &&
-            task.status != TaskStatus.completed;
-        buffer.writeln('    📅 Due: $dueStr${isOverdue ? ' (OVERDUE)' : ''}');
+        final isOverdue = taskDueDate.isBefore(DateTime.now());
+        final dueDateStr = taskDueDate.toIso8601String().split('T')[0];
+        buffer
+            .writeln('    📅 Due: $dueDateStr${isOverdue ? ' (OVERDUE)' : ''}');
       }
 
       if (task.tags.isNotEmpty) {
-        buffer.writeln('    🏷️  Tags: ${task.tags.join(', ')}');
+        buffer.writeln('    🏷️ Tags: ${task.tags.join(', ')}');
       }
 
       final taskNotes = task.notes;
@@ -527,11 +548,11 @@ class TaskListServer extends BaseMCPServer {
 
   /// ✅ **UPDATE STATUS**: Change task status
   Future<MCPToolResult> _updateTaskStatus(
-    MCPSession session,
+    String agentName,
     int taskId,
     TaskStatus newStatus,
   ) async {
-    final todoList = _getSessionTaskList(session);
+    final todoList = _getAgentTaskList(agentName);
     final taskIndex = todoList.indexWhere((t) => t.id == taskId);
 
     if (taskIndex == -1) {
@@ -548,7 +569,6 @@ class TaskListServer extends BaseMCPServer {
     );
 
     todoList[taskIndex] = updatedTask;
-    final agentName = getAgentNameFromSession(session);
     await _persistTaskList(agentName, todoList);
 
     return MCPToolResult(
@@ -564,8 +584,8 @@ class TaskListServer extends BaseMCPServer {
 
   /// ✏️ **EDIT TASK**: Update task details
   Future<MCPToolResult> _editTask(
-      MCPSession session, Map<String, dynamic> args) async {
-    final todoList = _getSessionTaskList(session);
+      String agentName, Map<String, dynamic> args) async {
+    final todoList = _getAgentTaskList(agentName);
     final taskId = args['task_id'] as int;
     final taskIndex = todoList.indexWhere((t) => t.id == taskId);
 
@@ -612,7 +632,6 @@ class TaskListServer extends BaseMCPServer {
     );
 
     todoList[taskIndex] = updatedTask;
-    final agentName = getAgentNameFromSession(session);
     await _persistTaskList(agentName, todoList);
 
     return MCPToolResult(
@@ -635,8 +654,8 @@ class TaskListServer extends BaseMCPServer {
   }
 
   /// 🗑️ **DELETE TASK**: Remove task from list
-  Future<MCPToolResult> _deleteTask(MCPSession session, int taskId) async {
-    final todoList = _getSessionTaskList(session);
+  Future<MCPToolResult> _deleteTask(String agentName, int taskId) async {
+    final todoList = _getAgentTaskList(agentName);
     final taskIndex = todoList.indexWhere((t) => t.id == taskId);
 
     if (taskIndex == -1) {
@@ -644,7 +663,6 @@ class TaskListServer extends BaseMCPServer {
     }
 
     final task = todoList.removeAt(taskIndex);
-    final agentName = getAgentNameFromSession(session);
     await _persistTaskList(agentName, todoList);
 
     return MCPToolResult(
@@ -658,11 +676,11 @@ class TaskListServer extends BaseMCPServer {
 
   /// 🔍 **SEARCH TASKS**: Find tasks by text
   Future<MCPToolResult> _searchTasks(
-    MCPSession session,
+    String agentName,
     String query,
     bool caseSensitive,
   ) async {
-    final todoList = _getSessionTaskList(session);
+    final todoList = _getAgentTaskList(agentName);
 
     if (todoList.isEmpty) {
       return MCPToolResult(
@@ -712,124 +730,145 @@ class TaskListServer extends BaseMCPServer {
   }
 
   /// 🧹 **CLEAR COMPLETED**: Remove all completed tasks
-  Future<MCPToolResult> _clearCompleted(MCPSession session) async {
-    final todoList = _getSessionTaskList(session);
+  Future<MCPToolResult> _clearCompleted(String agentName) async {
+    final todoList = _getAgentTaskList(agentName);
     final initialCount = todoList.length;
 
     todoList.removeWhere((task) => task.status == TaskStatus.completed);
 
     final removedCount = initialCount - todoList.length;
-    final agentName = getAgentNameFromSession(session);
     await _persistTaskList(agentName, todoList);
 
     return MCPToolResult(
       content: [
-        MCPContent.text(
-            'Cleared $removedCount completed task${removedCount != 1 ? 's' : ''}.\n'
+        MCPContent.text('Cleared $removedCount completed tasks.\n'
             'Remaining tasks: ${todoList.length}')
       ],
     );
   }
 
-  /// 📊 **STATISTICS**: Get task list statistics
-  Future<MCPToolResult> _getStatistics(MCPSession session) async {
-    final todoList = _getSessionTaskList(session);
+  /// 📊 **GET STATISTICS**: Task summary and metrics
+  Future<MCPToolResult> _getStatistics(String agentName) async {
+    final todoList = _getAgentTaskList(agentName);
 
     if (todoList.isEmpty) {
       return MCPToolResult(
-        content: [
-          MCPContent.text('Task List Statistics:\n'
-              '- Total tasks: 0\n'
-              '- Status: Empty list')
-        ],
+        content: [MCPContent.text('Your task list is empty.')],
       );
     }
 
-    final pendingCount =
+    final total = todoList.length;
+    final pending =
         todoList.where((t) => t.status == TaskStatus.pending).length;
-    final inProgressCount =
+    final inProgress =
         todoList.where((t) => t.status == TaskStatus.inProgress).length;
-    final completedCount =
+    final completed =
         todoList.where((t) => t.status == TaskStatus.completed).length;
-    final cancelledCount =
+    final cancelled =
         todoList.where((t) => t.status == TaskStatus.cancelled).length;
 
-    final urgentCount =
+    final urgent =
         todoList.where((t) => t.priority == TaskPriority.urgent).length;
-    final highCount =
-        todoList.where((t) => t.priority == TaskPriority.high).length;
-    final mediumCount =
+    final high = todoList.where((t) => t.priority == TaskPriority.high).length;
+    final medium =
         todoList.where((t) => t.priority == TaskPriority.medium).length;
-    final lowCount =
-        todoList.where((t) => t.priority == TaskPriority.low).length;
+    final low = todoList.where((t) => t.priority == TaskPriority.low).length;
 
     final now = DateTime.now();
-    final overdueCount = todoList.where((t) {
+    final overdue = todoList.where((t) {
       final dueDate = t.dueDate;
-      return dueDate != null &&
-          dueDate.isBefore(now) &&
-          t.status != TaskStatus.completed;
+      return dueDate != null && dueDate.isBefore(now);
     }).length;
 
-    final dueTodayCount = todoList.where((t) {
+    final dueToday = todoList.where((t) {
       final dueDate = t.dueDate;
-      return dueDate != null &&
-          dueDate.year == now.year &&
+      if (dueDate == null) return false;
+      return dueDate.year == now.year &&
           dueDate.month == now.month &&
           dueDate.day == now.day;
     }).length;
 
-    final completionRate = todoList.isNotEmpty
-        ? (completedCount / todoList.length * 100).toStringAsFixed(1)
-        : '0.0';
-
-    final stats = '''
-📊 Task List Statistics:
-
-📋 Total Tasks: ${todoList.length}
-
-📈 Status Breakdown:
-  ⏳ Pending: $pendingCount
-  🔄 In Progress: $inProgressCount
-  ✅ Completed: $completedCount
-  ❌ Cancelled: $cancelledCount
-
-🎯 Priority Breakdown:
-  🔥 Urgent: $urgentCount
-  ⚡ High: $highCount
-  📝 Medium: $mediumCount
-  📄 Low: $lowCount
-
-⏰ Due Dates:
-  🚨 Overdue: $overdueCount
-  📅 Due Today: $dueTodayCount
-
-📈 Completion Rate: $completionRate%
-🗓️ Session: ${session.id}
-''';
+    final completionRate =
+        total > 0 ? (completed / total * 100).toStringAsFixed(1) : '0.0';
 
     return MCPToolResult(
-      content: [MCPContent.text(stats)],
+      content: [
+        MCPContent.text('📊 Task Statistics:\n\n'
+            '📋 Total Tasks: $total\n\n'
+            '📈 Status Breakdown:\n'
+            '  ⏳ Pending: $pending\n'
+            '  🔄 In Progress: $inProgress\n'
+            '  ✅ Completed: $completed\n'
+            '  ❌ Cancelled: $cancelled\n\n'
+            '🎯 Priority Breakdown:\n'
+            '  🚨 Urgent: $urgent\n'
+            '  🔥 High: $high\n'
+            '  📋 Medium: $medium\n'
+            '  📝 Low: $low\n\n'
+            '⏰ Due Date Status:\n'
+            '  🚨 Overdue: $overdue\n'
+            '  📅 Due Today: $dueToday\n\n'
+            '🎯 Completion Rate: $completionRate%')
+      ],
     );
   }
 
-  /// 🔧 **UTILITY METHODS**: Helper functions
-
+  /// 🗂️ **TASK LIST ACCESS**: Get or create agent task list
   List<TodoTask> _getAgentTaskList(String agentName) {
-    return _taskLists.putIfAbsent(agentName, () => []);
+    return _taskLists.putIfAbsent(agentName, () => <TodoTask>[]);
   }
 
-  /// Get task list for a session (converts session to agent name)
-  List<TodoTask> _getSessionTaskList(MCPSession session) {
-    final agentName = getAgentNameFromSession(session);
-    return _getAgentTaskList(agentName);
+  /// 💾 **PERSISTENCE**: Save task list to disk (if configured)
+  Future<void> _persistTaskList(String agentName, List<TodoTask> tasks) async {
+    final persistenceDir = persistenceDirectory;
+    if (persistenceDir == null) return;
+
+    try {
+      final directory = Directory(persistenceDir);
+      if (!directory.existsSync()) {
+        directory.createSync(recursive: true);
+      }
+
+      final file = File('$persistenceDir/tasks_$agentName.json');
+      final data = {
+        'agent': agentName,
+        'tasks': tasks.map((t) => t.toJson()).toList(),
+        'lastUpdated': DateTime.now().toIso8601String(),
+      };
+
+      await file.writeAsString(jsonEncode(data));
+      logger?.call('debug', 'Tasks persisted for agent: $agentName');
+    } catch (e) {
+      logger?.call('error', 'Failed to persist tasks for $agentName', e);
+    }
   }
 
-  int _getNextTaskId(List<TodoTask> todoList) {
-    if (todoList.isEmpty) return 1;
-    return todoList.map((t) => t.id).reduce((a, b) => a > b ? a : b) + 1;
+  /// 📂 **LOAD TASKS**: Load persisted tasks from disk
+  Future<void> _loadTasksForAgent(String agentName) async {
+    final persistenceDir = persistenceDirectory;
+    if (persistenceDir == null) return;
+
+    try {
+      final file = File('$persistenceDir/tasks_$agentName.json');
+      if (!file.existsSync()) return;
+
+      final content = await file.readAsString();
+      final data = jsonDecode(content) as Map<String, dynamic>;
+      final tasksJson = data['tasks'] as List<dynamic>;
+
+      final tasks = tasksJson
+          .map((json) => TodoTask.fromJson(json as Map<String, dynamic>))
+          .toList();
+
+      _taskLists[agentName] = tasks;
+      logger?.call(
+          'debug', 'Loaded ${tasks.length} tasks for agent: $agentName');
+    } catch (e) {
+      logger?.call('error', 'Failed to load tasks for $agentName', e);
+    }
   }
 
+  /// 🎨 **UI HELPERS**: Status and priority icons
   String _getStatusIcon(TaskStatus status) {
     switch (status) {
       case TaskStatus.pending:
@@ -846,126 +885,88 @@ class TaskListServer extends BaseMCPServer {
   String _getPriorityIcon(TaskPriority priority) {
     switch (priority) {
       case TaskPriority.urgent:
-        return '🔥';
+        return '🚨';
       case TaskPriority.high:
-        return '⚡';
+        return '🔥';
       case TaskPriority.medium:
-        return '📝';
+        return '📋';
       case TaskPriority.low:
-        return '📄';
+        return '📝';
     }
   }
 
-  /// 💾 **PERSISTENCE**: Save/load task lists (agent-based)
-
-  Future<void> _persistTaskList(
-      String agentName, List<TodoTask> todoList) async {
-    if (persistenceDirectory == null) return;
-
-    try {
-      final dir = Directory(persistenceDirectory!);
-      if (!await dir.exists()) {
-        await dir.create(recursive: true);
-      }
-
-      final file = File('${persistenceDirectory!}/task_list_$agentName.json');
-      final jsonData = todoList.map((task) => task.toJson()).toList();
-      await file.writeAsString(jsonEncode(jsonData));
-    } catch (e) {
-      stderr.writeln(
-          'Warning: Failed to persist task list for agent $agentName: $e');
-    }
-  }
-
-  Future<void> _loadPersistedTaskList(String agentName) async {
-    if (persistenceDirectory == null) return;
-
-    try {
-      final file = File('${persistenceDirectory!}/task_list_$agentName.json');
-      if (await file.exists()) {
-        final jsonStr = await file.readAsString();
-        final jsonList = jsonDecode(jsonStr) as List<dynamic>;
-        final todoList =
-            jsonList.map((json) => TodoTask.fromJson(json)).toList();
-        _taskLists[agentName] = todoList;
-      }
-    } catch (e) {
-      stderr.writeln(
-          'Warning: Failed to load persisted task list for agent $agentName: $e');
-    }
-  }
-
-  /// 🔄 **AGENT DATA LOADING**: Override base class method
+  /// 📚 **RESOURCES**: Provide read-only access to task data
   @override
-  Future<void> loadAgentData(String agentName) async {
-    await super.loadAgentData(agentName);
-    await _loadPersistedTaskList(agentName);
-  }
-
-  /// 📚 **RESOURCES**: Expose task list as resources
-  @override
-  Future<List<MCPResource>> getAvailableResources(MCPSession session) async {
-    final agentName = getAgentNameFromSession(session);
+  Future<List<MCPResource>> getAvailableResources() async {
     return [
       MCPResource(
-        uri: 'task_list://$agentName/list',
-        name: 'Task List',
-        description: 'Your complete task list',
+        uri: 'task://statistics',
+        name: 'Task Statistics',
+        description: 'Overall task statistics across all agents',
         mimeType: 'application/json',
       ),
       MCPResource(
-        uri: 'task_list://$agentName/pending',
-        name: 'Pending Tasks',
-        description: 'Tasks that need to be done',
-        mimeType: 'application/json',
-      ),
-      MCPResource(
-        uri: 'task_list://$agentName/completed',
-        name: 'Completed Tasks',
-        description: 'Tasks that have been finished',
+        uri: 'task://agents',
+        name: 'Active Agents',
+        description: 'List of agents with task data',
         mimeType: 'application/json',
       ),
     ];
   }
 
   @override
-  Future<MCPContent> readResource(MCPSession session, String uri) async {
-    final todoList = _getSessionTaskList(session);
-    final agentName = getAgentNameFromSession(session);
+  Future<MCPContent> readResource(String uri) async {
+    switch (uri) {
+      case 'task://statistics':
+        final stats = <String, dynamic>{};
+        for (final entry in _taskLists.entries) {
+          final agentName = entry.key;
+          final tasks = entry.value;
+          stats[agentName] = {
+            'total': tasks.length,
+            'pending':
+                tasks.where((t) => t.status == TaskStatus.pending).length,
+            'in_progress':
+                tasks.where((t) => t.status == TaskStatus.inProgress).length,
+            'completed':
+                tasks.where((t) => t.status == TaskStatus.completed).length,
+            'cancelled':
+                tasks.where((t) => t.status == TaskStatus.cancelled).length,
+          };
+        }
+        return MCPContent.resource(
+          data: jsonEncode(stats),
+          mimeType: 'application/json',
+        );
 
-    if (uri == 'task_list://$agentName/list') {
-      final jsonData = todoList.map((task) => task.toJson()).toList();
-      return MCPContent.text(jsonEncode(jsonData));
-    } else if (uri == 'task_list://$agentName/pending') {
-      final pending =
-          todoList.where((t) => t.status == TaskStatus.pending).toList();
-      final jsonData = pending.map((task) => task.toJson()).toList();
-      return MCPContent.text(jsonEncode(jsonData));
-    } else if (uri == 'task_list://$agentName/completed') {
-      final completed =
-          todoList.where((t) => t.status == TaskStatus.completed).toList();
-      final jsonData = completed.map((task) => task.toJson()).toList();
-      return MCPContent.text(jsonEncode(jsonData));
+      case 'task://agents':
+        final agents = _taskLists.keys.toList();
+        return MCPContent.resource(
+          data: jsonEncode({'agents': agents}),
+          mimeType: 'application/json',
+        );
+
+      default:
+        throw MCPServerException('Resource not found: $uri');
     }
-
-    throw MCPServerException('Resource not found: $uri', code: -32602);
   }
 
-  /// 💬 **PROMPTS**: Task list-related prompt templates
+  /// 💬 **PROMPTS**: Task management templates
   @override
-  Future<List<MCPPrompt>> getAvailablePrompts(MCPSession session) async {
+  Future<List<MCPPrompt>> getAvailablePrompts() async {
     return [
       MCPPrompt(
-        name: 'prioritize_tasks',
-        description: 'Help prioritize tasks based on urgency and importance',
-      ),
-      MCPPrompt(
-        name: 'break_down_task',
-        description: 'Break down a complex task into smaller sub-tasks',
+        name: 'task_planning',
+        description: 'Help plan and organize tasks',
         arguments: [
           MCPPromptArgument(
-            name: 'task_id',
-            description: 'ID of the task to break down',
+            name: 'agentName',
+            description: 'Name of the agent planning tasks',
+            required: true,
+          ),
+          MCPPromptArgument(
+            name: 'project',
+            description: 'Project or area to plan tasks for',
             required: true,
           ),
         ],
@@ -975,73 +976,58 @@ class TaskListServer extends BaseMCPServer {
 
   @override
   Future<List<MCPMessage>> getPrompt(
-    MCPSession session,
-    String name,
-    Map<String, dynamic> arguments,
-  ) async {
-    final todoList = _getSessionTaskList(session);
-
+      String name, Map<String, dynamic> arguments) async {
     switch (name) {
-      case 'prioritize_tasks':
-        final pendingTasks =
-            todoList.where((t) => t.status == TaskStatus.pending).toList();
-        final taskList = pendingTasks.map((t) => '- ${t.title}').join('\n');
+      case 'task_planning':
+        final agentName = arguments['agentName'] as String;
+        final project = arguments['project'] as String;
 
         return [
-          MCPMessage(
-            method: 'user',
+          MCPMessage.request(
+            id: 'task_planning_prompt',
+            method: 'user_message',
             params: {
               'content':
-                  'Please help me prioritize these tasks based on urgency and importance:\n\n$taskList'
-            },
-          ),
-        ];
-
-      case 'break_down_task':
-        final taskId = arguments['task_id'] as int;
-        final task = todoList.firstWhere(
-          (t) => t.id == taskId,
-          orElse: () => throw MCPServerException('Task not found: $taskId'),
-        );
-
-        return [
-          MCPMessage(
-            method: 'user',
-            params: {
-              'content':
-                  'Please help me break down this task into smaller, actionable sub-tasks:\n\n'
-                      'Task: ${task.title}\n'
-                      '${task.notes != null ? 'Notes: ${task.notes}\n' : ''}'
-                      'Priority: ${task.priority.name}\n'
-                      '${(() {
-                final dueDate = task.dueDate;
-                if (dueDate != null) {
-                  return 'Due: ${dueDate.toIso8601String().split('T')[0]}\n';
-                }
-                return '';
-              })()}'
+                  '''I need help planning tasks for the project "$project". 
+                  Please help me break down the work into manageable tasks with appropriate priorities and due dates. 
+                  Consider dependencies between tasks and suggest a logical order of execution. 
+                  You are $agentName.
+                  ''',
             },
           ),
         ];
 
       default:
-        throw MCPServerException('Unknown prompt: $name', code: -32601);
+        throw MCPServerException('Prompt not found: $name');
     }
   }
 
-  /// 🚀 **LIFECYCLE**: Load persisted data on initialization
+  /// 🔄 **INITIALIZATION**: Load tasks on startup
   @override
   Future<void> onInitialized() async {
     await super.onInitialized();
 
-    // Load any persisted task lists for existing sessions
-    for (final sessionId in _taskLists.keys) {
-      await _loadPersistedTaskList(sessionId);
+    // Load existing task data if persistence is enabled
+    final persistenceDir = persistenceDirectory;
+    if (persistenceDir != null) {
+      final directory = Directory(persistenceDir);
+      if (directory.existsSync()) {
+        await for (final entity in directory.list()) {
+          if (entity is File &&
+              entity.path.contains('tasks_') &&
+              entity.path.endsWith('.json')) {
+            final fileName = entity.path.split('/').last;
+            final agentName = fileName.substring(
+                6, fileName.length - 5); // Remove 'tasks_' and '.json'
+            await _loadTasksForAgent(agentName);
+          }
+        }
+      }
     }
   }
 }
 
-/// 📋 **TASK MODEL**: Complete task representation
+/// 📝 **TASK DATA MODEL**: Rich task representation
 class TodoTask {
   final int id;
   final String title;
@@ -1058,7 +1044,7 @@ class TodoTask {
     required this.id,
     required this.title,
     required this.priority,
-    this.status = TaskStatus.pending,
+    required this.status,
     this.dueDate,
     this.tags = const [],
     this.notes,
@@ -1098,50 +1084,49 @@ class TodoTask {
         'title': title,
         'priority': priority.name,
         'status': status.name,
-        'dueDate': dueDate?.toIso8601String(),
+        if (dueDate != null) 'dueDate': dueDate!.toIso8601String(),
         'tags': tags,
-        'notes': notes,
+        if (notes != null) 'notes': notes,
         'createdAt': createdAt.toIso8601String(),
-        'updatedAt': updatedAt?.toIso8601String(),
-        'completedAt': completedAt?.toIso8601String(),
+        if (updatedAt != null) 'updatedAt': updatedAt!.toIso8601String(),
+        if (completedAt != null) 'completedAt': completedAt!.toIso8601String(),
       };
 
-  factory TodoTask.fromJson(Map<String, dynamic> json) {
-    return TodoTask(
-      id: json['id'] as int,
-      title: json['title'] as String,
-      priority:
-          TaskPriority.values.firstWhere((p) => p.name == json['priority']),
-      status: TaskStatus.values.firstWhere((s) => s.name == json['status']),
-      dueDate: json['dueDate'] != null ? DateTime.parse(json['dueDate']) : null,
-      tags: (json['tags'] as List<dynamic>).cast<String>(),
-      notes: json['notes'] as String?,
-      createdAt: DateTime.parse(json['createdAt']),
-      updatedAt:
-          json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : null,
-      completedAt: json['completedAt'] != null
-          ? DateTime.parse(json['completedAt'])
-          : null,
-    );
-  }
+  factory TodoTask.fromJson(Map<String, dynamic> json) => TodoTask(
+        id: json['id'] as int,
+        title: json['title'] as String,
+        priority: TaskPriority.values.firstWhere(
+          (p) => p.name == json['priority'],
+          orElse: () => TaskPriority.medium,
+        ),
+        status: TaskStatus.values.firstWhere(
+          (s) => s.name == json['status'],
+          orElse: () => TaskStatus.pending,
+        ),
+        dueDate: json['dueDate'] != null
+            ? DateTime.parse(json['dueDate'] as String)
+            : null,
+        tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
+        notes: json['notes'] as String?,
+        createdAt: DateTime.parse(json['createdAt'] as String),
+        updatedAt: json['updatedAt'] != null
+            ? DateTime.parse(json['updatedAt'] as String)
+            : null,
+        completedAt: json['completedAt'] != null
+            ? DateTime.parse(json['completedAt'] as String)
+            : null,
+      );
 }
 
-/// 📊 **ENUMS**: Task status and priority definitions
-enum TaskStatus {
-  pending,
-  inProgress,
-  completed,
-  cancelled,
-}
+/// 🎯 **TASK PRIORITY**: Importance levels
+enum TaskPriority { low, medium, high, urgent }
 
-enum TaskPriority {
-  low,
-  medium,
-  high,
-  urgent,
-}
+/// 📊 **TASK STATUS**: Workflow states
+enum TaskStatus { pending, inProgress, completed, cancelled }
 
-/// 🎯 **MAIN ENTRY POINT**: Standalone executable for the Task List server
+/// 🎯 **MAIN ENTRY POINT**: Standalone executable for the task list server
+///
+/// Usage: dart mcp/task_list_server.dart [--persist-dir /path/to/persistence]
 Future<void> main(List<String> arguments) async {
   // Parse command line arguments
   String? persistenceDir;
@@ -1164,9 +1149,9 @@ Future<void> main(List<String> arguments) async {
 Task List MCP Server
 
 A Model Context Protocol server providing comprehensive task management for AI agents.
-Each agent gets its own isolated task list with rich task metadata and operations.
+Each agent manages its own isolated task list with rich metadata and workflow tracking.
 
-Usage: dart todo_server.dart [options]
+Usage: dart task_list_server.dart [options]
 
 Options:
   --persist-dir <path>  Directory to persist task lists (optional)
@@ -1176,17 +1161,29 @@ Options:
 Features:
   ✅ Multi-agent isolation (each agent has separate task list)
   ✅ Rich task metadata (priority, due dates, tags, notes)
-  ✅ Status tracking (pending, in-progress, completed, cancelled)
-  ✅ Filtering and search capabilities
-  ✅ Statistics and analytics
+  ✅ Status workflow (pending, in-progress, completed, cancelled)
+  ✅ Advanced filtering and search capabilities
+  ✅ Bulk operations (clear completed, bulk status updates)
+  ✅ Task statistics and reporting
   ✅ Optional file persistence
   ✅ Resource and prompt interfaces
   ✅ JSON-RPC 2.0 compliant MCP protocol
 
+Available Tools:
+  📝 task_list_add - Add new tasks with metadata
+  📋 task_list_list - List and filter tasks
+  ✅ task_list_complete - Mark tasks as completed
+  🔄 todo_update_status - Update task status
+  ✏️ todo_edit - Edit existing tasks
+  🗑️ todo_delete - Delete tasks
+  🔍 todo_search - Search tasks by text
+  🧹 todo_clear_completed - Remove completed tasks
+  📊 todo_stats - Get task statistics
+
 Examples:
-  dart todo_server.dart
-  dart todo_server.dart --persist-dir ./task_list_data
-  dart todo_server.dart --persist-dir ./task_list_data --verbose
+  dart task_list_server.dart
+  dart task_list_server.dart --persist-dir ./task_data
+  dart task_list_server.dart --persist-dir ./task_data --verbose
 ''');
         return;
     }

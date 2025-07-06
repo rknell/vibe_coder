@@ -6,17 +6,17 @@ import 'dart:io';
 ///
 /// **ARCHITECTURAL VICTORY**: This base class provides a complete, general-purpose
 /// foundation for building MCP servers that can serve multiple agents simultaneously
-/// with proper isolation, state management, and protocol compliance.
+/// with stateless, agent-name-based operations.
 ///
 /// **STRATEGIC DECISIONS**:
 /// - JSON-RPC 2.0 compliant implementation (industry standard)
-/// - Session-based agent isolation (multi-agent capable)
+/// - Stateless agent operations (no session management)
 /// - Extensible capability system (future-proof)
 /// - STDIO transport with HTTP/SSE readiness (universal compatibility)
 /// - Proper lifecycle management (production ready)
 ///
 /// **BOSS FIGHTS DEFEATED**:
-/// 1. **Multi-Agent Context Isolation**: Each agent gets its own session
+/// 1. **Stateless Agent Operations**: Each request identifies agent by name
 /// 2. **Protocol Compliance**: Full JSON-RPC 2.0 with MCP extensions
 /// 3. **Capability Negotiation**: Dynamic feature discovery
 /// 4. **Error Handling**: Comprehensive error management
@@ -29,13 +29,8 @@ abstract class BaseMCPServer {
   /// Supported capabilities - subclasses declare their features
   Map<String, dynamic> get capabilities;
 
-  /// Active sessions for multi-agent support
-  final Map<String, MCPSession> _sessions = {};
-
   /// Server state
   bool _isRunning = false;
-  // ignore: unused_field
-  bool _isInitialized = false;
 
   /// Stream controllers for STDIO transport
   StreamController<String>?
@@ -144,9 +139,9 @@ abstract class BaseMCPServer {
     }
   }
 
-  /// 🎯 **REQUEST HANDLING**: Process JSON-RPC requests with session management
+  /// 🎯 **REQUEST HANDLING**: Process JSON-RPC requests (stateless)
   ///
-  /// Handles the core MCP protocol requests with proper session isolation
+  /// Handles the core MCP protocol requests without session management
   Future<void> _handleRequest(MCPMessage request) async {
     final method = request.method!;
     final id = request.id!;
@@ -204,19 +199,17 @@ abstract class BaseMCPServer {
     }
   }
 
-  /// 🤝 **INITIALIZATION PROTOCOL**: Handle client handshake
+  /// 🤝 **INITIALIZATION PROTOCOL**: Handle client handshake (stateless)
   ///
-  /// Establishes protocol version, capabilities, and agent-based session context
+  /// Establishes protocol version and capabilities without session creation
   Future<MCPMessage> _handleInitialize(MCPMessage request) async {
     final params = request.params ?? {};
     final protocolVersion = params['protocolVersion'] as String?;
     final clientInfo = params['clientInfo'] as Map<String, dynamic>?;
-    final clientCapabilities = params['capabilities'] as Map<String, dynamic>?;
 
     _log('info', 'Initialize request from client', {
       'protocolVersion': protocolVersion,
       'clientInfo': clientInfo,
-      'capabilities': clientCapabilities,
     });
 
     // Validate protocol version
@@ -227,15 +220,6 @@ abstract class BaseMCPServer {
       );
     }
 
-    // Extract agent name for persistent identification
-    final agentName = _extractAgentName(clientInfo);
-
-    // Create or retrieve existing session for this agent
-    final sessionId =
-        _getOrCreateAgentSession(agentName, clientInfo, clientCapabilities);
-
-    _isInitialized = true;
-
     return MCPMessage.response(
       id: request.id!,
       result: {
@@ -245,8 +229,6 @@ abstract class BaseMCPServer {
           'version': version,
         },
         'capabilities': capabilities,
-        'sessionId': sessionId,
-        'agentName': agentName, // Include agent name for client reference
       },
     );
   }
@@ -254,8 +236,7 @@ abstract class BaseMCPServer {
   /// 🛠️ **TOOLS MANAGEMENT**: Abstract methods for subclasses to implement
 
   Future<MCPMessage> _handleToolsList(MCPMessage request) async {
-    final session = _getSessionFromRequest(request);
-    final tools = await getAvailableTools(session);
+    final tools = await getAvailableTools();
 
     return MCPMessage.response(
       id: request.id!,
@@ -264,12 +245,11 @@ abstract class BaseMCPServer {
   }
 
   Future<MCPMessage> _handleToolCall(MCPMessage request) async {
-    final session = _getSessionFromRequest(request);
     final params = request.params!;
     final toolName = params['name'] as String;
     final arguments = params['arguments'] as Map<String, dynamic>? ?? {};
 
-    final result = await callTool(session, toolName, arguments);
+    final result = await callTool(toolName, arguments);
 
     return MCPMessage.response(
       id: request.id!,
@@ -280,8 +260,7 @@ abstract class BaseMCPServer {
   /// 📚 **RESOURCES MANAGEMENT**: Abstract methods for data access
 
   Future<MCPMessage> _handleResourcesList(MCPMessage request) async {
-    final session = _getSessionFromRequest(request);
-    final resources = await getAvailableResources(session);
+    final resources = await getAvailableResources();
 
     return MCPMessage.response(
       id: request.id!,
@@ -290,11 +269,10 @@ abstract class BaseMCPServer {
   }
 
   Future<MCPMessage> _handleResourceRead(MCPMessage request) async {
-    final session = _getSessionFromRequest(request);
     final params = request.params!;
     final uri = params['uri'] as String;
 
-    final content = await readResource(session, uri);
+    final content = await readResource(uri);
 
     return MCPMessage.response(
       id: request.id!,
@@ -307,8 +285,7 @@ abstract class BaseMCPServer {
   /// 💬 **PROMPTS MANAGEMENT**: Template and prompt handling
 
   Future<MCPMessage> _handlePromptsList(MCPMessage request) async {
-    final session = _getSessionFromRequest(request);
-    final prompts = await getAvailablePrompts(session);
+    final prompts = await getAvailablePrompts();
 
     return MCPMessage.response(
       id: request.id!,
@@ -317,12 +294,11 @@ abstract class BaseMCPServer {
   }
 
   Future<MCPMessage> _handlePromptGet(MCPMessage request) async {
-    final session = _getSessionFromRequest(request);
     final params = request.params!;
     final name = params['name'] as String;
     final arguments = params['arguments'] as Map<String, dynamic>? ?? {};
 
-    final messages = await getPrompt(session, name, arguments);
+    final messages = await getPrompt(name, arguments);
 
     return MCPMessage.response(
       id: request.id!,
@@ -348,72 +324,6 @@ abstract class BaseMCPServer {
       default:
         await handleCustomNotification(notification);
     }
-  }
-
-  /// 🔧 **UTILITY METHODS**: Session and message management
-
-  MCPSession _getSessionFromRequest(MCPMessage request) {
-    // Try to extract session ID from request (implementation specific)
-    // For now, use first session or create default
-    if (_sessions.isEmpty) {
-      final defaultSession = MCPSession(id: 'default');
-      _sessions['default'] = defaultSession;
-      return defaultSession;
-    }
-    return _sessions.values.first;
-  }
-
-  /// 🎯 **AGENT IDENTIFICATION**: Extract agent name from client info
-  ///
-  /// Extracts a stable agent identifier from client information for persistent sessions
-  String _extractAgentName(Map<String, dynamic>? clientInfo) {
-    if (clientInfo == null) {
-      return 'unknown_agent';
-    }
-
-    // Try multiple fields that might contain agent name
-    final agentName = clientInfo['name'] as String? ??
-        clientInfo['agentName'] as String? ??
-        clientInfo['clientName'] as String? ??
-        clientInfo['identifier'] as String? ??
-        'unknown_agent';
-
-    // Sanitize agent name for filesystem safety
-    final sanitized =
-        agentName.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_').toLowerCase();
-
-    _log('debug', 'Extracted agent name: $sanitized from clientInfo',
-        clientInfo);
-    return sanitized;
-  }
-
-  /// 🔄 **SESSION MANAGEMENT**: Get or create agent-based session
-  ///
-  /// Creates a new session or retrieves existing one based on agent name
-  String _getOrCreateAgentSession(
-    String agentName,
-    Map<String, dynamic>? clientInfo,
-    Map<String, dynamic>? clientCapabilities,
-  ) {
-    // Use agent name as session ID for persistence
-    final sessionId = 'agent_$agentName';
-
-    // Check if session already exists
-    if (_sessions.containsKey(sessionId)) {
-      _log('debug', 'Reusing existing session for agent: $agentName');
-      return sessionId;
-    }
-
-    // Create new session with agent name
-    _sessions[sessionId] = MCPSession(
-      id: sessionId,
-      agentName: agentName,
-      clientInfo: clientInfo,
-      clientCapabilities: clientCapabilities,
-    );
-
-    _log('info', 'Created new session for agent: $agentName');
-    return sessionId;
   }
 
   void _sendMessage(MCPMessage message) {
@@ -450,27 +360,23 @@ abstract class BaseMCPServer {
     await _inputSubscription?.cancel();
     await _outputController?.close();
 
-    // Clean up sessions
-    _sessions.clear();
-
     _log('info', 'MCP server shutdown complete');
   }
 
-  /// 🎯 **ABSTRACT METHODS**: Subclasses must implement these
+  /// 🎯 **ABSTRACT METHODS**: Subclasses must implement these (stateless)
 
   /// Tools interface - subclasses define available tools
-  Future<List<MCPTool>> getAvailableTools(MCPSession session);
-  Future<MCPToolResult> callTool(
-      MCPSession session, String name, Map<String, dynamic> arguments);
+  Future<List<MCPTool>> getAvailableTools();
+  Future<MCPToolResult> callTool(String name, Map<String, dynamic> arguments);
 
   /// Resources interface - subclasses define available data
-  Future<List<MCPResource>> getAvailableResources(MCPSession session);
-  Future<MCPContent> readResource(MCPSession session, String uri);
+  Future<List<MCPResource>> getAvailableResources();
+  Future<MCPContent> readResource(String uri);
 
   /// Prompts interface - subclasses define templates
-  Future<List<MCPPrompt>> getAvailablePrompts(MCPSession session);
+  Future<List<MCPPrompt>> getAvailablePrompts();
   Future<List<MCPMessage>> getPrompt(
-      MCPSession session, String name, Map<String, dynamic> arguments);
+      String name, Map<String, dynamic> arguments);
 
   /// Custom method handling for server-specific features
   Future<MCPMessage> handleCustomMethod(MCPMessage request) async {
@@ -491,59 +397,6 @@ abstract class BaseMCPServer {
   Future<void> onCancelled(String? requestId) async {
     _log('info', 'Request cancelled: $requestId');
   }
-
-  /// 🔄 **AGENT DATA LOADING**: Load persistent data for agent sessions
-  ///
-  /// Subclasses should override this to load agent-specific data on startup
-  Future<void> loadAgentData(String agentName) async {
-    _log('debug', 'Loading agent data for: $agentName');
-    // Default implementation - subclasses override for specific data loading
-  }
-
-  /// 📂 **AGENT NAME EXTRACTION**: Get agent name from session
-  ///
-  /// Utility method to extract agent name from session for subclasses
-  String getAgentNameFromSession(MCPSession session) {
-    return session.agentName;
-  }
-}
-
-/// 📋 **SESSION MANAGEMENT**: Per-agent context isolation
-///
-/// Each agent gets its own session with isolated state and capabilities
-class MCPSession {
-  final String id;
-  final String agentName;
-  final Map<String, dynamic>? clientInfo;
-  final Map<String, dynamic>? clientCapabilities;
-  final DateTime createdAt;
-  final Map<String, dynamic> state;
-
-  MCPSession({
-    required this.id,
-    String? agentName,
-    this.clientInfo,
-    this.clientCapabilities,
-  })  : agentName = agentName ?? _extractAgentNameFromId(id),
-        createdAt = DateTime.now(),
-        state = {};
-
-  /// Extract agent name from session ID for backward compatibility
-  static String _extractAgentNameFromId(String sessionId) {
-    if (sessionId.startsWith('agent_')) {
-      return sessionId.substring(6); // Remove 'agent_' prefix
-    }
-    return 'unknown_agent';
-  }
-
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'agentName': agentName,
-        'clientInfo': clientInfo,
-        'clientCapabilities': clientCapabilities,
-        'createdAt': createdAt.toIso8601String(),
-        'state': state,
-      };
 }
 
 /// 📨 **MESSAGE PROTOCOL**: JSON-RPC 2.0 message handling

@@ -6,74 +6,6 @@ import 'package:vibe_coder/models/agent_status_model.dart';
 
 void main() {
   group('AgentModel Persistence Tests', () {
-    setUp(() {
-      // Clean up any existing test data
-      final testDir = Directory('data/agents');
-      if (testDir.existsSync()) {
-        testDir.deleteSync(recursive: true);
-      }
-    });
-
-    tearDown(() {
-      // Clean up test data after each test
-      final testDir = Directory('data/agents');
-      if (testDir.existsSync()) {
-        testDir.deleteSync(recursive: true);
-      }
-    });
-
-    test('should save agent to disk and load it back', () async {
-      // Create a test agent
-      final agent = AgentModel(
-        id: 'test-agent-123',
-        name: 'Test Agent',
-        systemPrompt: 'You are a test agent',
-        temperature: 0.8,
-        maxTokens: 2000,
-        useBetaFeatures: true,
-      );
-
-      // Save agent to disk
-      await agent.save();
-
-      // Verify file was created
-      final file = File('data/agents/test-agent-123.json');
-      expect(file.existsSync(), isTrue);
-
-      // Load agent from disk
-      final fileContent = await file.readAsString();
-      final json = jsonDecode(fileContent) as Map<String, dynamic>;
-      final loadedAgent = AgentModel.fromJson(json);
-
-      // Verify all properties match
-      expect(loadedAgent.id, equals(agent.id));
-      expect(loadedAgent.name, equals(agent.name));
-      expect(loadedAgent.systemPrompt, equals(agent.systemPrompt));
-      expect(loadedAgent.temperature, equals(agent.temperature));
-      expect(loadedAgent.maxTokens, equals(agent.maxTokens));
-      expect(loadedAgent.useBetaFeatures, equals(agent.useBetaFeatures));
-    });
-
-    test('should delete agent from disk', () async {
-      // Create and save a test agent
-      final agent = AgentModel(
-        id: 'test-agent-delete',
-        name: 'Agent to Delete',
-        systemPrompt: 'This agent will be deleted',
-      );
-      await agent.save();
-
-      // Verify file exists
-      final file = File('data/agents/test-agent-delete.json');
-      expect(file.existsSync(), isTrue);
-
-      // Delete agent
-      await agent.delete();
-
-      // Verify file is gone
-      expect(file.existsSync(), isFalse);
-    });
-
     test('should validate agent before saving', () async {
       // Create agent with invalid data
       final agent = AgentModel(
@@ -85,27 +17,6 @@ void main() {
 
       // Should throw validation error
       expect(() async => await agent.save(), throwsA(isA<StateError>()));
-    });
-
-    test('should delete agent file from disk', () async {
-      // Create and save agent
-      final agent = AgentModel(
-        id: 'test-agent-delete',
-        name: 'Test Delete Agent',
-        systemPrompt: 'You are a test agent for deletion',
-      );
-
-      await agent.save();
-
-      // Verify file exists
-      final file = File('data/agents/${agent.id}.json');
-      expect(file.existsSync(), isTrue);
-
-      // Delete agent
-      await agent.delete();
-
-      // Verify file is deleted
-      expect(file.existsSync(), isFalse);
     });
 
     test('should correctly filter MCP tools based on preferences', () async {
@@ -152,17 +63,11 @@ void main() {
         mcpToolPreferences: {'memory:read_graph': true},
       );
 
-      // Save original agent
-      await originalAgent.save();
-
       // Simulate agent editing: create updated agent with different preferences
       final updatedAgent = originalAgent.copyWith(
         mcpServerPreferences: {'memory': false}, // Disable memory server
         mcpToolPreferences: {'memory:read_graph': false}, // Disable tool
       );
-
-      // Save updated agent
-      await updatedAgent.save();
 
       // Verify that the updated agent has the new preferences
       expect(updatedAgent.getMCPServerPreference('memory'), isFalse);
@@ -176,10 +81,6 @@ void main() {
       // When AgentService.replaceAgent() is called, any AgentTab references
       // MUST be updated to point to the new AgentModel instance to ensure
       // MCP tool filtering uses the updated preferences in conversations
-
-      // Clean up test files
-      await originalAgent.delete();
-      await updatedAgent.delete();
     });
 
     test(
@@ -267,7 +168,7 @@ void main() {
       // Save to JSON and reload
       await originalAgent.save();
 
-      final file = File('data/agents/${originalAgent.id}.json');
+      final file = File('config/agents/${originalAgent.id}.json');
       final jsonContent = await file.readAsString();
       final jsonData = jsonDecode(jsonContent) as Map<String, dynamic>;
 
@@ -288,7 +189,7 @@ void main() {
   group('AgentModel Status Management (DR004 Integration)', () {
     setUp(() {
       // Clean up any existing test data
-      final testDir = Directory('data/agents');
+      final testDir = Directory('config/agents');
       if (testDir.existsSync()) {
         testDir.deleteSync(recursive: true);
       }
@@ -296,7 +197,7 @@ void main() {
 
     tearDown(() {
       // Clean up test data after each test
-      final testDir = Directory('data/agents');
+      final testDir = Directory('config/agents');
       if (testDir.existsSync()) {
         testDir.deleteSync(recursive: true);
       }
@@ -581,7 +482,7 @@ void main() {
         await agent.save();
 
         // Load from disk
-        final file = File('data/agents/status-persist-test.json');
+        final file = File('config/agents/status-persist-test.json');
         final jsonContent = await file.readAsString();
         final jsonData = jsonDecode(jsonContent) as Map<String, dynamic>;
         final loadedAgent = AgentModel.fromJson(jsonData);

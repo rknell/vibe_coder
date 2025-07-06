@@ -290,7 +290,7 @@ class AgentModel extends ChangeNotifier {
 
   // Self-management methods that maintain object integrity
   Future<void> save() async {
-    // Save to /data/agents/${id}.json
+    // Save to /config/agents/${id}.json
     notifyListeners(); // MANDATORY after any change
   }
 

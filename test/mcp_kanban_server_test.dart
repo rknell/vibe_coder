@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:test/test.dart';
 import '../mcp/kanban_server.dart';
-import '../mcp/base_mcp.dart';
 
 /// 🧪 **KANBAN SERVER TEST FORTRESS** [+3000 XP]
 ///
@@ -27,21 +26,13 @@ void main() {
   group('🧪 KANBAN SERVER FORTRESS TESTS', () {
     late Directory tempDir;
     late KanbanServer server;
-    late MCPSession testSession;
+    const String testAgentName = 'agent_default';
 
     setUp(() async {
       tempDir = await Directory.systemTemp.createTemp('kanban_test_');
       server = KanbanServer(
         kanbanDirectory: tempDir.path,
         logger: null,
-      );
-
-      testSession = MCPSession(
-        id: 'agent_default',
-        clientInfo: {
-          'name': 'test-client',
-          'version': '1.0.0',
-        },
       );
     });
 
@@ -59,9 +50,8 @@ void main() {
       test('🧪 REGRESSION: kanban_view_board - Empty board displays correctly',
           () async {
         final result = await server.callTool(
-          testSession,
           'kanban_view_board',
-          {'status_filter': 'all'},
+          {'agentName': testAgentName, 'status_filter': 'all'},
         );
 
         expect(result.content.length, equals(1));
@@ -77,9 +67,9 @@ void main() {
           '🧪 FEATURE: kanban_create_ticket - Creates ticket with full metadata',
           () async {
         final result = await server.callTool(
-          testSession,
           'kanban_create_ticket',
           {
+            'agentName': testAgentName,
             'title': 'Test Feature Implementation',
             'description':
                 'Implement comprehensive test coverage for all components',
@@ -112,9 +102,9 @@ void main() {
           '🧪 FEATURE: kanban_read_ticket - Retrieves complete ticket information',
           () async {
         await server.callTool(
-          testSession,
           'kanban_create_ticket',
           {
+            'agentName': testAgentName,
             'title': 'Bug Fix Task',
             'description': 'Fix critical authentication bug in login system',
             'assignee': 'security-team',
@@ -124,9 +114,8 @@ void main() {
         );
 
         final result = await server.callTool(
-          testSession,
           'kanban_read_ticket',
-          {'ticket_id': 1},
+          {'agentName': testAgentName, 'ticket_id': 1},
         );
 
         expect(result.content.length, equals(1));
@@ -146,9 +135,9 @@ void main() {
           '🧪 FEATURE: kanban_progress_ticket - Advances ticket through pipeline',
           () async {
         await server.callTool(
-          testSession,
           'kanban_create_ticket',
           {
+            'agentName': testAgentName,
             'title': 'Progress Test Ticket',
             'description': 'Test ticket progression through workflow',
             'priority': 'medium',
@@ -156,9 +145,8 @@ void main() {
         );
 
         final result = await server.callTool(
-          testSession,
           'kanban_progress_ticket',
-          {'ticket_id': 1},
+          {'agentName': testAgentName, 'ticket_id': 1},
         );
 
         expect(result.content.length, equals(1));
@@ -167,9 +155,8 @@ void main() {
         expect(content, contains('**Status:** Backlog → In progress'));
 
         final viewResult = await server.callTool(
-          testSession,
           'kanban_view_board',
-          {'status_filter': 'In progress'},
+          {'agentName': testAgentName, 'status_filter': 'In progress'},
         );
 
         final viewContent = viewResult.content.first.text!;
@@ -180,9 +167,9 @@ void main() {
       test('🧪 FEATURE: kanban_set_status - Sets specific ticket status',
           () async {
         await server.callTool(
-          testSession,
           'kanban_create_ticket',
           {
+            'agentName': testAgentName,
             'title': 'Status Test Ticket',
             'description': 'Test direct status setting',
             'priority': 'low',
@@ -190,9 +177,9 @@ void main() {
         );
 
         final result = await server.callTool(
-          testSession,
           'kanban_set_status',
           {
+            'agentName': testAgentName,
             'ticket_id': 1,
             'status': 'In test',
           },
@@ -204,9 +191,8 @@ void main() {
         expect(content, contains('**Status:** Backlog → In test'));
 
         final viewResult = await server.callTool(
-          testSession,
           'kanban_view_board',
-          {'status_filter': 'In test'},
+          {'agentName': testAgentName, 'status_filter': 'In test'},
         );
 
         final viewContent = viewResult.content.first.text!;
@@ -217,78 +203,86 @@ void main() {
       test('🧪 EDGE_CASE: Progress ticket at final status shows warning',
           () async {
         await server.callTool(
-          testSession,
           'kanban_create_ticket',
           {
+            'agentName': testAgentName,
             'title': 'Final Status Test',
             'description': 'Test progression limits',
-            'priority': 'medium',
+            'priority': 'low',
           },
         );
 
         await server.callTool(
-          testSession,
           'kanban_set_status',
           {
+            'agentName': testAgentName,
             'ticket_id': 1,
             'status': 'Complete',
           },
         );
 
         final result = await server.callTool(
-          testSession,
           'kanban_progress_ticket',
-          {'ticket_id': 1},
+          {'agentName': testAgentName, 'ticket_id': 1},
         );
 
         expect(result.content.length, equals(1));
         final content = result.content.first.text!;
-        expect(content,
-            contains('⚠️ Ticket #1 is already at the final status (Complete)'));
+        expect(content, contains('⚠️ Ticket #1 is already at the final status'));
+        expect(content, contains('Complete'));
       });
     });
 
-    group('❌ ERROR HANDLING TESTS', () {
-      test('🧪 REGRESSION: Read non-existent ticket throws proper error',
+    group('🚨 ERROR HANDLING TESTS', () {
+      test('🧪 EDGE_CASE: Create ticket with missing title throws error',
           () async {
         expect(
           () async => await server.callTool(
-            testSession,
+            'kanban_create_ticket',
+            {
+              'agentName': testAgentName,
+              'description': 'Missing title test',
+            },
+          ),
+          throwsA(isA<Exception>()),
+        );
+      });
+
+      test('🧪 EDGE_CASE: Read non-existent ticket throws error', () async {
+        expect(
+          () async => await server.callTool(
             'kanban_read_ticket',
-            {'ticket_id': 999},
+            {'agentName': testAgentName, 'ticket_id': 999},
           ),
           throwsA(isA<Exception>()),
         );
       });
 
-      test('🧪 REGRESSION: Progress non-existent ticket throws proper error',
-          () async {
+      test('🧪 EDGE_CASE: Progress non-existent ticket throws error', () async {
         expect(
           () async => await server.callTool(
-            testSession,
             'kanban_progress_ticket',
-            {'ticket_id': 999},
+            {'agentName': testAgentName, 'ticket_id': 999},
           ),
           throwsA(isA<Exception>()),
         );
       });
 
-      test('🧪 REGRESSION: Set invalid status throws proper error', () async {
+      test('🧪 EDGE_CASE: Set invalid status throws error', () async {
         await server.callTool(
-          testSession,
           'kanban_create_ticket',
           {
-            'title': 'Error Test Ticket',
-            'description': 'Test error handling',
-            'priority': 'low',
+            'agentName': testAgentName,
+            'title': 'Status Error Test',
+            'description': 'Test invalid status handling',
           },
         );
 
         expect(
           () async => await server.callTool(
-            testSession,
             'kanban_set_status',
             {
+              'agentName': testAgentName,
               'ticket_id': 1,
               'status': 'Invalid Status',
             },
@@ -297,12 +291,11 @@ void main() {
         );
       });
 
-      test('🧪 REGRESSION: Unknown tool throws proper error', () async {
+      test('🧪 EDGE_CASE: Missing agentName throws error', () async {
         expect(
           () async => await server.callTool(
-            testSession,
-            'unknown_tool',
-            {},
+            'kanban_view_board',
+            {'status_filter': 'all'},
           ),
           throwsA(isA<Exception>()),
         );
@@ -313,9 +306,9 @@ void main() {
       test('🧪 INTEGRATION: Ticket persistence creates correct markdown files',
           () async {
         await server.callTool(
-          testSession,
           'kanban_create_ticket',
           {
+            'agentName': testAgentName,
             'title': 'File System Test',
             'description': 'Test markdown file generation and parsing',
             'assignee': 'file-tester',
@@ -340,9 +333,9 @@ void main() {
 
       test('🧪 INTEGRATION: KANBAN_BOARD.md synchronization', () async {
         await server.callTool(
-          testSession,
           'kanban_create_ticket',
           {
+            'agentName': testAgentName,
             'title': 'High Priority Task',
             'description': 'Critical feature implementation',
             'priority': 'critical',
@@ -351,9 +344,9 @@ void main() {
         );
 
         await server.callTool(
-          testSession,
           'kanban_create_ticket',
           {
+            'agentName': testAgentName,
             'title': 'Medium Priority Task',
             'description': 'Regular maintenance work',
             'priority': 'medium',
@@ -361,9 +354,9 @@ void main() {
         );
 
         await server.callTool(
-          testSession,
           'kanban_set_status',
           {
+            'agentName': testAgentName,
             'ticket_id': 2,
             'status': 'In progress',
           },
@@ -401,9 +394,8 @@ This ticket was created manually to test markdown parsing functionality.
 ''');
 
         final result = await server.callTool(
-          testSession,
           'kanban_read_ticket',
-          {'ticket_id': 2},
+          {'agentName': testAgentName, 'ticket_id': 2},
         );
 
         expect(result.content.length, equals(1));
@@ -460,18 +452,13 @@ This ticket was created manually to test markdown parsing functionality.
     group('👥 MULTI-AGENT TESTS', () {
       test('🧪 FEATURE: Agent isolation with shared board visibility',
           () async {
-        final session2 = MCPSession(
-          id: 'agent_default',
-          clientInfo: {
-            'name': 'test-client-2',
-            'version': '1.0.0',
-          },
-        );
+        const String agent1 = 'agent_alpha';
+        const String agent2 = 'agent_beta';
 
         await server.callTool(
-          testSession,
           'kanban_create_ticket',
           {
+            'agentName': agent1,
             'title': 'Agent 1 Ticket',
             'description': 'Created by first agent',
             'priority': 'high',
@@ -479,9 +466,9 @@ This ticket was created manually to test markdown parsing functionality.
         );
 
         await server.callTool(
-          session2,
           'kanban_create_ticket',
           {
+            'agentName': agent2,
             'title': 'Agent 2 Ticket',
             'description': 'Created by second agent',
             'priority': 'medium',
@@ -489,15 +476,13 @@ This ticket was created manually to test markdown parsing functionality.
         );
 
         final agent1View = await server.callTool(
-          testSession,
           'kanban_view_board',
-          {'status_filter': 'Backlog'},
+          {'agentName': agent1, 'status_filter': 'Backlog'},
         );
 
         final agent2View = await server.callTool(
-          session2,
           'kanban_view_board',
-          {'status_filter': 'Backlog'},
+          {'agentName': agent2, 'status_filter': 'Backlog'},
         );
 
         final content1 = agent1View.content.first.text!;
@@ -513,9 +498,9 @@ This ticket was created manually to test markdown parsing functionality.
     group('🎯 COMPREHENSIVE WORKFLOW TESTS', () {
       test('🧪 INTEGRATION: Complete ticket lifecycle workflow', () async {
         await server.callTool(
-          testSession,
           'kanban_create_ticket',
           {
+            'agentName': testAgentName,
             'title': 'Full Lifecycle Test',
             'description': 'Test complete workflow from creation to completion',
             'assignee': 'workflow-tester',
@@ -527,16 +512,14 @@ This ticket was created manually to test markdown parsing functionality.
         // Progress through entire pipeline: Backlog → Complete (6 progressions)
         for (int i = 0; i < 6; i++) {
           await server.callTool(
-            testSession,
             'kanban_progress_ticket',
-            {'ticket_id': 1},
+            {'agentName': testAgentName, 'ticket_id': 1},
           );
         }
 
         final result = await server.callTool(
-          testSession,
           'kanban_read_ticket',
-          {'ticket_id': 1},
+          {'agentName': testAgentName, 'ticket_id': 1},
         );
 
         final content = result.content.first.text!;
@@ -547,9 +530,9 @@ This ticket was created manually to test markdown parsing functionality.
           () async {
         for (int i = 1; i <= 10; i++) {
           await server.callTool(
-            testSession,
             'kanban_create_ticket',
             {
+              'agentName': testAgentName,
               'title': 'Performance Test Ticket $i',
               'description': 'Testing performance with multiple tickets',
               'priority': i % 2 == 0 ? 'high' : 'medium',
@@ -558,9 +541,8 @@ This ticket was created manually to test markdown parsing functionality.
         }
 
         final result = await server.callTool(
-          testSession,
           'kanban_view_board',
-          {'status_filter': 'all'},
+          {'agentName': testAgentName, 'status_filter': 'all'},
         );
 
         final content = result.content.first.text!;

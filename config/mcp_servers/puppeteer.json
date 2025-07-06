@@ -1,0 +1,14 @@
+{
+    "command": "docker",
+    "args": [
+        "run",
+        "-i",
+        "--rm",
+        "--init",
+        "--network",
+        "host",
+        "-e",
+        "DOCKER_CONTAINER=true",
+        "mcp/puppeteer"
+    ]
+}

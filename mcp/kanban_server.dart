@@ -57,7 +57,7 @@ class KanbanServer extends BaseMCPServer {
 
   /// 🛠️ **TOOL DEFINITIONS**: Kanban operations available to agents
   @override
-  Future<List<MCPTool>> getAvailableTools(MCPSession session) async {
+  Future<List<MCPTool>> getAvailableTools() async {
     return [
       // 📋 VIEW BOARD
       MCPTool(
@@ -67,6 +67,10 @@ class KanbanServer extends BaseMCPServer {
         inputSchema: {
           'type': 'object',
           'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent making this request',
+            },
             'status_filter': {
               'type': 'string',
               'enum': statusPipeline + ['all'],
@@ -74,7 +78,7 @@ class KanbanServer extends BaseMCPServer {
               'default': 'all',
             },
           },
-          'required': [],
+          'required': ['agentName'],
         },
       ),
 
@@ -85,6 +89,10 @@ class KanbanServer extends BaseMCPServer {
         inputSchema: {
           'type': 'object',
           'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent making this request',
+            },
             'title': {
               'type': 'string',
               'description': 'Ticket title/summary',
@@ -111,7 +119,7 @@ class KanbanServer extends BaseMCPServer {
               'description': 'Optional tags for categorization',
             },
           },
-          'required': ['title', 'description'],
+          'required': ['agentName', 'title', 'description'],
         },
       ),
 
@@ -122,12 +130,16 @@ class KanbanServer extends BaseMCPServer {
         inputSchema: {
           'type': 'object',
           'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent making this request',
+            },
             'ticket_id': {
               'type': 'integer',
               'description': 'ID of the ticket to read',
             },
           },
-          'required': ['ticket_id'],
+          'required': ['agentName', 'ticket_id'],
         },
       ),
 
@@ -138,12 +150,16 @@ class KanbanServer extends BaseMCPServer {
         inputSchema: {
           'type': 'object',
           'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent making this request',
+            },
             'ticket_id': {
               'type': 'integer',
               'description': 'ID of the ticket to progress',
             },
           },
-          'required': ['ticket_id'],
+          'required': ['agentName', 'ticket_id'],
         },
       ),
 
@@ -154,6 +170,10 @@ class KanbanServer extends BaseMCPServer {
         inputSchema: {
           'type': 'object',
           'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent making this request',
+            },
             'ticket_id': {
               'type': 'integer',
               'description': 'ID of the ticket to update',
@@ -164,7 +184,7 @@ class KanbanServer extends BaseMCPServer {
               'description': 'New status for the ticket',
             },
           },
-          'required': ['ticket_id', 'status'],
+          'required': ['agentName', 'ticket_id', 'status'],
         },
       ),
     ];
@@ -173,21 +193,25 @@ class KanbanServer extends BaseMCPServer {
   /// 🎯 **TOOL EXECUTION**: Handle tool calls with proper validation
   @override
   Future<MCPToolResult> callTool(
-    MCPSession session,
     String name,
     Map<String, dynamic> args,
   ) async {
+    final agentName = args['agentName'] as String?;
+    if (agentName == null) {
+      throw MCPServerException('agentName parameter is required', code: -32602);
+    }
+
     switch (name) {
       case 'kanban_view_board':
-        return await _viewBoard(session, args);
+        return await _viewBoard(agentName, args);
       case 'kanban_create_ticket':
-        return await _createTicket(session, args);
+        return await _createTicket(agentName, args);
       case 'kanban_read_ticket':
-        return await _readTicket(session, args);
+        return await _readTicket(agentName, args);
       case 'kanban_progress_ticket':
-        return await _progressTicket(session, args);
+        return await _progressTicket(agentName, args);
       case 'kanban_set_status':
-        return await _setTicketStatus(session, args);
+        return await _setTicketStatus(agentName, args);
       default:
         throw MCPServerException('Unknown tool: $name', code: -32601);
     }
@@ -195,24 +219,23 @@ class KanbanServer extends BaseMCPServer {
 
   /// 📚 **RESOURCES**: Kanban resources
   @override
-  Future<List<MCPResource>> getAvailableResources(MCPSession session) async {
+  Future<List<MCPResource>> getAvailableResources() async {
     return [];
   }
 
   @override
-  Future<MCPContent> readResource(MCPSession session, String uri) async {
+  Future<MCPContent> readResource(String uri) async {
     throw MCPServerException('Resource not found: $uri', code: -32602);
   }
 
   /// 💬 **PROMPTS**: Kanban prompts
   @override
-  Future<List<MCPPrompt>> getAvailablePrompts(MCPSession session) async {
+  Future<List<MCPPrompt>> getAvailablePrompts() async {
     return [];
   }
 
   @override
   Future<List<MCPMessage>> getPrompt(
-    MCPSession session,
     String name,
     Map<String, dynamic> arguments,
   ) async {
@@ -221,11 +244,12 @@ class KanbanServer extends BaseMCPServer {
 
   /// 📋 **VIEW BOARD**: Display current kanban board state
   Future<MCPToolResult> _viewBoard(
-    MCPSession session,
+    String agentName,
     Map<String, dynamic> args,
   ) async {
+    // Ensure agent cache exists before loading tickets
+    _getAgentTickets(agentName);
     await _loadTicketsFromDisk();
-    final agentName = getAgentNameFromSession(session);
     final tickets = _getAgentTickets(agentName);
 
     final statusFilter = args['status_filter'] as String? ?? 'all';
@@ -268,14 +292,17 @@ class KanbanServer extends BaseMCPServer {
 
   /// ➕ **CREATE TICKET**: Add new ticket to kanban board
   Future<MCPToolResult> _createTicket(
-    MCPSession session,
+    String agentName,
     Map<String, dynamic> args,
   ) async {
     await _loadTicketsFromDisk();
-    final agentName = getAgentNameFromSession(session);
 
-    final title = args['title'] as String;
-    final description = args['description'] as String;
+    final title = args['title'] as String?;
+    if (title == null || title.trim().isEmpty) {
+      throw MCPServerException('Title is required for ticket creation');
+    }
+
+    final description = args['description'] as String? ?? '';
     final assignee = args['assignee'] as String?;
     final priorityStr = args['priority'] as String? ?? 'medium';
     final tags = (args['tags'] as List<dynamic>?)?.cast<String>() ?? <String>[];
@@ -303,6 +330,13 @@ class KanbanServer extends BaseMCPServer {
     final tickets = _getAgentTickets(agentName);
     tickets[ticketId] = ticket;
 
+    // Share ticket with all other agents for visibility
+    for (final otherAgentName in _ticketCache.keys) {
+      if (otherAgentName != agentName) {
+        _getAgentTickets(otherAgentName)[ticketId] = ticket;
+      }
+    }
+
     await _saveTicketToDisk(ticket);
     await _updateKanbanBoard();
 
@@ -323,11 +357,12 @@ class KanbanServer extends BaseMCPServer {
 
   /// 📖 **READ TICKET**: Get detailed ticket information
   Future<MCPToolResult> _readTicket(
-    MCPSession session,
+    String agentName,
     Map<String, dynamic> args,
   ) async {
+    // Ensure agent cache exists before loading tickets
+    _getAgentTickets(agentName);
     await _loadTicketsFromDisk();
-    final agentName = getAgentNameFromSession(session);
     final ticketId = args['ticket_id'] as int;
 
     final tickets = _getAgentTickets(agentName);
@@ -371,11 +406,10 @@ class KanbanServer extends BaseMCPServer {
 
   /// 🔄 **PROGRESS TICKET**: Move ticket to next status
   Future<MCPToolResult> _progressTicket(
-    MCPSession session,
+    String agentName,
     Map<String, dynamic> args,
   ) async {
     await _loadTicketsFromDisk();
-    final agentName = getAgentNameFromSession(session);
     final ticketId = args['ticket_id'] as int;
 
     final tickets = _getAgentTickets(agentName);
@@ -410,6 +444,13 @@ class KanbanServer extends BaseMCPServer {
 
     tickets[ticketId] = updatedTicket;
 
+    // Share updated ticket with all other agents for visibility
+    for (final otherAgentName in _ticketCache.keys) {
+      if (otherAgentName != agentName) {
+        _getAgentTickets(otherAgentName)[ticketId] = updatedTicket;
+      }
+    }
+
     await _saveTicketToDisk(updatedTicket);
     await _updateKanbanBoard();
 
@@ -426,11 +467,10 @@ class KanbanServer extends BaseMCPServer {
 
   /// 🎯 **SET STATUS**: Set ticket to specific status
   Future<MCPToolResult> _setTicketStatus(
-    MCPSession session,
+    String agentName,
     Map<String, dynamic> args,
   ) async {
     await _loadTicketsFromDisk();
-    final agentName = getAgentNameFromSession(session);
     final ticketId = args['ticket_id'] as int;
     final newStatus = args['status'] as String;
 
@@ -453,6 +493,13 @@ class KanbanServer extends BaseMCPServer {
     );
 
     tickets[ticketId] = updatedTicket;
+
+    // Share updated ticket with all other agents for visibility
+    for (final otherAgentName in _ticketCache.keys) {
+      if (otherAgentName != agentName) {
+        _getAgentTickets(otherAgentName)[ticketId] = updatedTicket;
+      }
+    }
 
     await _saveTicketToDisk(updatedTicket);
     await _updateKanbanBoard();
@@ -511,8 +558,13 @@ class KanbanServer extends BaseMCPServer {
           final content = await file.readAsString();
           final ticket = _parseTicketFromMarkdown(content, file.path);
           if (ticket != null) {
-            const agentName = 'default'; // For now, use default agent
-            _getAgentTickets(agentName)[ticket.id] = ticket;
+            // Load tickets into all agent caches for shared visibility
+            // This allows all agents to see all tickets
+            for (final agentName in _ticketCache.keys) {
+              _getAgentTickets(agentName)[ticket.id] = ticket;
+            }
+            // Also ensure default agent has access
+            _getAgentTickets('default')[ticket.id] = ticket;
           }
         } catch (e) {
           stderr
@@ -718,6 +770,13 @@ class KanbanServer extends BaseMCPServer {
       default:
         return '📄';
     }
+  }
+
+  /// 🚀 **LIFECYCLE**: Load tickets on startup
+  @override
+  Future<void> onInitialized() async {
+    await super.onInitialized();
+    await _loadTicketsFromDisk();
   }
 }
 

@@ -76,13 +76,13 @@ class MCPServerModel extends ChangeNotifier {
 
       updatedAt = DateTime.now();
 
-      final dataDir = Directory('data/mcp_servers');
+      final dataDir = Directory('config/mcp_servers');
       if (!await dataDir.exists()) {
         await dataDir.create(recursive: true);
         _logger.info('📁 CREATED: MCP servers data directory');
       }
 
-      final file = File('data/mcp_servers/$id.json');
+      final file = File('config/mcp_servers/$id.json');
       await file.writeAsString(jsonEncode(toJson()));
 
       _logger.info('✅ SAVED: MCP server $name successfully');
@@ -101,7 +101,7 @@ class MCPServerModel extends ChangeNotifier {
     try {
       _logger.info('🗑️ DELETING: MCP server $name from persistence');
 
-      final file = File('data/mcp_servers/$id.json');
+      final file = File('config/mcp_servers/$id.json');
       if (await file.exists()) {
         await file.delete();
         _logger.info('✅ DELETED: MCP server $name successfully');

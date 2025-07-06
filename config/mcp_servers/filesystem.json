@@ -1,0 +1,12 @@
+{
+    "command": "/home/rknell/Applications/nvm/versions/node/v23.5.0/bin/npx",
+    "args": [
+        "@modelcontextprotocol/server-filesystem",
+        "/home/rknell/Projects/vibe_coder"
+    ],
+    "env": {
+        "DEBUG": "false",
+        "NODE_PATH": "/home/rknell/Applications/nvm/versions/node/v23.5.0/bin",
+        "PATH": "/home/rknell/Applications/nvm/versions/node/v23.5.0/bin:/usr/local/bin:/usr/bin:/bin"
+    }
+}

@@ -41,6 +41,9 @@ class MCPFunctionBridge {
   static int _toolCallIdCounter = 0;
   static final Map<String, MCPToolCallContext> _activeToolCalls = {};
 
+  // NEW: Mapping from API function name to MCP unique ID
+  static final Map<String, String> _apiToMCPMap = {};
+
   /// Convert MCP tools to OpenAI function definitions
   ///
   /// PERF: O(n) conversion - necessary for each tool
@@ -56,6 +59,9 @@ class MCPFunctionBridge {
       try {
         // CRITICAL: DeepSeek API requires function names to match pattern '^[a-zA-Z0-9_-]+$'
         final validFunctionName = toApiFunctionName(mcpTool.uniqueId);
+
+        // Register mapping for robust reverse lookup
+        _apiToMCPMap[validFunctionName] = mcpTool.uniqueId;
 
         final functionDef = {
           'type': 'function',
@@ -155,10 +161,12 @@ class MCPFunctionBridge {
   /// 1. ALWAYS call this on function names from AI API before MCP server calls
   /// 2. This is the REVERSE of `toApiFunctionName()` - they must be symmetric
   /// 3. Failure to convert will result in "Server not found" errors
-  /// 4. The first underscore becomes colon: `server_tool` → `server:tool`
+  /// 4. Uses mapping for robust lookup
   static String fromApiFunctionName(String apiFunctionName) {
-    // Convert first underscore back to colon (server:tool format)
-    // Handle cases like 'test_server_test_tool' -> 'test_server:test_tool'
+    // Use mapping if available
+    final mapped = _apiToMCPMap[apiFunctionName];
+    if (mapped != null) return mapped;
+    // Fallback: old logic (for legacy/test cases)
     final firstUnderscoreIndex = apiFunctionName.indexOf('_');
     if (firstUnderscoreIndex != -1 &&
         firstUnderscoreIndex < apiFunctionName.length - 1) {
