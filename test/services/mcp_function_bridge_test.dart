@@ -539,8 +539,8 @@ void main() {
 
       test('should convert task_list_task_list_add correctly', () {
         // Test the specific case that was failing
-        final apiFunctionName = 'task_list_task_list_add';
-        final expectedMCPFormat = 'task_list:task_list_add';
+        const apiFunctionName = 'task_list_task_list_add';
+        const expectedMCPFormat = 'task_list:task_list_add';
 
         final result = MCPFunctionBridge.fromApiFunctionName(apiFunctionName);
         expect(result, equals(expectedMCPFormat));
@@ -553,8 +553,8 @@ void main() {
 
       test('should handle agent-task-list server name correctly', () {
         // Test that the server name with hyphens works correctly
-        final mcpToolId = 'agent-task-list:task_list_add';
-        final expectedApiName = 'agent-task-list_task_list_add';
+        const mcpToolId = 'agent-task-list:task_list_add';
+        const expectedApiName = 'agent-task-list_task_list_add';
 
         final result = MCPFunctionBridge.toApiFunctionName(mcpToolId);
         expect(result, equals(expectedApiName));

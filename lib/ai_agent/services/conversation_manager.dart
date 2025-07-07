@@ -555,6 +555,7 @@ $content
     // 🔄 TOOL REFRESH PROTOCOL: Ensure MCP tools are current before each API call
     // This prevents stale tool information from being used when users add/remove tools
     _refreshMCPToolsBeforeCall();
+    
 
     // NOTE: notepad, to-do list, and inbox are now implemented as MCP servers
     // Context is provided through MCP tool calls instead of hardcoded context
@@ -624,11 +625,12 @@ $content
     bool? isReasoner,
     ToolChoice? toolChoice,
   }) async {
-    updateUserContext();
     if (_messages.isEmpty) {
       throw StateError(
           'Cannot send an empty conversation. Add at least one message first.');
     }
+
+    updateUserContext();
 
     // 🔧 MCP FUNCTION CALLING: Convert MCP tools to OpenAI function format
     // WARRIOR PROTOCOL: Null safety check for agent access
@@ -761,7 +763,7 @@ $content
   /// Clears the conversation history, starting a new conversation.
   void clearConversation() {
     _logger.fine('[$id] Clearing conversation history');
-    _messages.clear();
+    _messages.removeWhere((message) => message.role != MessageRole.system);
     _reasoningContent.clear();
   }
 

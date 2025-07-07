@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:vibe_coder/models/mcp_content_collection.dart';
 import 'package:vibe_coder/models/mcp_notepad_content.dart';
@@ -189,19 +188,22 @@ class MCPContentService extends ChangeNotifier {
 
   /// Execute a single polling cycle
   ///
-  /// This method will be expanded in DR005B to implement actual
-  /// MCP server content synchronization.
+  /// PERF: <500ms per cycle (per DR005B requirements)
+  /// ARCHITECTURAL: Integrates with MCPService for actual content fetching
   Future<void> _executePollingCycle() async {
     if (!_shouldPoll()) {
       return;
     }
 
     try {
-      // TODO: DR005B - Implement actual MCP server polling
-      // For now, this is a placeholder that maintains the polling infrastructure
+      debugPrint(
+          '🔄 POLLING: Executing content fetch cycle for $_currentAgentId');
 
-      // Simulate polling work (will be replaced with real MCP calls)
-      await Future.delayed(const Duration(milliseconds: 1));
+      // Fetch content from MCP service and update AgentModel directly
+      await services.mcpService.fetchAgentContent(_currentAgentId!);
+
+      debugPrint(
+          '✅ POLLING: Content fetch cycle completed for $_currentAgentId');
     } catch (error) {
       _handlePollingError(error as Exception);
     }
@@ -460,37 +462,26 @@ class MCPContentService extends ChangeNotifier {
   /// PERF: 1-30s total retry time (per test requirements)
   /// ARCHITECTURAL: Resilient MCP server communication with backoff
   Future<T> executeWithRetry<T>(Future<T> Function() operation) async {
-    int attempts = 0;
-    Duration delay = _baseRetryDelay;
-
-    while (attempts < _maxRetryAttempts) {
+    for (int attempt = 0; attempt < _maxRetryAttempts; attempt++) {
       try {
         return await operation();
       } catch (e) {
-        attempts++;
-
-        if (attempts >= _maxRetryAttempts) {
-          debugPrint(
-              '💥 RETRY EXHAUSTED: Failed after $attempts attempts - $e');
-          rethrow;
+        if (attempt == _maxRetryAttempts - 1) {
+          rethrow; // Final attempt failed
         }
 
-        debugPrint(
-            '⚠️ RETRY ATTEMPT $attempts: $e (waiting ${delay.inMilliseconds}ms)');
-        await Future.delayed(delay);
+        // Exponential backoff delay
+        final delay = Duration(
+            milliseconds: (_baseRetryDelay.inMilliseconds * (1 << attempt))
+                .clamp(0, _maxRetryDelay.inMilliseconds));
 
-        // Exponential backoff with jitter
-        delay = Duration(
-          milliseconds: min(
-            (delay.inMilliseconds * 2 * (0.5 + Random().nextDouble() * 0.5))
-                .round(),
-            _maxRetryDelay.inMilliseconds,
-          ),
-        );
+        debugPrint(
+            '🔄 RETRY: Attempt ${attempt + 1} failed, retrying in ${delay.inMilliseconds}ms');
+        await Future.delayed(delay);
       }
     }
 
-    throw Exception('Retry logic error - should not reach here');
+    throw StateError('Retry logic failed unexpectedly');
   }
 
   /// 🔄 Update content hash for cache tracking
@@ -503,17 +494,19 @@ class MCPContentService extends ChangeNotifier {
     _lastFetchTimes.clear();
   }
 
-  /// 💨 Check if fetch should be skipped (cache optimization)
+  /// 🔍 Check if fetch should be skipped (cache optimization)
   ///
-  /// PERF: O(1) - simple time comparison
-  /// ARCHITECTURAL: 90%+ cache hit rate optimization
+  /// PERF: O(1) - timestamp comparison
+  /// ARCHITECTURAL: Prevents excessive MCP server calls
   bool shouldSkipFetch(String agentId) {
     final lastFetch = _lastFetchTimes[agentId];
-    if (lastFetch == null) return false;
+    if (lastFetch == null) {
+      return false; // Never fetched, should fetch
+    }
 
-    // Skip if fetched within last 30 seconds (cache window)
-    final cacheWindow = Duration(seconds: 30);
-    return DateTime.now().difference(lastFetch) < cacheWindow;
+    // Skip if last fetch was less than 30 seconds ago
+    final timeSinceLastFetch = DateTime.now().difference(lastFetch);
+    return timeSinceLastFetch.inSeconds < 30;
   }
 
   /// 📦 Update agent content collection (for external updates)

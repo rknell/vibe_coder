@@ -112,7 +112,7 @@ class AgentListItem extends StatelessWidget {
   final bool isSelected;
 
   /// Callback when agent is tapped (object-oriented pattern)
-  final void Function(AgentModel)? onTap;
+  final void Function(AgentModel?)? onTap;
 
   const AgentListItem({
     super.key,

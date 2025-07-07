@@ -506,16 +506,16 @@ class MCPTool {
 
 class MCPToolResult {
   final List<MCPContent> content;
-  final bool? isError;
+  final bool isError;
 
   MCPToolResult({
     required this.content,
-    this.isError,
+    this.isError = false,
   });
 
   Map<String, dynamic> toJson() => {
         'content': content.map((c) => c.toJson()).toList(),
-        if (isError != null) 'isError': isError,
+        'isError': isError,
       };
 }
 

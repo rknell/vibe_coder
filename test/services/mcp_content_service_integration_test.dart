@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vibe_coder/services/mcp_content_service.dart';
+import 'package:vibe_coder/services/services.dart';
 import 'package:vibe_coder/models/mcp_content_collection.dart';
 import 'package:vibe_coder/models/mcp_notepad_content.dart';
 import 'package:vibe_coder/models/mcp_todo_item.dart';
@@ -29,8 +30,10 @@ void main() {
   group('🔥 DR005B: MCP Server Integration & Content Sync Tests', () {
     late MCPContentService service;
 
-    setUp(() {
+    setUp(() async {
       service = MCPContentService();
+      // Initialize the MCP service to ensure it's available
+      await services.mcpService.initialize();
     });
 
     tearDown(() {

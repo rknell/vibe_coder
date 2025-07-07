@@ -24,7 +24,7 @@ class DiscordResponsiveLayoutWidget extends StatelessWidget {
   final AgentModel? selectedAgent;
 
   /// Callbacks
-  final void Function(AgentModel) onAgentSelected;
+  final void Function(AgentModel?) onAgentSelected;
   final void Function() onCreateAgent;
   final void Function() onThemeToggle;
   final void Function() onToggleLeftSidebar;

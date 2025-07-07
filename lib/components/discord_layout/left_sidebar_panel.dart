@@ -55,7 +55,7 @@ class LeftSidebarPanel extends StatelessWidget {
   final AgentModel? selectedAgent;
 
   /// Callback when an agent is selected (object-oriented pattern)
-  final void Function(AgentModel)? onAgentSelected;
+  final void Function(AgentModel?)? onAgentSelected;
 
   /// Callback for create agent button
   final VoidCallback? onCreateAgent;

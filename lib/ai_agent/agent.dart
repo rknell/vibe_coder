@@ -18,6 +18,8 @@ class Agent {
 
   final Logger logger;
 
+  String systemPromptAnnotated = "";
+
   Agent({
     required this.agentModel,
     List<String>? taskDetails,
@@ -37,7 +39,7 @@ class Agent {
     // MCP is now handled by Services.mcpService - no per-agent initialization needed
 
     // Add system prompt
-    final systemPromptAnnotated =
+    systemPromptAnnotated =
         "YOU ARE ${agentModel.name}. \nRole play in the conversation as this person.\n${agentModel.systemPrompt}";
     conversation.addSystemMessage(systemPromptAnnotated);
 

@@ -30,6 +30,18 @@ class MockMCPService extends MCPService {
         args: ['mock-args'],
         description: 'Mock memory server',
       ),
+      MCPServerModel.stdio(
+        name: 'mock-notepad',
+        command: 'mock-command',
+        args: ['mock-args'],
+        description: 'Mock notepad server',
+      ),
+      MCPServerModel.stdio(
+        name: 'mock-task-list',
+        command: 'mock-command',
+        args: ['mock-args'],
+        description: 'Mock task list server',
+      ),
     ]);
 
     // Update server status to connected
@@ -63,6 +75,51 @@ class MockMCPService extends MCPService {
                 'value': {'type': 'string'}
               },
               'required': ['key', 'value']
+            },
+          ),
+        ]);
+      } else if (server.name == 'mock-notepad') {
+        server.updateTools([
+          MCPTool(
+            name: 'notepad_read',
+            description: 'Mock notepad reading tool',
+            inputSchema: {'type': 'object', 'properties': {}, 'required': []},
+          ),
+          MCPTool(
+            name: 'notepad_write',
+            description: 'Mock notepad writing tool',
+            inputSchema: {
+              'type': 'object',
+              'properties': {
+                'content': {'type': 'string', 'description': 'Content to write'}
+              },
+              'required': ['content']
+            },
+          ),
+        ]);
+      } else if (server.name == 'mock-task-list') {
+        server.updateTools([
+          MCPTool(
+            name: 'task_list_list',
+            description: 'Mock task list tool',
+            inputSchema: {
+              'type': 'object',
+              'properties': {
+                'status': {'type': 'string', 'description': 'Filter by status'}
+              },
+              'required': []
+            },
+          ),
+          MCPTool(
+            name: 'task_list_add',
+            description: 'Mock task add tool',
+            inputSchema: {
+              'type': 'object',
+              'properties': {
+                'content': {'type': 'string', 'description': 'Task content'},
+                'priority': {'type': 'string', 'description': 'Task priority'}
+              },
+              'required': ['content']
             },
           ),
         ]);

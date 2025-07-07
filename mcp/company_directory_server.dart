@@ -31,6 +31,18 @@ class CompanyDirectoryMCPServer extends BaseMCPServer {
   /// Maximum agents per directory to prevent abuse
   static const int maxAgentsPerDirectory = 100;
 
+  /// Clear all agent registry data (for testing)
+  void clearRegistry() {
+    _agentRegistry.clear();
+    // Also clear persisted data if persistence is enabled
+    if (persistenceDirectory != null) {
+      final file = File('${persistenceDirectory!}/company_directory.json');
+      if (file.existsSync()) {
+        file.deleteSync();
+      }
+    }
+  }
+
   CompanyDirectoryMCPServer({
     this.persistenceDirectory,
     super.logger,
@@ -290,6 +302,278 @@ class CompanyDirectoryMCPServer extends BaseMCPServer {
           'required': ['agentName'],
         },
       ),
+
+      // 📧 SEND EMAIL MESSAGE
+      MCPTool(
+        name: 'directory_send_email',
+        description:
+            'Send an email-like message to one or more agents via virtual messaging system',
+        inputSchema: {
+          'type': 'object',
+          'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent making this request',
+            },
+            'to': {
+              'type': 'array',
+              'items': {'type': 'string'},
+              'description': 'List of recipient agent names or IDs',
+            },
+            'cc': {
+              'type': 'array',
+              'items': {'type': 'string'},
+              'description': 'List of CC recipient agent names or IDs',
+            },
+            'bcc': {
+              'type': 'array',
+              'items': {'type': 'string'},
+              'description': 'List of BCC recipient agent names or IDs',
+            },
+            'subject': {
+              'type': 'string',
+              'description': 'Email subject line',
+              'maxLength': 200,
+            },
+            'body': {
+              'type': 'string',
+              'description': 'Email body content',
+              'maxLength': 10000,
+            },
+            'priority': {
+              'type': 'string',
+              'enum': ['low', 'normal', 'high', 'urgent'],
+              'description': 'Message priority',
+              'default': 'normal',
+            },
+            'attachments': {
+              'type': 'array',
+              'items': {
+                'type': 'object',
+                'properties': {
+                  'filename': {'type': 'string'},
+                  'content': {'type': 'string'},
+                  'mime_type': {'type': 'string'},
+                },
+              },
+              'description': 'Optional file attachments',
+            },
+          },
+          'required': ['agentName', 'to', 'subject', 'body'],
+        },
+      ),
+
+      // 📬 CHECK INBOX
+      MCPTool(
+        name: 'directory_check_inbox',
+        description:
+            'Check this agent\'s inbox for new messages (part of automatic loop)',
+        inputSchema: {
+          'type': 'object',
+          'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent making this request',
+            },
+            'mark_as_read': {
+              'type': 'boolean',
+              'description':
+                  'Automatically mark messages as read when checking',
+              'default': false,
+            },
+            'include_read': {
+              'type': 'boolean',
+              'description': 'Include read messages in results',
+              'default': false,
+            },
+            'limit': {
+              'type': 'integer',
+              'description': 'Maximum number of messages to return',
+              'minimum': 1,
+              'maximum': 100,
+              'default': 20,
+            },
+          },
+          'required': ['agentName'],
+        },
+      ),
+
+      // 📋 GET AVAILABLE RECIPIENTS
+      MCPTool(
+        name: 'directory_get_available_recipients',
+        description: 'Get list of agents available to receive messages',
+        inputSchema: {
+          'type': 'object',
+          'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent making this request',
+            },
+            'status_filter': {
+              'type': 'string',
+              'enum': ['active', 'busy', 'idle', 'offline', 'all'],
+              'description': 'Filter by agent status',
+              'default': 'active',
+            },
+            'role_filter': {
+              'type': 'string',
+              'description': 'Filter by agent role (partial match)',
+            },
+            'capability_filter': {
+              'type': 'string',
+              'description': 'Filter by agent capability (partial match)',
+            },
+            'include_self': {
+              'type': 'boolean',
+              'description': 'Include the requesting agent in results',
+              'default': false,
+            },
+          },
+          'required': ['agentName'],
+        },
+      ),
+
+      // 📧 GET EMAIL MESSAGE
+      MCPTool(
+        name: 'directory_get_email',
+        description: 'Get a specific email message by ID',
+        inputSchema: {
+          'type': 'object',
+          'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent making this request',
+            },
+            'email_id': {
+              'type': 'string',
+              'description': 'Email message ID',
+            },
+            'mark_as_read': {
+              'type': 'boolean',
+              'description': 'Mark message as read when retrieved',
+              'default': true,
+            },
+          },
+          'required': ['agentName', 'email_id'],
+        },
+      ),
+
+      // 📧 REPLY TO EMAIL
+      MCPTool(
+        name: 'directory_reply_to_email',
+        description: 'Reply to a specific email message',
+        inputSchema: {
+          'type': 'object',
+          'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent making this request',
+            },
+            'email_id': {
+              'type': 'string',
+              'description': 'Email message ID to reply to',
+            },
+            'body': {
+              'type': 'string',
+              'description': 'Reply message content',
+              'maxLength': 10000,
+            },
+            'include_original': {
+              'type': 'boolean',
+              'description': 'Include original message in reply',
+              'default': true,
+            },
+            'priority': {
+              'type': 'string',
+              'enum': ['low', 'normal', 'high', 'urgent'],
+              'description': 'Reply priority',
+              'default': 'normal',
+            },
+          },
+          'required': ['agentName', 'email_id', 'body'],
+        },
+      ),
+
+      // 📧 FORWARD EMAIL
+      MCPTool(
+        name: 'directory_forward_email',
+        description: 'Forward an email message to other agents',
+        inputSchema: {
+          'type': 'object',
+          'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent making this request',
+            },
+            'email_id': {
+              'type': 'string',
+              'description': 'Email message ID to forward',
+            },
+            'to': {
+              'type': 'array',
+              'items': {'type': 'string'},
+              'description': 'List of recipient agent names or IDs',
+            },
+            'cc': {
+              'type': 'array',
+              'items': {'type': 'string'},
+              'description': 'List of CC recipient agent names or IDs',
+            },
+            'bcc': {
+              'type': 'array',
+              'items': {'type': 'string'},
+              'description': 'List of BCC recipient agent names or IDs',
+            },
+            'forward_note': {
+              'type': 'string',
+              'description': 'Optional note to add to forwarded message',
+              'maxLength': 1000,
+            },
+          },
+          'required': ['agentName', 'email_id', 'to'],
+        },
+      ),
+
+      // 📧 DELETE EMAIL
+      MCPTool(
+        name: 'directory_delete_email',
+        description: 'Delete an email message from inbox',
+        inputSchema: {
+          'type': 'object',
+          'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent making this request',
+            },
+            'email_id': {
+              'type': 'string',
+              'description': 'Email message ID to delete',
+            },
+            'permanent': {
+              'type': 'boolean',
+              'description': 'Permanently delete (not just move to trash)',
+              'default': false,
+            },
+          },
+          'required': ['agentName', 'email_id'],
+        },
+      ),
+
+      // 📊 GET INBOX STATISTICS
+      MCPTool(
+        name: 'directory_get_inbox_stats',
+        description: 'Get inbox statistics for this agent',
+        inputSchema: {
+          'type': 'object',
+          'properties': {
+            'agentName': {
+              'type': 'string',
+              'description': 'Name of the agent making this request',
+            },
+          },
+          'required': ['agentName'],
+        },
+      ),
     ];
   }
 
@@ -328,6 +612,30 @@ class CompanyDirectoryMCPServer extends BaseMCPServer {
 
       case 'directory_unregister_agent':
         return await _unregisterAgent(agentName, arguments);
+
+      case 'directory_send_email':
+        return await _sendEmail(agentName, arguments);
+
+      case 'directory_check_inbox':
+        return await _checkInbox(agentName, arguments);
+
+      case 'directory_get_available_recipients':
+        return await _getAvailableRecipients(agentName, arguments);
+
+      case 'directory_get_email':
+        return await _getEmail(agentName, arguments);
+
+      case 'directory_reply_to_email':
+        return await _replyToEmail(agentName, arguments);
+
+      case 'directory_forward_email':
+        return await _forwardEmail(agentName, arguments);
+
+      case 'directory_delete_email':
+        return await _deleteEmail(agentName, arguments);
+
+      case 'directory_get_inbox_stats':
+        return await _getInboxStats(agentName, arguments);
 
       default:
         throw MCPServerException('Unknown tool: $toolName');
@@ -924,6 +1232,652 @@ Active: ${agents.where((a) => a.status == 'active').length}
 Busy: ${agents.where((a) => a.status == 'busy').length}
 ''';
   }
+
+  /// 📧 SEND EMAIL MESSAGE
+  Future<MCPToolResult> _sendEmail(
+    String agentName,
+    Map<String, dynamic> arguments,
+  ) async {
+    try {
+      final to =
+          (arguments['to'] as List<dynamic>).map((e) => e.toString()).toList();
+      final cc = (arguments['cc'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
+          .toList();
+      final bcc = (arguments['bcc'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
+          .toList();
+      final subject = arguments['subject'] as String;
+      final body = arguments['body'] as String;
+      final priority = arguments['priority'] as String? ?? 'normal';
+      final attachments = arguments['attachments'] as List<dynamic>? ?? [];
+
+      // Find sender agent
+      final sender = _agentRegistry.values
+          .where((agent) => agent.sessionName == agentName)
+          .firstOrNull;
+
+      if (sender == null) {
+        throw MCPServerException('Sender agent not registered in directory');
+      }
+
+      // Process attachments
+      final emailAttachments = attachments.map((attachment) {
+        final att = attachment as Map<String, dynamic>;
+        return EmailAttachment(
+          filename: att['filename'] as String,
+          content: att['content'] as String,
+          mimeType: att['mime_type'] as String,
+        );
+      }).toList();
+
+      // Create email message
+      final emailMessage = EmailMessage(
+        id: 'email_${DateTime.now().millisecondsSinceEpoch}_${sender.id}',
+        senderId: sender.id,
+        senderName: sender.name,
+        toRecipients: to,
+        ccRecipients: cc,
+        bccRecipients: bcc,
+        subject: subject,
+        body: body,
+        priority: priority,
+        sentAt: DateTime.now(),
+        attachments: emailAttachments,
+      );
+
+      // Deliver email to all recipients
+      final allRecipients = [...to, ...cc, ...bcc];
+      final deliveredTo = <String>[];
+
+      for (final recipientId in allRecipients) {
+        // Try to find recipient by ID first, then by sessionName, then by name
+        AgentInfo? recipient = _agentRegistry[recipientId];
+        recipient ??= _agentRegistry.values
+            .where((agent) => agent.sessionName == recipientId)
+            .firstOrNull;
+        recipient ??= _agentRegistry.values
+            .where((agent) =>
+                agent.name.toLowerCase() == recipientId.toLowerCase())
+            .firstOrNull;
+
+        if (recipient != null) {
+          // Add email to recipient's inbox
+          recipient.addEmail(emailMessage);
+          deliveredTo.add(recipient.name);
+        }
+      }
+
+      await _persistDirectory();
+
+      final result = {
+        'success': true,
+        'email_id': emailMessage.id,
+        'subject': subject,
+        'delivered_to': deliveredTo,
+        'total_recipients': allRecipients.length,
+        'successful_deliveries': deliveredTo.length,
+        'sent_at': emailMessage.sentAt.toIso8601String(),
+        'thread_id': emailMessage.threadId,
+      };
+
+      return MCPToolResult(
+        content: [MCPContent.text(jsonEncode(result))],
+      );
+    } catch (e) {
+      return MCPToolResult(
+        content: [MCPContent.text('Error sending email: $e')],
+        isError: true,
+      );
+    }
+  }
+
+  /// 📬 CHECK INBOX
+  Future<MCPToolResult> _checkInbox(
+    String agentName,
+    Map<String, dynamic> arguments,
+  ) async {
+    try {
+      final markAsRead = arguments['mark_as_read'] as bool? ?? false;
+      final includeRead = arguments['include_read'] as bool? ?? false;
+      final limit = arguments['limit'] as int? ?? 20;
+
+      // Find agent
+      final agent = _agentRegistry.values
+          .where((agent) => agent.sessionName == agentName)
+          .firstOrNull;
+
+      if (agent == null) {
+        throw MCPServerException('Agent not registered in directory');
+      }
+
+      var emails = agent.emailInbox.toList();
+
+      // Apply read status filter
+      if (!includeRead) {
+        emails = emails.where((email) => !email.isRead).toList();
+      }
+
+      // Sort by sent time (newest first)
+      emails.sort((a, b) => b.sentAt.compareTo(a.sentAt));
+
+      // Apply limit
+      if (emails.length > limit) {
+        emails = emails.take(limit).toList();
+      }
+
+      // Mark emails as read if requested
+      if (markAsRead) {
+        for (final email in emails) {
+          agent.markEmailAsRead(email.id);
+        }
+        await _persistDirectory();
+      }
+
+      // Prepare email summaries for response
+      final emailSummaries = emails
+          .map((email) => {
+                'id': email.id,
+                'subject': email.subject,
+                'sender_name': email.senderName,
+                'sender_id': email.senderId,
+                'to_recipients': email.toRecipients,
+                'cc_recipients': email.ccRecipients,
+                'priority': email.priority,
+                'sent_at': email.sentAt.toIso8601String(),
+                'is_read': email.isRead,
+                'preview': email.preview,
+                'thread_id': email.threadId,
+                'is_reply': email.isReply,
+                'is_forwarded': email.isForwarded,
+                'attachment_count': email.attachments.length,
+                ...(() {
+                  final readAtValue = email.readAt;
+                  if (readAtValue != null) {
+                    return {'read_at': readAtValue.toIso8601String()};
+                  }
+                  return <String, dynamic>{};
+                })(),
+              })
+          .toList();
+
+      final result = {
+        'success': true,
+        'total_emails': emails.length,
+        'unread_count': agent.unreadEmailCount,
+        'total_inbox_count': agent.totalEmailCount,
+        'emails': emailSummaries,
+        'checked_at': DateTime.now().toIso8601String(),
+      };
+
+      return MCPToolResult(
+        content: [MCPContent.text(jsonEncode(result))],
+      );
+    } catch (e) {
+      return MCPToolResult(
+        content: [MCPContent.text('Error checking inbox: $e')],
+        isError: true,
+      );
+    }
+  }
+
+  /// 📋 GET AVAILABLE RECIPIENTS
+  Future<MCPToolResult> _getAvailableRecipients(
+    String agentName,
+    Map<String, dynamic> arguments,
+  ) async {
+    try {
+      final statusFilter = arguments['status_filter'] as String? ?? 'active';
+      final roleFilter = arguments['role_filter'] as String?;
+      final capabilityFilter = arguments['capability_filter'] as String?;
+      final includeSelf = arguments['include_self'] as bool? ?? false;
+
+      var recipients = _agentRegistry.values.toList();
+
+      // Apply status filter
+      recipients =
+          recipients.where((agent) => agent.status == statusFilter).toList();
+
+      // Apply role filter
+      if (roleFilter != null && roleFilter.isNotEmpty) {
+        recipients = recipients
+            .where((agent) =>
+                agent.role.toLowerCase().contains(roleFilter.toLowerCase()))
+            .toList();
+      }
+
+      // Apply capability filter
+      if (capabilityFilter != null && capabilityFilter.isNotEmpty) {
+        recipients = recipients
+            .where((agent) => agent.capabilities.any((cap) =>
+                cap.toLowerCase().contains(capabilityFilter.toLowerCase())))
+            .toList();
+      }
+
+      // Include self if requested
+      if (includeSelf) {
+        recipients.add(_agentRegistry.values
+            .firstWhere((agent) => agent.sessionName == agentName));
+      }
+
+      final result = {
+        'success': true,
+        'total_recipients': recipients.length,
+        'recipients': recipients.map((agent) => agent.toJson()).toList(),
+      };
+
+      return MCPToolResult(
+        content: [MCPContent.text(jsonEncode(result))],
+      );
+    } catch (e) {
+      return MCPToolResult(
+        content: [MCPContent.text('Error getting available recipients: $e')],
+        isError: true,
+      );
+    }
+  }
+
+  /// 📧 GET EMAIL MESSAGE
+  Future<MCPToolResult> _getEmail(
+    String agentName,
+    Map<String, dynamic> arguments,
+  ) async {
+    try {
+      final emailId = arguments['email_id'] as String;
+      final markAsRead = arguments['mark_as_read'] as bool? ?? true;
+
+      // Find agent
+      final agent = _agentRegistry.values
+          .where((agent) => agent.sessionName == agentName)
+          .firstOrNull;
+
+      if (agent == null) {
+        throw MCPServerException('Agent not registered in directory');
+      }
+
+      // Find email message
+      final emailIndex =
+          agent.emailInbox.indexWhere((email) => email.id == emailId);
+      if (emailIndex == -1) {
+        throw MCPServerException('Email message not found');
+      }
+
+      final email = agent.emailInbox[emailIndex];
+
+      // Mark email as read if requested
+      if (markAsRead && !email.isRead) {
+        agent.markEmailAsRead(emailId);
+        await _persistDirectory();
+      }
+
+      final result = {
+        'success': true,
+        'email_id': emailId,
+        'subject': email.subject,
+        'sender_name': email.senderName,
+        'sender_id': email.senderId,
+        'to_recipients': email.toRecipients,
+        'cc_recipients': email.ccRecipients,
+        'bcc_recipients': email.bccRecipients,
+        'body': email.body,
+        'priority': email.priority,
+        'sent_at': email.sentAt.toIso8601String(),
+        'is_read': email.isRead,
+        'thread_id': email.threadId,
+        'is_reply': email.isReply,
+        'is_forwarded': email.isForwarded,
+        'attachments': email.attachments
+            .map((a) => {
+                  'filename': a.filename,
+                  'mime_type': a.mimeType,
+                  'size': a.size,
+                  'human_readable_size': a.humanReadableSize,
+                })
+            .toList(),
+        ...(() {
+          final readAtValue = email.readAt;
+          if (readAtValue != null) {
+            return {'read_at': readAtValue.toIso8601String()};
+          }
+          return <String, dynamic>{};
+        })(),
+        ...(() {
+          final replyToIdValue = email.replyToId;
+          if (replyToIdValue != null) {
+            return {'reply_to_id': replyToIdValue};
+          }
+          return <String, dynamic>{};
+        })(),
+        ...(() {
+          final forwardFromIdValue = email.forwardFromId;
+          if (forwardFromIdValue != null) {
+            return {'forward_from_id': forwardFromIdValue};
+          }
+          return <String, dynamic>{};
+        })(),
+      };
+
+      return MCPToolResult(
+        content: [MCPContent.text(jsonEncode(result))],
+      );
+    } catch (e) {
+      return MCPToolResult(
+        content: [MCPContent.text('Error getting email: $e')],
+        isError: true,
+      );
+    }
+  }
+
+  /// 📧 REPLY TO EMAIL
+  Future<MCPToolResult> _replyToEmail(
+    String agentName,
+    Map<String, dynamic> arguments,
+  ) async {
+    try {
+      final emailId = arguments['email_id'] as String;
+      final body = arguments['body'] as String;
+      final includeOriginal = arguments['include_original'] as bool? ?? true;
+      final priority = arguments['priority'] as String? ?? 'normal';
+
+      // Find agent
+      final agent = _agentRegistry.values
+          .where((agent) => agent.sessionName == agentName)
+          .firstOrNull;
+
+      if (agent == null) {
+        throw MCPServerException('Agent not registered in directory');
+      }
+
+      // Find original email message
+      final emailIndex =
+          agent.emailInbox.indexWhere((email) => email.id == emailId);
+      if (emailIndex == -1) {
+        throw MCPServerException('Email message not found');
+      }
+
+      final originalEmail = agent.emailInbox[emailIndex];
+
+      // Prepare reply body
+      String replyBody = body;
+      if (includeOriginal) {
+        replyBody += '\n\n--- Original Message ---\n';
+        replyBody += 'From: ${originalEmail.senderName}\n';
+        replyBody += 'Subject: ${originalEmail.subject}\n';
+        replyBody += 'Date: ${originalEmail.sentAt.toIso8601String()}\n\n';
+        replyBody += originalEmail.body;
+      }
+
+      // Create reply email message
+      final replyEmail = EmailMessage(
+        id: 'reply_${DateTime.now().millisecondsSinceEpoch}_${agent.id}',
+        senderId: agent.id,
+        senderName: agent.name,
+        toRecipients: [originalEmail.senderId], // Reply to original sender
+        ccRecipients:
+            originalEmail.ccRecipients, // Include original CC recipients
+        bccRecipients: [], // Don't include BCC in replies
+        subject: 'Re: ${originalEmail.subject}',
+        body: replyBody,
+        priority: priority,
+        sentAt: DateTime.now(),
+        replyToId: emailId,
+        threadId: originalEmail.threadId, // Maintain thread
+        attachments: [], // No attachments in replies for now
+      );
+
+      // Deliver reply to original sender
+      final originalSender = _agentRegistry[originalEmail.senderId];
+      if (originalSender != null) {
+        originalSender.addEmail(replyEmail);
+      }
+
+      // Also add to sender's own inbox for record keeping
+      agent.addEmail(replyEmail);
+
+      await _persistDirectory();
+
+      final result = {
+        'success': true,
+        'reply_id': replyEmail.id,
+        'original_email_id': emailId,
+        'subject': replyEmail.subject,
+        'sent_to': originalEmail.senderName,
+        'sent_at': replyEmail.sentAt.toIso8601String(),
+        'thread_id': replyEmail.threadId,
+      };
+
+      return MCPToolResult(
+        content: [MCPContent.text(jsonEncode(result))],
+      );
+    } catch (e) {
+      return MCPToolResult(
+        content: [MCPContent.text('Error replying to email: $e')],
+        isError: true,
+      );
+    }
+  }
+
+  /// 📧 FORWARD EMAIL
+  Future<MCPToolResult> _forwardEmail(
+    String agentName,
+    Map<String, dynamic> arguments,
+  ) async {
+    try {
+      final emailId = arguments['email_id'] as String;
+      final to =
+          (arguments['to'] as List<dynamic>).map((e) => e.toString()).toList();
+      final cc = (arguments['cc'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
+          .toList();
+      final bcc = (arguments['bcc'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
+          .toList();
+      final forwardNote = arguments['forward_note'] as String? ?? '';
+
+      // Find agent
+      final agent = _agentRegistry.values
+          .where((agent) => agent.sessionName == agentName)
+          .firstOrNull;
+
+      if (agent == null) {
+        throw MCPServerException('Agent not registered in directory');
+      }
+
+      // Find original email message
+      final emailIndex =
+          agent.emailInbox.indexWhere((email) => email.id == emailId);
+      if (emailIndex == -1) {
+        throw MCPServerException('Email message not found');
+      }
+
+      final originalEmail = agent.emailInbox[emailIndex];
+
+      // Prepare forwarded body
+      String forwardedBody = '';
+      if (forwardNote.isNotEmpty) {
+        forwardedBody += '$forwardNote\n\n';
+      }
+      forwardedBody += '--- Forwarded Message ---\n';
+      forwardedBody += 'From: ${originalEmail.senderName}\n';
+      forwardedBody += 'Subject: ${originalEmail.subject}\n';
+      forwardedBody += 'Date: ${originalEmail.sentAt.toIso8601String()}\n';
+      if (originalEmail.toRecipients.isNotEmpty) {
+        forwardedBody += 'To: ${originalEmail.toRecipients.join(', ')}\n';
+      }
+      if (originalEmail.ccRecipients.isNotEmpty) {
+        forwardedBody += 'CC: ${originalEmail.ccRecipients.join(', ')}\n';
+      }
+      forwardedBody += '\n${originalEmail.body}';
+
+      // Create forwarded email message
+      final forwardedEmail = EmailMessage(
+        id: 'forward_${DateTime.now().millisecondsSinceEpoch}_${agent.id}',
+        senderId: agent.id,
+        senderName: agent.name,
+        toRecipients: to,
+        ccRecipients: cc,
+        bccRecipients: bcc,
+        subject: 'Fwd: ${originalEmail.subject}',
+        body: forwardedBody,
+        priority: originalEmail.priority,
+        sentAt: DateTime.now(),
+        forwardFromId: emailId,
+        threadId:
+            'forward_${originalEmail.threadId}', // New thread for forwarded message
+        attachments: originalEmail.attachments, // Include original attachments
+      );
+
+      // Deliver forwarded email to all recipients
+      final allRecipients = [...to, ...cc, ...bcc];
+      final deliveredTo = <String>[];
+
+      for (final recipientId in allRecipients) {
+        // Try to find recipient by ID first, then by sessionName, then by name
+        AgentInfo? recipient = _agentRegistry[recipientId];
+        recipient ??= _agentRegistry.values
+            .where((agent) => agent.sessionName == recipientId)
+            .firstOrNull;
+        recipient ??= _agentRegistry.values
+            .where((agent) =>
+                agent.name.toLowerCase() == recipientId.toLowerCase())
+            .firstOrNull;
+
+        if (recipient != null) {
+          // Add forwarded email to recipient's inbox
+          recipient.addEmail(forwardedEmail);
+          deliveredTo.add(recipient.name);
+        }
+      }
+
+      await _persistDirectory();
+
+      final result = {
+        'success': true,
+        'forwarded_email_id': forwardedEmail.id,
+        'original_email_id': emailId,
+        'subject': forwardedEmail.subject,
+        'delivered_to': deliveredTo,
+        'total_recipients': allRecipients.length,
+        'successful_deliveries': deliveredTo.length,
+        'sent_at': forwardedEmail.sentAt.toIso8601String(),
+        'thread_id': forwardedEmail.threadId,
+      };
+
+      return MCPToolResult(
+        content: [MCPContent.text(jsonEncode(result))],
+      );
+    } catch (e) {
+      return MCPToolResult(
+        content: [MCPContent.text('Error forwarding email: $e')],
+        isError: true,
+      );
+    }
+  }
+
+  /// 📧 DELETE EMAIL
+  Future<MCPToolResult> _deleteEmail(
+    String agentName,
+    Map<String, dynamic> arguments,
+  ) async {
+    try {
+      final emailId = arguments['email_id'] as String;
+      final permanent = arguments['permanent'] as bool? ?? false;
+
+      // Find agent
+      final agent = _agentRegistry.values
+          .where((agent) => agent.sessionName == agentName)
+          .firstOrNull;
+
+      if (agent == null) {
+        throw MCPServerException('Agent not registered in directory');
+      }
+
+      // Find email message
+      final emailIndex =
+          agent.emailInbox.indexWhere((email) => email.id == emailId);
+      if (emailIndex == -1) {
+        throw MCPServerException('Email message not found');
+      }
+
+      final email = agent.emailInbox[emailIndex];
+
+      // Remove email from inbox
+      final removed = agent.removeEmail(emailId);
+      if (!removed) {
+        throw MCPServerException('Failed to delete email');
+      }
+
+      await _persistDirectory();
+
+      final result = {
+        'success': true,
+        'email_id': emailId,
+        'subject': email.subject,
+        'deleted_at': DateTime.now().toIso8601String(),
+        'permanent': permanent,
+        'message': 'Email deleted successfully',
+      };
+
+      return MCPToolResult(
+        content: [MCPContent.text(jsonEncode(result))],
+      );
+    } catch (e) {
+      return MCPToolResult(
+        content: [MCPContent.text('Error deleting email: $e')],
+        isError: true,
+      );
+    }
+  }
+
+  /// 📊 GET INBOX STATISTICS
+  Future<MCPToolResult> _getInboxStats(
+    String agentName,
+    Map<String, dynamic> arguments,
+  ) async {
+    try {
+      // Find agent
+      final agent = _agentRegistry.values
+          .where((agent) => agent.sessionName == agentName)
+          .firstOrNull;
+
+      if (agent == null) {
+        throw MCPServerException('Agent not registered in directory');
+      }
+
+      // Calculate email statistics
+      final totalEmails = agent.totalEmailCount;
+      final unreadEmails = agent.unreadEmailCount;
+      final readEmails = totalEmails - unreadEmails;
+
+      // Calculate priority statistics
+      final highPriorityEmails = agent.getEmailsByPriority('high').length;
+      final urgentEmails = agent.getEmailsByPriority('urgent').length;
+
+      // Calculate thread statistics
+      final threadIds = agent.emailInbox.map((e) => e.threadId).toSet();
+      final totalThreads = threadIds.length;
+
+      final result = {
+        'success': true,
+        'total_emails': totalEmails,
+        'unread_emails': unreadEmails,
+        'read_emails': readEmails,
+        'high_priority_emails': highPriorityEmails,
+        'urgent_emails': urgentEmails,
+        'total_threads': totalThreads,
+        'last_checked': DateTime.now().toIso8601String(),
+      };
+
+      return MCPToolResult(
+        content: [MCPContent.text(jsonEncode(result))],
+      );
+    } catch (e) {
+      return MCPToolResult(
+        content: [MCPContent.text('Error getting inbox statistics: $e')],
+        isError: true,
+      );
+    }
+  }
 }
 
 /// 👤 **AGENT INFO**: Agent metadata and state
@@ -939,6 +1893,7 @@ class AgentInfo {
   final String sessionName;
   final String statusMessage;
   final List<DirectoryMessage> messages;
+  final List<EmailMessage> emailInbox; // 📧 Separate email inbox
 
   AgentInfo({
     required this.id,
@@ -952,13 +1907,16 @@ class AgentInfo {
     required this.sessionName,
     this.statusMessage = '',
     List<DirectoryMessage>? messages,
-  }) : messages = messages ?? [];
+    List<EmailMessage>? emailInbox,
+  })  : messages = messages ?? [],
+        emailInbox = emailInbox ?? [];
 
   AgentInfo copyWith({
     String? status,
     String? statusMessage,
     DateTime? lastSeen,
     List<DirectoryMessage>? messages,
+    List<EmailMessage>? emailInbox,
   }) {
     return AgentInfo(
       id: id,
@@ -972,6 +1930,7 @@ class AgentInfo {
       sessionName: sessionName,
       statusMessage: statusMessage ?? this.statusMessage,
       messages: messages ?? this.messages,
+      emailInbox: emailInbox ?? this.emailInbox,
     );
   }
 
@@ -987,6 +1946,7 @@ class AgentInfo {
         'session_name': sessionName,
         'status_message': statusMessage,
         'messages': messages.map((m) => m.toJson()).toList(),
+        'email_inbox': emailInbox.map((e) => e.toJson()).toList(),
       };
 
   factory AgentInfo.fromJson(Map<String, dynamic> json) {
@@ -1005,7 +1965,55 @@ class AgentInfo {
               ?.map((m) => DirectoryMessage.fromJson(m as Map<String, dynamic>))
               .toList() ??
           [],
+      emailInbox: (json['email_inbox'] as List?)
+              ?.map((e) => EmailMessage.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
+  }
+
+  /// 📧 Get unread email count
+  int get unreadEmailCount => emailInbox.where((email) => !email.isRead).length;
+
+  /// 📧 Get total email count
+  int get totalEmailCount => emailInbox.length;
+
+  /// 📧 Get emails by priority
+  List<EmailMessage> getEmailsByPriority(String priority) {
+    return emailInbox.where((email) => email.priority == priority).toList();
+  }
+
+  /// 📧 Get emails by thread
+  List<EmailMessage> getEmailsByThread(String threadId) {
+    return emailInbox.where((email) => email.threadId == threadId).toList();
+  }
+
+  /// 📧 Add email to inbox
+  void addEmail(EmailMessage email) {
+    emailInbox.add(email);
+  }
+
+  /// 📧 Remove email from inbox
+  bool removeEmail(String emailId) {
+    final index = emailInbox.indexWhere((email) => email.id == emailId);
+    if (index != -1) {
+      emailInbox.removeAt(index);
+      return true;
+    }
+    return false;
+  }
+
+  /// 📧 Mark email as read
+  bool markEmailAsRead(String emailId) {
+    final index = emailInbox.indexWhere((email) => email.id == emailId);
+    if (index != -1) {
+      emailInbox[index] = emailInbox[index].copyWith(
+        isRead: true,
+        readAt: DateTime.now(),
+      );
+      return true;
+    }
+    return false;
   }
 }
 
@@ -1095,6 +2103,192 @@ class DirectoryMessage {
   }
 }
 
+/// 📧 **EMAIL MESSAGE**: Enhanced email-like messaging with full email features
+class EmailMessage {
+  final String id;
+  final String senderId;
+  final String senderName;
+  final List<String> toRecipients;
+  final List<String> ccRecipients;
+  final List<String> bccRecipients;
+  final String subject;
+  final String body;
+  final String priority;
+  final DateTime sentAt;
+  final bool isRead;
+  final DateTime? readAt;
+  final String? replyToId;
+  final String? forwardFromId;
+  final List<EmailAttachment> attachments;
+  final String threadId;
+
+  EmailMessage({
+    required this.id,
+    required this.senderId,
+    required this.senderName,
+    required this.toRecipients,
+    this.ccRecipients = const [],
+    this.bccRecipients = const [],
+    required this.subject,
+    required this.body,
+    this.priority = 'normal',
+    required this.sentAt,
+    this.isRead = false,
+    this.readAt,
+    this.replyToId,
+    this.forwardFromId,
+    this.attachments = const [],
+    String? threadId,
+  }) : threadId = threadId ?? id;
+
+  EmailMessage copyWith({
+    bool? isRead,
+    DateTime? readAt,
+    List<String>? toRecipients,
+    List<String>? ccRecipients,
+    List<String>? bccRecipients,
+  }) {
+    return EmailMessage(
+      id: id,
+      senderId: senderId,
+      senderName: senderName,
+      toRecipients: toRecipients ?? this.toRecipients,
+      ccRecipients: ccRecipients ?? this.ccRecipients,
+      bccRecipients: bccRecipients ?? this.bccRecipients,
+      subject: subject,
+      body: body,
+      priority: priority,
+      sentAt: sentAt,
+      isRead: isRead ?? this.isRead,
+      readAt: readAt ?? this.readAt,
+      replyToId: replyToId,
+      forwardFromId: forwardFromId,
+      attachments: attachments,
+      threadId: threadId,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'sender_id': senderId,
+        'sender_name': senderName,
+        'to_recipients': toRecipients,
+        'cc_recipients': ccRecipients,
+        'bcc_recipients': bccRecipients,
+        'subject': subject,
+        'body': body,
+        'priority': priority,
+        'sent_at': sentAt.toIso8601String(),
+        'is_read': isRead,
+        'thread_id': threadId,
+        'attachments': attachments.map((a) => a.toJson()).toList(),
+        ...(() {
+          final readAtValue = readAt;
+          if (readAtValue != null) {
+            return {'read_at': readAtValue.toIso8601String()};
+          }
+          return <String, dynamic>{};
+        })(),
+        ...(() {
+          final replyToIdValue = replyToId;
+          if (replyToIdValue != null) {
+            return {'reply_to_id': replyToIdValue};
+          }
+          return <String, dynamic>{};
+        })(),
+        ...(() {
+          final forwardFromIdValue = forwardFromId;
+          if (forwardFromIdValue != null) {
+            return {'forward_from_id': forwardFromIdValue};
+          }
+          return <String, dynamic>{};
+        })(),
+      };
+
+  factory EmailMessage.fromJson(Map<String, dynamic> json) {
+    return EmailMessage(
+      id: json['id'] as String,
+      senderId: json['sender_id'] as String,
+      senderName: json['sender_name'] as String,
+      toRecipients: List<String>.from(json['to_recipients'] as List),
+      ccRecipients: List<String>.from(json['cc_recipients'] as List? ?? []),
+      bccRecipients: List<String>.from(json['bcc_recipients'] as List? ?? []),
+      subject: json['subject'] as String,
+      body: json['body'] as String,
+      priority: json['priority'] as String? ?? 'normal',
+      sentAt: DateTime.parse(json['sent_at'] as String),
+      isRead: json['is_read'] as bool? ?? false,
+      readAt: json['read_at'] != null
+          ? DateTime.parse(json['read_at'] as String)
+          : null,
+      replyToId: json['reply_to_id'] as String?,
+      forwardFromId: json['forward_from_id'] as String?,
+      attachments: (json['attachments'] as List?)
+              ?.map((a) => EmailAttachment.fromJson(a as Map<String, dynamic>))
+              .toList() ??
+          [],
+      threadId: json['thread_id'] as String? ?? json['id'] as String,
+    );
+  }
+
+  /// Get all recipients (to, cc, bcc combined)
+  List<String> get allRecipients => [
+        ...toRecipients,
+        ...ccRecipients,
+        ...bccRecipients,
+      ];
+
+  /// Check if this is a reply
+  bool get isReply => replyToId != null;
+
+  /// Check if this is a forwarded message
+  bool get isForwarded => forwardFromId != null;
+
+  /// Get preview text (first 100 characters of body)
+  String get preview {
+    final cleanBody = body.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return cleanBody.length > 100
+        ? '${cleanBody.substring(0, 100)}...'
+        : cleanBody;
+  }
+}
+
+/// 📎 **EMAIL ATTACHMENT**: File attachments for email messages
+class EmailAttachment {
+  final String filename;
+  final String content;
+  final String mimeType;
+  final int size;
+
+  EmailAttachment({
+    required this.filename,
+    required this.content,
+    required this.mimeType,
+  }) : size = content.length;
+
+  Map<String, dynamic> toJson() => {
+        'filename': filename,
+        'content': content,
+        'mime_type': mimeType,
+        'size': size,
+      };
+
+  factory EmailAttachment.fromJson(Map<String, dynamic> json) {
+    return EmailAttachment(
+      filename: json['filename'] as String,
+      content: json['content'] as String,
+      mimeType: json['mime_type'] as String,
+    );
+  }
+
+  /// Get human-readable file size
+  String get humanReadableSize {
+    if (size < 1024) return '$size B';
+    if (size < 1024 * 1024) return '${(size / 1024).toStringAsFixed(1)} KB';
+    return '${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+}
+
 /// 🎯 **MAIN ENTRY POINT**: Standalone executable for the company directory server
 ///
 /// Usage: dart mcp/company_directory_server.dart [--persist-dir /path/to/persistence]
@@ -1149,6 +2343,14 @@ Available Tools:
   📬 directory_get_messages - Get messages for this agent
   ✅ directory_mark_message_read - Mark message as read
   🗑️ directory_unregister_agent - Remove agent from directory
+  📧 directory_send_email - Send an email-like message to one or more agents
+  📬 directory_check_inbox - Check this agent's inbox for new messages
+  📋 directory_get_available_recipients - Get list of agents available to receive messages
+  📧 directory_get_email - Get a specific email message by ID
+  📧 directory_reply_to_email - Reply to a specific email message
+  📧 directory_forward_email - Forward an email message to other agents
+  📧 directory_delete_email - Delete an email message from inbox
+  📊 directory_get_inbox_stats - Get inbox statistics for this agent
 
 Examples:
   dart company_directory_server.dart

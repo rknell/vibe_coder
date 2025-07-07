@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:vibe_coder/components/agents/agent_settings_dialog.dart';
 import 'package:vibe_coder/components/common/dialogs/mcp_server_management_dialog.dart';
@@ -281,13 +280,58 @@ class _DiscordHomeScreenState extends State<DiscordHomeScreen>
   /// Handle agent selection
   ///
   /// INTEGRATION: Agent selection coordination with object-oriented pattern
-  void _handleAgentSelected(AgentModel agent) {
+  void _handleAgentSelected(AgentModel? agent) {
     setState(() {
       _selectedAgent = agent;
     });
 
-    // Future integration: Update chat service to show selected agent's conversation
-    debugPrint('🤖 Agent selected: ${agent.name} (${agent.id})');
+    if (agent != null) {
+      // 🚀 MCP CONTENT LOADING: Start polling for agent's MCP content
+      _startMCPContentPolling(agent);
+
+      // Future integration: Update chat service to show selected agent's conversation
+      debugPrint('🤖 Agent selected: ${agent.name} (${agent.id})');
+    } else {
+      // 🛑 MCP CONTENT LOADING: Stop polling when no agent selected
+      _stopMCPContentPolling();
+      debugPrint('🛑 Agent deselected: Stopping MCP content polling');
+    }
+  }
+
+  /// 🚀 Start MCP content polling for selected agent
+  ///
+  /// PERF: O(1) - service method call
+  /// ARCHITECTURAL: Integrates with MCPContentService for real-time content updates
+  void _startMCPContentPolling(AgentModel agent) {
+    try {
+      final mcpContentService = services.mcpContentService;
+
+      // Start polling for this agent's MCP content
+      mcpContentService.startPolling(agent.id);
+
+      // Trigger initial content fetch
+      services.mcpService.fetchAgentContent(agent.id);
+
+      debugPrint(
+          '🔄 MCP CONTENT: Started polling for agent ${agent.name} (${agent.id})');
+    } catch (e) {
+      debugPrint(
+          '⚠️ MCP CONTENT: Failed to start polling for agent ${agent.name}: $e');
+    }
+  }
+
+  /// 🛑 Stop MCP content polling when no agent selected
+  ///
+  /// PERF: O(1) - service method call
+  /// ARCHITECTURAL: Clean resource management when agent deselected
+  void _stopMCPContentPolling() {
+    try {
+      final mcpContentService = services.mcpContentService;
+      mcpContentService.stopPolling();
+      debugPrint('🛑 MCP CONTENT: Stopped polling (no agent selected)');
+    } catch (e) {
+      debugPrint('⚠️ MCP CONTENT: Failed to stop polling: $e');
+    }
   }
 
   /// Handle agent creation with proper error handling

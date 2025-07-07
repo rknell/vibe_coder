@@ -109,7 +109,7 @@ class EmptyAgentState extends StatelessWidget {
 class AgentList extends StatelessWidget {
   final List<AgentModel> agents;
   final AgentModel? selectedAgent;
-  final void Function(AgentModel)? onAgentSelected;
+  final void Function(AgentModel?)? onAgentSelected;
   final void Function()? onCreateAgent;
 
   const AgentList({
@@ -201,7 +201,7 @@ class AgentSidebarComponent extends StatelessWidget {
   final AgentModel? selectedAgent;
 
   /// Callback when an agent is selected (object-oriented pattern)
-  final void Function(AgentModel)? onAgentSelected;
+  final void Function(AgentModel?)? onAgentSelected;
 
   /// Callback when create agent is requested
   final void Function()? onCreateAgent;
