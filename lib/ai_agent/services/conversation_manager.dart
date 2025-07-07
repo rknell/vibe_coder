@@ -555,7 +555,6 @@ $content
     // 🔄 TOOL REFRESH PROTOCOL: Ensure MCP tools are current before each API call
     // This prevents stale tool information from being used when users add/remove tools
     _refreshMCPToolsBeforeCall();
-    
 
     // NOTE: notepad, to-do list, and inbox are now implemented as MCP servers
     // Context is provided through MCP tool calls instead of hardcoded context
@@ -761,9 +760,18 @@ $content
   }
 
   /// Clears the conversation history, starting a new conversation.
+  ///
+  /// 🛡️ SYSTEM PROMPT PERSISTENCE: Preserves system messages and context messages
+  /// during conversation clearing to maintain agent behavior and configuration.
   void clearConversation() {
     _logger.fine('[$id] Clearing conversation history');
-    _messages.removeWhere((message) => message.role != MessageRole.system);
+
+    // 🛡️ PRESERVE SYSTEM MESSAGES: Keep system messages and context messages
+    // System messages are stored as MessageRole.assistant with contextId: "system"
+    // Context messages have various contextId values but should be preserved
+    _messages.removeWhere((message) =>
+        message.role != MessageRole.system && message.contextId == null);
+
     _reasoningContent.clear();
   }
 

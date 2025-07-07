@@ -290,4 +290,145 @@ void main() {
       expect(conversationManager.lastToolCalls![1]['id'], equals('call_2'));
     });
   });
+
+  group('🛡️ SYSTEM PROMPT PERSISTENCE: Conversation Clearing', () {
+    late ConversationManager conversationManager;
+    late Agent agent;
+    late AgentModel agentModel;
+
+    setUp(() {
+      // Create test agent and conversation manager
+      agentModel = AgentModel(
+        id: 'test-agent-system',
+        name: 'Test Agent System',
+        systemPrompt: 'You are a helpful coding assistant',
+      );
+
+      agent = Agent(agentModel: agentModel);
+
+      conversationManager = ConversationManager(
+        name: 'test-conversation-system',
+        agent: agent,
+      );
+    });
+
+    test('🛡️ REGRESSION: System messages persist when conversation is cleared', () {
+      // This test verifies that system prompts are preserved during conversation clearing
+      // This was a critical bug where system messages were being lost
+
+      // Add system message (stored as MessageRole.assistant with contextId: "system")
+      conversationManager.addSystemMessage('You are a helpful coding assistant');
+      
+      // Add some conversation messages
+      conversationManager.addUserMessage('Hello, can you help me with coding?');
+      conversationManager.addAssistantMessage('Of course! I can help you with coding.');
+      conversationManager.addUserMessage('What is the best way to learn Flutter?');
+      conversationManager.addAssistantMessage('Flutter is great! Start with the official docs.');
+
+      // Verify we have messages including system message
+      expect(conversationManager.messageCount, equals(5));
+      
+      // Verify system message is present
+      final messages = conversationManager.messages;
+      final systemMessage = messages.firstWhere(
+        (msg) => msg.contextId == 'system',
+        orElse: () => throw Exception('System message not found'),
+      );
+      expect(systemMessage.content, contains('You are a helpful coding assistant'));
+
+      // Clear the conversation
+      conversationManager.clearConversation();
+
+      // Verify system message persists
+      expect(conversationManager.messageCount, equals(1),
+          reason: 'Only system message should remain after clearing');
+      
+      final remainingMessages = conversationManager.messages;
+      expect(remainingMessages.length, equals(1));
+      expect(remainingMessages[0].contextId, equals('system'));
+      expect(remainingMessages[0].content, contains('You are a helpful coding assistant'));
+    });
+
+    test('🛡️ REGRESSION: Context messages persist when conversation is cleared', () {
+      // This test verifies that context messages are also preserved during clearing
+
+      // Add system message
+      conversationManager.addSystemMessage('You are a helpful assistant');
+      
+      // Add context message
+      conversationManager.addContext('project', 'Current project: VibeCoder Flutter app');
+      
+      // Add conversation messages
+      conversationManager.addUserMessage('What should I work on next?');
+      conversationManager.addAssistantMessage('Based on your project context, I suggest...');
+
+      // Verify we have messages including system and context
+      expect(conversationManager.messageCount, equals(4));
+
+      // Clear the conversation
+      conversationManager.clearConversation();
+
+      // Verify both system and context messages persist
+      expect(conversationManager.messageCount, equals(2),
+          reason: 'System and context messages should remain after clearing');
+      
+      final remainingMessages = conversationManager.messages;
+      expect(remainingMessages.any((msg) => msg.contextId == 'system'), isTrue);
+      expect(remainingMessages.any((msg) => msg.contextId == 'project'), isTrue);
+    });
+
+    test('🛡️ REGRESSION: Regular conversation messages are properly cleared', () {
+      // This test verifies that regular user/assistant messages are actually cleared
+
+      // Add system message
+      conversationManager.addSystemMessage('You are a helpful assistant');
+      
+      // Add regular conversation
+      conversationManager.addUserMessage('Hello');
+      conversationManager.addAssistantMessage('Hi there!');
+      conversationManager.addUserMessage('How are you?');
+      conversationManager.addAssistantMessage('I\'m doing well, thanks!');
+
+      // Verify we have 5 messages (1 system + 4 conversation)
+      expect(conversationManager.messageCount, equals(5));
+
+      // Clear the conversation
+      conversationManager.clearConversation();
+
+      // Verify only system message remains
+      expect(conversationManager.messageCount, equals(1));
+      
+      final remainingMessages = conversationManager.messages;
+      expect(remainingMessages.length, equals(1));
+      expect(remainingMessages[0].contextId, equals('system'));
+      
+      // Verify no regular conversation messages remain
+      expect(remainingMessages.any((msg) => msg.contextId == null), isFalse);
+    });
+
+    test('🎯 ARCHITECTURAL: Reasoning content is properly cleared', () {
+      // This test verifies that reasoning content is cleared as expected
+
+      // Add system message
+      conversationManager.addSystemMessage('You are a helpful assistant');
+      
+      // Add assistant message with reasoning content
+      conversationManager.addAssistantMessage(
+        'Here is my response',
+        reasoningContent: 'Let me think about this step by step...',
+      );
+
+      // Verify reasoning content exists
+      expect(conversationManager.getReasoningContent(1), isNotNull);
+
+      // Clear the conversation
+      conversationManager.clearConversation();
+
+      // Verify reasoning content is cleared
+      expect(conversationManager.getReasoningContent(1), isNull);
+      
+      // Verify system message still exists
+      expect(conversationManager.messageCount, equals(1));
+    });
+  });
 }
