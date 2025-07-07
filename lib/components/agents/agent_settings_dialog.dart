@@ -180,9 +180,9 @@ class _AgentSettingsDialogState extends State<AgentSettingsDialog>
   ///
   /// PERF: O(1) - static string return
   String _getDefaultSystemPrompt() {
-    return '''You are a helpful AI assistant specialized in software development.
-You provide clear, actionable advice and help with coding questions.
-You are direct, professional, and solution-focused.''';
+    return '''I am a helpful AI assistant specialized in software development.
+I provide clear, actionable advice and help with coding questions.
+I am direct, professional, and solution-focused. I use my tools whenever possible.''';
   }
 
   /// Validate form and track changes

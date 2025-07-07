@@ -3,6 +3,7 @@ import 'package:vibe_coder/components/agents/agent_settings_dialog.dart';
 import 'package:vibe_coder/components/common/dialogs/mcp_server_management_dialog.dart';
 import 'package:vibe_coder/components/common/dialogs/tools_info_dialog.dart';
 import 'package:vibe_coder/components/common/indicators/mcp_status_icon.dart';
+import 'package:vibe_coder/components/debug/debug_overlay.dart';
 import 'package:vibe_coder/components/discord_layout/discord_layout_widgets.dart';
 import 'package:vibe_coder/models/agent_model.dart';
 import 'package:vibe_coder/models/layout_preferences_model.dart';
@@ -219,6 +220,7 @@ class _DiscordHomeScreenState extends State<DiscordHomeScreen>
                 onClearConversation: _handleClearConversation,
                 onAgentEdit: _handleAgentEdit,
                 onPanelResize: _handlePanelResize,
+                onDebugOverlay: _handleDebugOverlay,
               );
             },
           );
@@ -395,6 +397,20 @@ class _DiscordHomeScreenState extends State<DiscordHomeScreen>
   /// INTEGRATION: Agent conversation management with object-oriented pattern
   void _handleSendMessage(AgentModel agent, String message) async {
     await agent.sendMessage(message);
+  }
+
+  /// Handle debug overlay display
+  ///
+  /// INTEGRATION: Debug Intelligence Center access from toolbar
+  void _handleDebugOverlay() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DebugOverlay(
+        onClose: () => Navigator.of(context).pop(),
+      ),
+    );
   }
 
   /// Handle conversation clearing for selected agent

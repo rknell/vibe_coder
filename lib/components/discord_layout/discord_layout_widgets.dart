@@ -33,6 +33,7 @@ class DiscordResponsiveLayoutWidget extends StatelessWidget {
   final void Function(AgentModel)? onClearConversation;
   final void Function(AgentModel) onAgentEdit;
   final void Function(double, bool) onPanelResize;
+  final VoidCallback? onDebugOverlay;
 
   /// Creates a Discord responsive layout widget
   ///
@@ -95,6 +96,7 @@ class DiscordResponsiveLayoutWidget extends StatelessWidget {
     required this.onClearConversation,
     required this.onAgentEdit,
     required this.onPanelResize,
+    this.onDebugOverlay,
   });
 
   @override
@@ -153,6 +155,7 @@ class DiscordResponsiveLayoutWidget extends StatelessWidget {
               onSendMessage: onSendMessage,
               onClearConversation: onClearConversation,
               onAgentEdit: onAgentEdit,
+              onDebugOverlay: onDebugOverlay,
             ),
           ),
         ),
@@ -196,9 +199,8 @@ class DiscordResponsiveLayoutWidget extends StatelessWidget {
       return false; // Auto-hide on mobile
     }
 
-    // Check animation state and layout service preferences
-    return leftSidebarAnimation.value > 0.0 &&
-        !services.layoutService.leftSidebarCollapsed;
+    // Check layout service preferences - animation will handle the visual transition
+    return !services.layoutService.leftSidebarCollapsed;
   }
 
   /// Determine if right sidebar should be visible
@@ -209,9 +211,8 @@ class DiscordResponsiveLayoutWidget extends StatelessWidget {
       return false; // Auto-hide on tablet and below
     }
 
-    // Check animation state and layout service preferences
-    return rightSidebarAnimation.value > 0.0 &&
-        !services.layoutService.rightSidebarCollapsed;
+    // Check layout service preferences - animation will handle the visual transition
+    return !services.layoutService.rightSidebarCollapsed;
   }
 }
 

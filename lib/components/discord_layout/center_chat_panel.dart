@@ -76,6 +76,9 @@ class CenterChatPanel extends StatelessWidget {
   /// Callback for editing agent configuration
   final void Function(AgentModel)? onAgentEdit;
 
+  /// Callback for opening debug overlay
+  final VoidCallback? onDebugOverlay;
+
   const CenterChatPanel({
     super.key,
     required this.currentTheme,
@@ -86,6 +89,7 @@ class CenterChatPanel extends StatelessWidget {
     this.onSendMessage,
     this.onClearConversation,
     this.onAgentEdit,
+    this.onDebugOverlay,
   });
 
   @override
@@ -103,6 +107,7 @@ class CenterChatPanel extends StatelessWidget {
             onToggleRightSidebar: onToggleRightSidebar,
             onAgentEdit: onAgentEdit,
             onClearConversation: onClearConversation,
+            onDebugOverlay: onDebugOverlay,
           ),
 
           // Main Chat Content Area

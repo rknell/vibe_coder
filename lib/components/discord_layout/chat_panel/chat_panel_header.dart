@@ -71,6 +71,9 @@ class ChatPanelHeader extends StatelessWidget {
   /// Callback for clearing agent conversation
   final void Function(AgentModel)? onClearConversation;
 
+  /// Callback for opening debug overlay
+  final VoidCallback? onDebugOverlay;
+
   const ChatPanelHeader({
     super.key,
     required this.currentTheme,
@@ -80,6 +83,7 @@ class ChatPanelHeader extends StatelessWidget {
     this.onToggleRightSidebar,
     this.onAgentEdit,
     this.onClearConversation,
+    this.onDebugOverlay,
   });
 
   @override
@@ -151,6 +155,16 @@ class ChatPanelHeader extends StatelessWidget {
                 foregroundColor: selectedAgent!.conversationHistory.isNotEmpty
                     ? Theme.of(context).colorScheme.error
                     : Theme.of(context).disabledColor,
+              ),
+            ),
+
+            // Debug overlay button
+            IconButton(
+              onPressed: onDebugOverlay,
+              icon: const Icon(Icons.bug_report_outlined),
+              tooltip: 'Open Debug Intelligence Center',
+              style: IconButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.tertiary,
               ),
             ),
           ] else ...[

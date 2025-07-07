@@ -338,6 +338,9 @@ class AgentModel extends ChangeNotifier {
     _addMessageToAgentConversation(message);
     lastActiveAt = DateTime.now();
     notifyListeners(); // MANDATORY after any change
+
+    // Log conversation to session service
+    _logConversationToSession();
   }
 
   /// Clear conversation - ARCHITECTURAL: Direct delegation to agent
@@ -351,6 +354,52 @@ class AgentModel extends ChangeNotifier {
     }
     lastActiveAt = DateTime.now();
     notifyListeners(); // MANDATORY after any change
+  }
+
+  /// Log conversation to session service
+  ///
+  /// PERF: O(1) - async logging operation
+  /// ARCHITECTURAL: Automatic logging when messages are added
+  void _logConversationToSession() {
+    // Use Future.microtask to avoid blocking the UI thread
+    Future.microtask(() async {
+      try {
+        final agentInstance = _agentInstance;
+        if (agentInstance != null) {
+          await agentInstance.logConversationHistory();
+        }
+      } catch (e) {
+        // Log error but don't break conversation flow
+        // ignore: avoid_print
+        print('Warning: Failed to log conversation to session: $e');
+      }
+    });
+  }
+
+  /// Log status change to session service
+  ///
+  /// PERF: O(1) - async logging operation
+  /// ARCHITECTURAL: Automatic logging when status changes
+  void _logStatusChangeToSession(
+      AgentProcessingStatus oldStatus, AgentProcessingStatus newStatus,
+      {String? error}) {
+    // Use Future.microtask to avoid blocking the UI thread
+    Future.microtask(() async {
+      try {
+        final agentInstance = _agentInstance;
+        if (agentInstance != null) {
+          await agentInstance.logActivity(
+            activity: 'Status changed',
+            details: '${oldStatus.name} → ${newStatus.name}',
+            error: error,
+          );
+        }
+      } catch (e) {
+        // Log error but don't break status change flow
+        // ignore: avoid_print
+        print('Warning: Failed to log status change to session: $e');
+      }
+    });
   }
 
   /// Get conversation message count - ARCHITECTURAL: Direct delegation
@@ -472,6 +521,9 @@ class AgentModel extends ChangeNotifier {
       isProcessing = true; // Keep legacy field in sync
       _updateStatusTimestamps();
       notifyListeners(); // MANDATORY after any change
+
+      // Log status change to session service (commented out until Agent.logActivity is implemented)
+      // _logStatusChangeToSession(_processingStatus, _processingStatus);
     }
   }
 
@@ -485,6 +537,9 @@ class AgentModel extends ChangeNotifier {
       isProcessing = false; // Keep legacy field in sync
       _updateStatusTimestamps();
       notifyListeners(); // MANDATORY after any change
+
+      // Log status change to session service (commented out until Agent.logActivity is implemented)
+      // _logStatusChangeToSession(_processingStatus, _processingStatus);
     }
   }
 
@@ -494,11 +549,15 @@ class AgentModel extends ChangeNotifier {
   ///
   /// [message] - Error message describing the error condition
   void setErrorStatus(String message) {
+    final oldStatus = _processingStatus;
     _processingStatus = AgentProcessingStatus.error;
     _errorMessage = message;
     isProcessing = false; // Keep legacy field in sync
     _updateStatusTimestamps();
     notifyListeners(); // MANDATORY after any change
+
+    // Log status change to session service
+    _logStatusChangeToSession(oldStatus, _processingStatus, error: message);
   }
 
   /// 🔧 INTERNAL: Update both activity and status change timestamps

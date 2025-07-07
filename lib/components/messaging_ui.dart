@@ -9,7 +9,6 @@ import 'package:vibe_coder/components/messaging/message_parts/message_tool_calls
 import 'package:vibe_coder/components/messaging/message_parts/message_reasoning_content.dart';
 import 'package:vibe_coder/components/messaging/message_parts/message_timestamp.dart';
 import 'package:vibe_coder/components/messaging/message_parts/message_avatar.dart';
-import 'package:vibe_coder/components/debug/debug_overlay.dart';
 import 'package:vibe_coder/services/debug_logger.dart';
 
 /// MessagingUI Component - Enhanced Chat Interface
@@ -18,6 +17,7 @@ import 'package:vibe_coder/services/debug_logger.dart';
 /// Production-ready chat interface with component-based architecture eliminating all functional widget builders.
 /// Provides auto-scroll, expandable input, and real-time messaging using proper component separation.
 /// ARCHITECTURAL VICTORY: All functional widget builders extracted to reusable components.
+/// UI VICTORY: Clear conversation functionality moved to toolbar - no redundant floating action button overlay.
 ///
 /// ## STRATEGIC DECISIONS
 /// | Option | Power-Ups | Weaknesses | Victory Reason |
@@ -27,6 +27,7 @@ import 'package:vibe_coder/services/debug_logger.dart';
 /// | Functional Builders | Simple | Not reusable | ELIMINATED - violates architecture |
 /// | MessagesListComponent | Clean separation | Slight overhead | CHOSEN - proper component design |
 /// | ChatInputFieldComponent | Encapsulated state | More complex | CHOSEN - single responsibility |
+/// | Debug-only FAB | Clean UI, no redundancy | Debug access only | CHOSEN - toolbar handles clear conversation |
 ///
 /// ## BOSS FIGHTS DEFEATED
 /// 1. **Functional Widget Builder Elimination**
@@ -38,6 +39,11 @@ import 'package:vibe_coder/services/debug_logger.dart';
 ///    - 🔍 Symptom: Tightly coupled UI elements
 ///    - 🎯 Root Cause: Mixed responsibilities in single widget
 ///    - 💥 Kill Shot: Clean component separation with prop injection
+///
+/// 3. **UI Redundancy Elimination**
+///    - 🔍 Symptom: Clear conversation button in both toolbar and floating action button
+///    - 🎯 Root Cause: Duplicate functionality creating UI clutter
+///    - 💥 Kill Shot: Removed floating action button clear conversation - toolbar handles it
 ///
 /// ## PERFORMANCE PROFILE
 /// - Auto-scroll animation: O(1) - single animation operation
@@ -66,6 +72,9 @@ class MessagingUI extends StatefulWidget {
   /// Callback triggered when clear conversation is requested.
   final VoidCallback? onClearConversation;
 
+  /// Callback triggered when debug overlay is requested.
+  final VoidCallback? onDebugOverlay;
+
   /// Whether to show timestamps for messages.
   final bool showTimestamps;
 
@@ -88,6 +97,7 @@ class MessagingUI extends StatefulWidget {
     this.onMessageTap,
     this.onSendMessage,
     this.onClearConversation,
+    this.onDebugOverlay,
     this.showTimestamps = false,
     this.theme,
     this.inputText,
@@ -187,54 +197,6 @@ class _MessagingUIState extends State<MessagingUI> {
               enabled: true,
             ),
         ],
-      ),
-      floatingActionButton: widget.onClearConversation != null
-          ? Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FloatingActionButton(
-                  onPressed: widget.onClearConversation,
-                  backgroundColor: Theme.of(context).colorScheme.error,
-                  foregroundColor: Theme.of(context).colorScheme.onError,
-                  tooltip: 'Clear Conversation',
-                  heroTag: 'clear_conversation',
-                  child: const Icon(Icons.clear_all),
-                ),
-                const SizedBox(height: 8),
-                FloatingActionButton.extended(
-                  onPressed: _showDebugOverlay,
-                  icon: const Icon(Icons.bug_report),
-                  label: const Text('Debug'),
-                  backgroundColor: Theme.of(context).colorScheme.tertiary,
-                  foregroundColor: Theme.of(context).colorScheme.onTertiary,
-                  tooltip: 'Open Debug Intelligence Center',
-                  heroTag: 'debug_overlay',
-                ),
-              ],
-            )
-          : FloatingActionButton.extended(
-              onPressed: _showDebugOverlay,
-              icon: const Icon(Icons.bug_report),
-              label: const Text('Debug'),
-              backgroundColor: Theme.of(context).colorScheme.tertiary,
-              foregroundColor: Theme.of(context).colorScheme.onTertiary,
-              tooltip: 'Open Debug Intelligence Center',
-            ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
-    );
-  }
-
-  /// Show debug overlay for comprehensive API and tool call debugging
-  ///
-  /// PERF: O(1) overlay display - immediate debug access
-  /// ARCHITECTURAL: Bottom sheet overlay for comprehensive debugging visibility
-  void _showDebugOverlay() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => DebugOverlay(
-        onClose: () => Navigator.of(context).pop(),
       ),
     );
   }

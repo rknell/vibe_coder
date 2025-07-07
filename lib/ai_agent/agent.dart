@@ -1,12 +1,9 @@
 import 'package:logging/logging.dart';
 import 'package:vibe_coder/ai_agent/services/conversation_manager.dart';
-import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
 import 'package:vibe_coder/ai_agent/models/mcp_models.dart' as legacy;
 import 'package:vibe_coder/services/services.dart';
 import 'package:vibe_coder/services/mcp_service.dart';
 import 'package:vibe_coder/models/agent_model.dart';
-import 'dart:io';
-import 'dart:convert';
 
 class Agent {
   // Reference to AgentModel - single source of truth
@@ -40,7 +37,7 @@ class Agent {
 
     // Add system prompt
     systemPromptAnnotated =
-        "YOU ARE ${agentModel.name}. \nRole play in the conversation as this person.\n${agentModel.systemPrompt}";
+        "I am '${agentModel.name}'.\n${agentModel.systemPrompt}";
     conversation.addSystemMessage(systemPromptAnnotated);
 
     logger.info(
@@ -333,53 +330,80 @@ Available tools: ${getAvailableTools().map((t) => t.uniqueId).join(", ")}
 """;
   }
 
-  /// Dumps the conversation history to a log file in the logs directory
-  /// The file will be named {agent_name}.log
-  Future<void> dumpConversationHistory() async {
-    final dir = Directory('logs');
-    if (!await dir.exists()) {
-      await dir.create();
-    }
+  /// Log conversation history to session-specific file
+  ///
+  /// PERF: O(n) where n = conversation history size
+  /// ARCHITECTURAL: Session-based logging with structured format
+  Future<void> logConversationHistory({String? additionalContext}) async {
+    try {
+      // Get conversation history from the conversation manager
+      final history = conversation.getHistory();
 
-    final logFile = File('logs/${agentModel.name.toLowerCase()}.log');
-    final buffer = StringBuffer();
+      // Convert to format expected by SessionService
+      final conversationData = history.map((message) {
+        final messageData = <String, dynamic>{
+          'role': message.role.toString().split('.').last.toLowerCase(),
+          'content': message.content ?? '',
+          'timestamp': DateTime.now().toIso8601String(),
+        };
 
-    // Add timestamp header
-    buffer.writeln(
-        '=== Conversation History Dump ${DateTime.now().toIso8601String()} ===\n');
-
-    // Get conversation history from the conversation manager
-    final history = conversation.getHistory();
-
-    for (final message in history) {
-      buffer.writeln(
-          '${message.role.toString().split('.').last.toUpperCase()}: ${message.content}\n');
-
-      // If this is an assistant message with tool calls, log them
-      final toolCalls = message.toolCalls;
-      if (message.role == MessageRole.assistant &&
-          toolCalls != null &&
-          toolCalls.isNotEmpty) {
-        buffer.writeln('TOOL CALLS:');
-        for (final toolCall in toolCalls) {
-          final toolJson = const JsonEncoder.withIndent('  ').convert(toolCall);
-          buffer.writeln('$toolJson\n');
+        // Add tool calls if present
+        if (message.toolCalls != null && message.toolCalls!.isNotEmpty) {
+          messageData['toolCalls'] = message.toolCalls;
         }
-      }
 
-      // If this is a tool response, indicate which tool call it's responding to
-      if (message.role == MessageRole.tool && message.toolCallId != null) {
-        buffer.writeln('TOOL RESPONSE for call ID: ${message.toolCallId}\n');
-      }
+        // Add tool call ID if present
+        if (message.toolCallId != null) {
+          messageData['toolCallId'] = message.toolCallId;
+        }
 
-      buffer.writeln('---\n');
+        return messageData;
+      }).toList();
+
+      // Log to session service
+      await services.sessionService.logAgentConversation(
+        agentName: agentModel.name,
+        agentId: agentModel.id,
+        conversationHistory: conversationData,
+        additionalContext: additionalContext,
+      );
+
+      logger.fine(
+          '💾 Conversation history logged to session: ${services.sessionService.sessionId}');
+    } catch (e, stackTrace) {
+      logger.warning('⚠️ Conversation logging failed: $e', e, stackTrace);
+      // Don't rethrow - logging failure shouldn't break conversation flow
     }
+  }
 
-    buffer.writeln('=== End of Dump ===\n\n');
+  /// Log agent activity (status changes, errors, etc.)
+  ///
+  /// PERF: O(1) - single log entry
+  Future<void> logActivity({
+    required String activity,
+    String? details,
+    String? error,
+  }) async {
+    try {
+      await services.sessionService.logAgentActivity(
+        agentName: agentModel.name,
+        agentId: agentModel.id,
+        activity: activity,
+        details: details,
+        error: error,
+      );
+    } catch (e) {
+      logger.warning('⚠️ Activity logging failed: $e');
+      // Don't rethrow - logging failure shouldn't break agent operations
+    }
+  }
 
-    // Append to file
-    await logFile.writeAsString(buffer.toString(), mode: FileMode.append);
-    logger.fine('Conversation history dumped to ${logFile.path}');
+  /// Legacy method for backward compatibility
+  /// @deprecated Use logConversationHistory() instead
+  Future<void> dumpConversationHistory() async {
+    logger.warning(
+        '⚠️ DEPRECATED: dumpConversationHistory() is deprecated. Use logConversationHistory() instead.');
+    await logConversationHistory();
   }
 
   /// Cleanup agent resources

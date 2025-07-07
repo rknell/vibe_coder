@@ -5,8 +5,28 @@ import 'package:vibe_coder/components/messaging_ui.dart';
 import 'package:vibe_coder/ai_agent/models/chat_message_model.dart';
 import 'package:vibe_coder/ai_agent/models/ai_agent_enums.dart';
 
+// 🛡️ REGRESSION: Proper keyboard event simulation helper
+// This prevents the "KeyUpEvent is dispatched, but the state shows that the physical key is not pressed" error
+Future<void> simulateKeyCombination(
+  WidgetTester tester,
+  List<LogicalKeyboardKey> keys,
+) async {
+  // Press all keys in sequence
+  for (final key in keys) {
+    await tester.sendKeyDownEvent(key);
+    await tester.pump();
+  }
+  
+  // Release all keys in reverse order
+  for (int i = keys.length - 1; i >= 0; i--) {
+    await tester.sendKeyUpEvent(keys[i]);
+    await tester.pump();
+  }
+}
+
 void main() {
   group('MessagingUI', () {
+
     testWidgets('displays empty state when no messages',
         (WidgetTester tester) async {
       // Arrange
@@ -505,10 +525,8 @@ void main() {
       await tester.pump();
 
       // Simulate Ctrl+Enter
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.control);
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.enter);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.enter);
-      await tester.sendKeyUpEvent(LogicalKeyboardKey.control);
+      await simulateKeyCombination(
+          tester, [LogicalKeyboardKey.control, LogicalKeyboardKey.enter]);
       await tester.pump();
 
       expect(sentMessages, contains('Test multiline message'));

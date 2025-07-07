@@ -5,6 +5,7 @@ import 'package:vibe_coder/services/agent_service.dart';
 import 'package:vibe_coder/services/configuration_service.dart';
 import 'package:vibe_coder/services/layout_service.dart';
 import 'package:vibe_coder/services/debug_logger.dart';
+import 'package:vibe_coder/services/session_service.dart';
 
 /// Services - Universal App State Management with GetIt
 ///
@@ -40,6 +41,9 @@ class Services {
   // 🐛 DEBUG SERVICES LAYER
   final DebugLogger debugLogger;
 
+  // 📝 SESSION SERVICES LAYER - Session management and logging
+  final SessionService sessionService;
+
   /// Constructor - Initialize all services
   Services()
       : mcpService = MCPService(),
@@ -47,7 +51,8 @@ class Services {
         agentService = AgentService(),
         layoutService = LayoutService(),
         configurationService = ConfigurationService(),
-        debugLogger = DebugLogger() {
+        debugLogger = DebugLogger(),
+        sessionService = SessionService() {
     // 🚀 INITIALIZATION CHAIN: Set up service dependencies
     _initializeServiceDependencies();
   }
@@ -70,6 +75,7 @@ class Services {
   /// PERF: O(1) for each service - parallel initialization where possible
   Future<void> initialize() async {
     await configurationService.initialize();
+    await sessionService.initialize();
     await mcpService.initialize();
     await agentService.initialize();
     // DebugLogger doesn't need initialization
@@ -84,6 +90,7 @@ class Services {
     layoutService.dispose();
     mcpService.dispose();
     configurationService.dispose();
+    sessionService.dispose();
     // DebugLogger doesn't need disposal
   }
 }

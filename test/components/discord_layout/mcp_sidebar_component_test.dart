@@ -8,6 +8,8 @@ import 'package:vibe_coder/services/mcp_service.dart';
 import 'package:vibe_coder/models/mcp_server_model.dart';
 import 'package:vibe_coder/models/mcp_server_info.dart';
 import 'package:vibe_coder/models/service_statistics.dart';
+import 'package:vibe_coder/models/layout_preferences_model.dart';
+import 'package:vibe_coder/services/layout_service.dart';
 
 /// Mock MCP Service for testing
 class MockMCPService extends ChangeNotifier implements MCPService {
@@ -172,8 +174,6 @@ class MockMCPService extends ChangeNotifier implements MCPService {
   @override
   MCPServerModel? getByName(String name) => null;
 
-
-
   @override
   Future<MCPServerModel> createServer(MCPServerModel server) async => server;
 
@@ -237,10 +237,98 @@ class MockMCPService extends ChangeNotifier implements MCPService {
   }
 }
 
+/// Mock LayoutService for testing
+class MockLayoutService extends ChangeNotifier implements LayoutService {
+  bool _rightSidebarCollapsed = false;
+  bool _leftSidebarCollapsed = false;
+  AppTheme _currentTheme = AppTheme.dark;
+  double _leftSidebarWidth = 250.0;
+  double _rightSidebarWidth = 300.0;
+  String? _selectedAgentId;
+  bool _disposed = false;
+
+  bool get rightSidebarCollapsed => _rightSidebarCollapsed;
+  bool get leftSidebarCollapsed => _leftSidebarCollapsed;
+  AppTheme get currentTheme => _currentTheme;
+  double get leftSidebarWidth => _leftSidebarWidth;
+  double get rightSidebarWidth => _rightSidebarWidth;
+  String? get selectedAgentId => _selectedAgentId;
+  bool get isDisposed => _disposed;
+
+  void setRightSidebarCollapsed(bool collapsed) {
+    _rightSidebarCollapsed = collapsed;
+    notifyListeners();
+  }
+
+  void setLeftSidebarCollapsed(bool collapsed) {
+    _leftSidebarCollapsed = collapsed;
+    notifyListeners();
+  }
+
+  void setTheme(AppTheme theme) {
+    _currentTheme = theme;
+    notifyListeners();
+  }
+
+  void toggleLeftSidebar() {
+    _leftSidebarCollapsed = !_leftSidebarCollapsed;
+    notifyListeners();
+  }
+
+  void toggleRightSidebar() {
+    _rightSidebarCollapsed = !_rightSidebarCollapsed;
+    notifyListeners();
+  }
+
+  void updatePanelWidths({double? leftWidth, double? rightWidth}) {
+    if (leftWidth != null) _leftSidebarWidth = leftWidth;
+    if (rightWidth != null) _rightSidebarWidth = rightWidth;
+    notifyListeners();
+  }
+
+  void resetPanelLayout() {
+    _leftSidebarWidth = 250.0;
+    _rightSidebarWidth = 300.0;
+    _leftSidebarCollapsed = false;
+    _rightSidebarCollapsed = false;
+    notifyListeners();
+  }
+
+  void setSelectedAgent(String? agentId) {
+    _selectedAgentId = agentId;
+    notifyListeners();
+  }
+
+  Future<void> savePreferences() async {}
+
+  Future<void> loadPreferences() async {}
+
+  ThemeData getThemeData(BuildContext context, [AppTheme? overrideTheme]) {
+    final theme = overrideTheme ?? _currentTheme;
+    switch (theme) {
+      case AppTheme.dark:
+        return ThemeData.dark();
+      case AppTheme.light:
+        return ThemeData.light();
+      case AppTheme.system:
+        return ThemeData.from(
+            colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue));
+    }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+}
+
 /// Mock Services for MCP Sidebar Component Tests
 class MockServices implements Services {
   @override
   late final MockMCPService mcpService = MockMCPService();
+  @override
+  late final MockLayoutService layoutService = MockLayoutService();
 
   @override
   Future<void> initialize() async {
@@ -251,6 +339,7 @@ class MockServices implements Services {
   @override
   void dispose() {
     mcpService.dispose();
+    layoutService.dispose();
   }
 
   // Handle all other service calls with noSuchMethod

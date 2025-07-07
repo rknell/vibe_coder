@@ -58,11 +58,15 @@ class ChatInterfaceContainer extends StatelessWidget {
   /// Callback for clearing agent conversation
   final void Function(AgentModel)? onClearConversation;
 
+  /// Callback for opening debug overlay
+  final VoidCallback? onDebugOverlay;
+
   const ChatInterfaceContainer({
     super.key,
     required this.selectedAgent,
     this.onSendMessage,
     this.onClearConversation,
+    this.onDebugOverlay,
   });
 
   @override
@@ -79,6 +83,7 @@ class ChatInterfaceContainer extends StatelessWidget {
           onClearConversation: onClearConversation != null
               ? () => onClearConversation!(selectedAgent)
               : null,
+          onDebugOverlay: onDebugOverlay,
           showTimestamps: true,
           inputPlaceholder: selectedAgent.isProcessing
               ? '${selectedAgent.name} is thinking...'
